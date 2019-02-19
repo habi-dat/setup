@@ -1,3 +1,7 @@
+<p align="center">
+  <img width=100% src="habidatwide.png">
+</p>
+
 # habi\*DAT setup
 
 habi\*DAT is a collaboration platform comprised of an ldap user backend, a nextcloud server and a discourse forum. The goal is to integrate all these tools as seamlessly as possible. This setup script should make it easier to deploy and maintain the platform
