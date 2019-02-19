@@ -4,6 +4,8 @@ habi\*DAT is a collaboration platform comprised of an ldap user backend, a nextc
 
 ## Prerequisites
 
+### Software
+
 Make sure you have linux machine ready, are logged in as root and have the following software installed:
 
 * envsubst (debian package gettext-base)
@@ -11,10 +13,32 @@ Make sure you have linux machine ready, are logged in as root and have the follo
 * docker
 * docker-compose
 
+### DNS
+
+Also you need to have a domain and subdomains for the different apps:
+
+* User app (e.g. user.example.com)
+* Nextcloud app (e.g. cloud.example.com)
+* Discourse app (e.g. discourse.example.com)
+
+If you just want to have a local test installation add the following lines to your /etc/hosts files:
+
+`127.0.0.1       cloud.habidat.local
+127.0.0.1       user.habidat.local
+127.0.0.1       discourse.habidat.local`
+
+### Mail Server
+
+In order for everything to function properly you need to have an SMTP server ready that accepts plain requests without username and password. For testing purposes you can try without.
+
 ## Usage
 
-First you have to edit the file `setup.env` and fill in all necessary parameters.
-Then you can use the script "setup.sh" to install the platform.
+First you have to edit the file `setup.env` and fill in all necessary parameters. They should be pretty self-explainatory, except these two:
+
+* HABIDAT_DOCKER_PREFIX: Is used as a prefix for all the docker names (containers, volumes, networks, ...). Set to anything that prevents collisions with other containers on your system.
+* HABIDAT_CREATE_SELFSIGNED: If you want the setup to create a self-signed wildcard certificate, set this to "true" (only for testing/development purposes)
+
+Now you can use the script "setup.sh" to install the platform.
 
 ### Install module
 
