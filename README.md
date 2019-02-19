@@ -13,7 +13,8 @@ Make sure you have linux machine ready, are logged in as root and have the follo
 
 ## Usage
 
-The starting point is always the script "setup.sh".
+First you have to edit the file `setup.env` and fill in all necessary parameters.
+Then you can use the script "setup.sh" to install the platform.
 
 ### Install module
 

@@ -2,20 +2,7 @@
 set +x
 
 # general
-export HABIDAT_TITLE=habi*DAT
-export HABIDAT_DESCRIPTION=habi*DAT Test Plattform fuer Hausprojekte
-export HABIDAT_PROTOCOL=https
-export HABIDAT_NEXTCLOUD_SUBDOMAIN=cloud
-export HABIDAT_DOMAIN=habidat.local
-export HABIDAT_DISCOURSE_SUBDOMAIN=discourse
-export HABIDAT_USER_SUBDOMAIN=user
-export HABIDAT_DK_SUBDOMAIN=direktkredit
-export HABIDAT_LDAP_BASE=dc=habidat,dc=local
-export HABIDAT_ADMIN_EMAIL=support@xaok.org
-export HABIDAT_SMTP_HOST=mail.xaok.org
-export HABIDAT_SMTP_PORT=25
-export HABIDAT_DOCKER_PREFIX=habidat
-export HABIDAT_CREATE_SELFSIGNED=true
+source setup.env
 
 red=`tput setaf 1`
 green=`tput setaf 2`
