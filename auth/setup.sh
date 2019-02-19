@@ -16,7 +16,7 @@ export HABIDAT_ADMIN_PASSWORD="$(openssl rand -base64 12)"
 echo "export HABIDAT_LDAP_ADMIN_PASSWORD=$HABIDAT_LDAP_ADMIN_PASSWORD" > ../store/auth/passwords.env
 echo "export HABIDAT_LDAP_READ_PASSWORD=$HABIDAT_LDAP_READ_PASSWORD" >> ../store/auth/passwords.env
 echo "export HABIDAT_LDAP_CONFIG_PASSWORD=$HABIDAT_LDAP_CONFIG_PASSWORD" >> ../store/auth/passwords.env
-echo "export HABIDAT_ADMIN_PASSWORD=$HABIDAT_LDAP_CONFIG_PASSWORD" >> ../store/auth/passwords.env
+echo "export HABIDAT_ADMIN_PASSWORD=$HABIDAT_ADMIN_PASSWORD" >> ../store/auth/passwords.env
 
 #envsubst < config/sso.env > ../store/auth/sso.env
 envsubst < config/ldap.env > ../store/auth/ldap.env
