@@ -23,9 +23,11 @@ Also you need to have a domain and subdomains for the different apps:
 
 If you just want to have a local test installation add the following lines to your /etc/hosts files:
 
-`127.0.0.1       cloud.habidat.local`
-`127.0.0.1       user.habidat.local`
-`127.0.0.1       discourse.habidat.local`
+```
+127.0.0.1       cloud.habidat.local
+127.0.0.1       user.habidat.local
+127.0.0.1       discourse.habidat.local
+```
 
 ### Mail Server
 
