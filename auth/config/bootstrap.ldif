@@ -1,0 +1,32 @@
+dn: ou=groups,$HABIDAT_LDAP_BASE
+ou: groups
+objectClass: top
+objectClass: organizationalUnit
+description: User groups
+
+dn: ou=users,$HABIDAT_LDAP_BASE
+ou: users
+objectClass: top
+objectClass: organizationalUnit
+description: habi*DAT Users
+
+dn: cn=admin,ou=users,$HABIDAT_LDAP_BASE
+businesscategory: admin
+cn: admin
+givenname: admin
+homedirectory: /home/users/admin
+mail: $HABIDAT_ADMIN_EMAIL
+objectclass: inetOrgPerson
+objectclass: posixAccount
+objectclass: top
+sn: admin
+uid: admin
+uidnumber: 1010
+gidnumber: 502
+userpassword: $HABIDAT_ADMIN_PASSWORD
+
+dn: cn=admin,ou=groups,$HABIDAT_LDAP_BASE
+cn: admin
+member: cn=admin,ou=users,$HABIDAT_LDAP_BASE
+objectclass: groupOfNames
+objectclass: top

@@ -1,0 +1,32 @@
+dn: ou=groups,dc=habidat,dc=local
+ou: groups
+objectClass: top
+objectClass: organizationalUnit
+description: User groups
+
+dn: ou=users,dc=habidat,dc=local
+ou: users
+objectClass: top
+objectClass: organizationalUnit
+description: habi*DAT Users
+
+dn: cn=admin,ou=users,dc=habidat,dc=local
+businesscategory: admin
+cn: admin
+givenname: admin
+homedirectory: /home/users/admin
+mail: support@xaok.org
+objectclass: inetOrgPerson
+objectclass: posixAccount
+objectclass: top
+sn: admin
+uid: admin
+uidnumber: 1010
+gidnumber: 502
+userpassword: qdey/Vfcuyo+Ay6zCh9lpPiBslVac6a/qszP/yqlJuw=
+
+dn: cn=admin,ou=groups,dc=habidat,dc=local
+cn: admin
+member: cn=admin,ou=users,dc=habidat,dc=local
+objectclass: groupOfNames
+objectclass: top
