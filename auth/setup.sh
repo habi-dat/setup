@@ -6,6 +6,8 @@ set +x
 
 mkdir -p ../store/auth/bootstrap
 
+echo "Generating passwords..."
+
 # generate passwords
 export HABIDAT_LDAP_READ_PASSWORD="$(openssl rand -base64 32)"
 export HABIDAT_LDAP_ADMIN_PASSWORD="$(openssl rand -base64 32)"
@@ -37,6 +39,7 @@ fi
 
 envsubst < docker-compose.yml > ../store/auth/docker-compose.yml
 
+echo "Spinning up containers..."
+
 docker-compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d
 
-echo "habi*DAT admin credentials: username is admin, password is $HABIDAT_ADMIN_PASSWORD"

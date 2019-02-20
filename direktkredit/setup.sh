@@ -5,6 +5,8 @@ source ../store/auth/passwords.env
 
 mkdir -p ../store/direktkredit
 
+echo "Generating passwords..."
+
 export HABIDAT_DK_DB_PASSWORD="$(openssl rand -base64 32)"
 export HABIDAT_DK_DB_ROOT_PASSWORD="$(openssl rand -base64 32)"
 
@@ -26,8 +28,12 @@ then
     echo "CERT_NAME=$HABIDAT_DOMAIN" >> ../store/direktkredit/web.env
 fi
 
-docker-compose -f ../store/direktkredit/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-direktkredit" build
+echo "Spinning up containers..."
+
 docker-compose -f ../store/direktkredit/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-direktkredit" up -d
+
+
+echo "Add project logo..."
 
 if [ -f "../$HABIDAT_LOGO" ]
 then
@@ -35,8 +41,10 @@ then
 fi
 
 # update nextcloud external sites
-sed -i '/HABIDAT_DIREKTKREDIT_SUBDOMAIN/d' ../store/auth/user.env
+echo "Add link to nextcloud..."
+
+sed -i '/HABIDAT_DIREKTKREDIT_SUBDOMAIN/d' ../store/nextcloud/nextcloud.env
 echo "HABIDAT_DIREKTKREDIT_SUBDOMAIN=$HABIDAT_DIREKTKREDIT_SUBDOMAIN" >> ../store/nextcloud/nextcloud.env
-docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" up -d
+docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" up -d nextcloud
 sleep 5
 docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud /habidat-update-externalsites.sh

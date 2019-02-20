@@ -17,6 +17,7 @@ source ../store/nextcloud/passwords.env
 #export HABIDAT_LDAP_READ_USER="ldap-read"
 #export HABIDAT_LDAP_READ_PASSWORD="dDD2TNM6kHuUeC4n"
 
+echo "Generating passwords..."
 
 export HABIDAT_DISCOURSE_DB_PASSWORD="$(openssl rand -base64 32)"
 export HABIDAT_DISCOURSE_ADMIN_PASSWORD="$(openssl rand -base64 12)"
@@ -39,6 +40,8 @@ then
     echo "CERT_NAME=$HABIDAT_DOMAIN" >> ../store/discourse/discourse.env
 fi
 
+echo "Spinning up containers..."
+
 docker-compose -f ../store/discourse/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-discourse" up -d
 
 echo "Waiting for discourse container to initialize (this can take several minutes)..."
@@ -48,10 +51,14 @@ do
 	sleep .5	
 done
 
+echo "Configuring discourse..."
+
 envsubst < config/discourse-settings.yml > ../store/discourse/discourse-settings.yml
 docker cp ../store/discourse/discourse-settings.yml "$(docker-compose -f ../store/discourse/docker-compose.yml -p $HABIDAT_DOCKER_PREFIX-discourse ps -q discourse)":/
 docker cp setup-discourse-container.sh "$(docker-compose -f ../store/discourse/docker-compose.yml -p $HABIDAT_DOCKER_PREFIX-discourse ps -q discourse)":/
 docker-compose -f ../store/discourse/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-discourse" exec discourse bash -c "/setup-discourse-container.sh"
+
+echo "Generating API key and update user service..."
 
 export HABIDAT_DISCOURSE_API_KEY=$(echo $(docker-compose -f ../store/discourse/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-discourse" exec -e RAILS_ENV=production -e BUNDLE_GEMFILE=/opt/bitnami/discourse/Gemfile discourse bundle exec rake -s -f /opt/bitnami/discourse/Rakefile api_key:get) | tr -d "\r" | awk '{print $NF}')
 echo "export HABIDAT_DISCOURSE_API_KEY=$HABIDAT_DISCOURSE_API_KEY" >> ../store/discourse/passwords.env
@@ -66,6 +73,10 @@ echo "HABIDAT_DISCOURSE_API_KEY=$HABIDAT_DISCOURSE_API_KEY" >> ../store/auth/use
 echo "HABIDAT_DISCOURSE_API_URL=http://$HABIDAT_DOCKER_PREFIX-discourse:3000" >> ../store/auth/user.env
 echo "HABIDAT_DISCOURSE_API_USERNAME=admin" >> ../store/auth/user.env
 
+docker-compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d user
+
+
+echo "Theming..."
 # set colors
 curl -k --header "Content-Type: application/json" \
         --request POST --data '{"color_scheme": { "base_scheme_id": "default", "colors": [ { "hex": "212121", "name": "primary" }, { "hex": "fafafa", "name": "secondary" }, { "hex": "448aff", "name": "tertiary" }, { "hex": "e92e4e", "name": "quaternary" }, { "hex": "a40023", "name": "header_background" }, { "hex": "ffffff", "name": "header_primary" }, { "hex": "ffff8d", "name": "highlight" }, { "hex": "ff6d00", "name": "danger" }, { "hex": "4caf50", "name": "success" }, { "hex": "fa6c8d", "name": "love" } ], "name": "habidat"}}' \
@@ -75,8 +86,7 @@ curl -k --header "Content-Type: application/json" \
         --request PUT --data '{"theme": {"color_scheme_id": "2" }}' \
         "$HABIDAT_PROTOCOL://$HABIDAT_DISCOURSE_SUBDOMAIN.$HABIDAT_DOMAIN/admin/themes/2?api_username=admin&api_key=$HABIDAT_DISCOURSE_API_KEY"
 
-
-docker-compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d user
+echo
 
 docker-compose -f ../store/discourse/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-discourse" restart discourse
 
