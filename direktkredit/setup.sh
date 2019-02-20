@@ -34,3 +34,9 @@ then
 	docker cp "../$HABIDAT_LOGO" $HABIDAT_DOCKER_PREFIX-direktkredit:/habidat/public/images
 fi
 
+# update nextcloud external sites
+sed -i '/HABIDAT_DIREKTKREDIT_SUBDOMAIN/d' ../store/auth/user.env
+echo "HABIDAT_DIREKTKREDIT_SUBDOMAIN=$HABIDAT_DIREKTKREDIT_SUBDOMAIN" >> ../store/nextcloud/nextcloud.env
+docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" up -d
+sleep 5
+docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud /habidat-update-externalsites.sh
