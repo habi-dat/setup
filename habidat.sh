@@ -128,7 +128,7 @@ then
 
 	if [ $2 == "all" ]
 	then
-		for setupModule in "nginx" "auth" "nextcloud" "discourse"
+		for setupModule in "nginx" "auth" "nextcloud" "discourse" "direktkredit"
 		do
 			check_exists "$setupModule" "$3"
 			if [ $? == "1" ] && [ "force" != "$3" ]
@@ -141,18 +141,18 @@ then
 		done
 	else
 		check_exists "$2" "$3"
-		if [ "$?" > 0 ] && [ "$3" != "force" ]
+		if [ "$?" == "1" ] && [ "force" != "$3" ]
 		then
 			echo "Module $2 already installed, use force option to remove module (including data)"
 			exit 1
 		fi
 
-		if [ "$2" == "nginx" ] || [ "$2" == "auth" ] || [ "$2" == "nextcloud" ] || [ "$2" == "discourse" ] # || [ "$2" == "mediawiki" ] ||  [ "$2" == "direktkredit" ]
+		if [ "$2" == "nginx" ] || [ "$2" == "auth" ] || [ "$2" == "nextcloud" ] || [ "$2" == "discourse" ] || [ "$2" == "mediawiki" ] ||  [ "$2" == "direktkredit" ]
 		then
 			check_dependencies $2
 			setup_module $2
 		else 
-			echo "Module $2 unknown, available modules are: nginx, auth, nextcloud, discourse, mediawiki, direktkredit"
+			echo "Module $2 unknown, available modules are: nginx, auth, nextcloud, discourse, direktkredit"
 		fi
 	fi
 elif [ "$1" == "rm" ]
@@ -164,7 +164,7 @@ then
 		exit 1
 	fi
 
-	if [ "$2" == "nginx" ] || [ "$2" == "auth" ] || [ "$2" == "nextcloud" ] || [ "$2" == "discourse" ] # || [ "$2" == "mediawiki" ] ||  [ "$2" == "direktkredit" ]
+	if [ "$2" == "nginx" ] || [ "$2" == "auth" ] || [ "$2" == "nextcloud" ] || [ "$2" == "discourse" ] || [ "$2" == "mediawiki" ] ||  [ "$2" == "direktkredit" ]
 	then
 		read -p "Do you really want to remove module $2 (all data will be lost) [y/n] " -n 1 -r
 		echo    
@@ -175,11 +175,11 @@ then
 		check_child_dependecies $2
 		remove_module $2
 	else 
-		echo "Module $2 unknown, available modules are: nginx, auth, nextcloud, discourse, mediawiki, direktkredit"
+		echo "Module $2 unknown, available modules are: nginx, auth, nextcloud, discourse, direktkredit"
 	fi
 elif [ "$1" == "modules" ]
 then
-	for module in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit"
+	for module in "nginx" "auth" "nextcloud" "discourse" "direktkredit"
 	do
 		if [ -d "store/$module" ]
 		then
