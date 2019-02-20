@@ -61,21 +61,33 @@ check_dependencies () {
 	then
 		return
 	fi
-	dependencies_installed=true
+	dependencies_missing=()
 	while read -r module
 	do
 		if [ ! -d "store/$module" ]
 		then
 			echo "${red}[NOT INSTALLED]${reset} $module"
-			dependencies_installed=false
+			dependencies_missing+=($module)
 		else
 			echo "${green}[INSTALLED]${reset} $module"
 		fi
 	done < "$1/dependencies"
-	if [ $dependencies_installed = false ]
+	if [ ${#dependencies_missing[@]} != "0" ]
 	then
-		echo "Please install dependencies first, abort..."
-		exit 1
+
+		read -p "There are missing dependencies, do you want to install them? [y/n] " -n 1 -r
+		echo    
+		if [[ ! $REPLY =~ ^[Yy]$ ]]
+		then
+			echo "Please install dependencies first, abort..."
+	    	exit 1
+	    else
+			for setupModule in $dependencies_missing
+			do
+				check_dependencies $setupModule
+				setup_module $setupModule
+			done	    	
+		fi			
 	fi
 }
 
