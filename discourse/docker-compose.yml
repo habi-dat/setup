@@ -32,7 +32,7 @@ services:
         max-size: 50m
 
   redis:
-    image: 'bitnami/redis:latest'
+    image: 'bitnami/redis:4.0'
     container_name: $HABIDAT_DOCKER_PREFIX-discourse-redis
     restart: unless-stopped    
     environment:

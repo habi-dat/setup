@@ -53,7 +53,7 @@ echo "Waiting for containers to start (20 seconds)..."
 sleep 20
 #docker-compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX" exec --user www-data nextcloud php occ maintenance:install --database "mysql" --database-host "db" --database-name "nextcloud"  --database-user "nextcloud" --database-pass "$HABIDAT_NEXTCLOUD_DB_PASSWORD" --admin-user "admin" --admin-pass "$HABIDAT_NEXTCLOUD_ADMIN_PASSWORD"
 
-echo "Configuring system..."
+echo "Configuring nextcloud..."
 
 docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud /habidat-bootstrap.sh
 

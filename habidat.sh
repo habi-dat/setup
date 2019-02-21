@@ -97,6 +97,10 @@ setup_module() {
 	print_done		
 }
 
+update_module() {
+	
+}
+
 check_dependencies () {
 
 	prefix "Checking dependencies for module $1..."
@@ -119,7 +123,7 @@ check_dependencies () {
 	then
 
 		read -p "There are missing dependencies, do you want to install them? [y/n] " -n 1 -r
-		prefix    
+		echo    
 		if [[ ! $REPLY =~ ^[Yy]$ ]]
 		then
 			prefixr "Please install dependencies first, abort..."
@@ -233,7 +237,7 @@ then
 	if [ "$2" == "nginx" ] || [ "$2" == "auth" ] || [ "$2" == "nextcloud" ] || [ "$2" == "discourse" ] || [ "$2" == "mediawiki" ] ||  [ "$2" == "direktkredit" ]
 	then
 		read -p "Do you really want to remove module $2 (all data will be lost) [y/n] " -n 1 -r
-		prefix    
+		echo    
 		if [[ ! $REPLY =~ ^[Yy]$ ]]
 		then
 		    exit 1

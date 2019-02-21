@@ -26,7 +26,7 @@ services:
 
   nginx-letsencrypt-companion:
     restart: unless-stopped
-    image: jrcs/letsencrypt-nginx-proxy-companion
+    image: jrcs/letsencrypt-nginx-proxy-companion:v1.10
     container_name: $HABIDAT_DOCKER_PREFIX-letsencrypt
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
