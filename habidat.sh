@@ -18,6 +18,8 @@ usage() {
     prefix "  help                           show help."
     prefix "  install <module>|all [force]   install module or all modules"
     prefix "  remove <module>                remove module (caution: all module data is lost)"
+    prefix "  update <module>|all            update module or all modules"
+    prefix "  export <module>|all            export module data"    
     prefix "  modules                        list module status"
     prefix
 }
@@ -172,9 +174,6 @@ export_module() {
 		return 1
 	fi
 }
-
-
-
 
 check_dependencies () {
 
