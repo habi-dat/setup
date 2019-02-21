@@ -28,8 +28,9 @@ upper() {
 
 prefixm() {
 	local p=`echo -n "$1" | tr '[a-z]' '[A-Z]'`
-	p="${magenta}${bold}$p${reset}                                       "
-	p="${p:0:28}| "
+	p="$p                                               "
+	p="${p:0:12}"
+	p="${magenta}${bold}$p${reset}| "	
 	local c="s/^/$p/"	
 	sed -u -l 1 "$c"	
 #	while read line
@@ -40,15 +41,17 @@ prefixm() {
 }
 
 prefix() {
-	local p="${green}${bold}HABI*DAT${reset}                             "
-	p="${p:0:28}| "
+	local p="HABI*DAT                              "
+	p="${p:0:12}"
+	p="${green}${bold}$p${reset}| "
 	local c="s/^/$p/"
     echo $1 | sed -u "$c"	
 }
 
 prefixr() {
-	local p="${red}${bold}HABI*DAT${reset}\                              "
-	p="${p:0:28}| "
+	local p="HABI*DAT                              "
+	p="${p:0:12}"
+	p="${red}${bold}$p${reset}| "
 	local c="s/^/$p/"
 	echo $1 | sed -u "$c"	
 
@@ -118,7 +121,7 @@ update_module() {
 			return 1			
 		elif [ $versionSetup == $versionInstalled ]
 		then
-			prefix "Module $1 is up to date"
+			prefix "Module $1 is up to date, version $versionInstalled"
 			return 0
 		elif [ $versionSetup < $versionInstalled ]
 		then
@@ -143,6 +146,35 @@ update_module() {
 		return 1
 	fi
 }
+
+export_module() {
+	if [ "$1" == "nginx" ] || [ "$1" == "auth" ] || [ "$1" == "nextcloud" ] || [ "$1" == "discourse" ] || [ "$1" == "mediawiki" ] ||  [ "$1" == "direktkredit" ]	
+	then
+		if [ ! -d "store/$1" ]
+		then
+			prefixr "Module $1 not installed, cannot export"
+			return 0
+		fi
+
+		if [ ! -f "$1/export.sh" ]
+		then
+			prefixr "Module $1 has no export.sh script, cannot export"
+			return 0
+		fi		
+		
+		cd "$1"
+		./export.sh | prefixm $1
+		cd ..
+		print_done
+
+	else
+		prefixr "Module $1 unknown, available modules are: nginx, auth, nextcloud, discourse, direktkredit"
+		return 1
+	fi
+}
+
+
+
 
 check_dependencies () {
 
@@ -213,7 +245,7 @@ print_admin_credentials() {
 	if [ -f store/auth/passwords.env ]
 	then
 		source store/auth/passwords.env
-		prefix "habi*DAT admin credentials: username is admin, password is $HABIDAT_ADMIN_PASSWORD"
+		prefix "habi*DAT admin credentials: username is ${bold}admin${reset}, password is ${bold}$HABIDAT_ADMIN_PASSWORD${reset}"
 	fi
 }
 
@@ -316,6 +348,21 @@ then
 	else
 		update_module $2
 	fi
+elif [ "$1" == "export" ]
+then
+	if [ -z "$2" ]
+	then
+		usage
+		exit 1
+	elif [ "$2" == "all" ]
+	then
+		for exportModule in "nginx" "auth" "nextcloud" "discourse" "direktkredit"
+		do
+			export_module $exportModule
+		done
+	else
+		export_module $2
+	fi	
 elif [ "$1" == "help" ]
 then
 	usage
