@@ -98,7 +98,50 @@ setup_module() {
 }
 
 update_module() {
-	
+	if [ "$1" == "nginx" ] || [ "$1" == "auth" ] || [ "$1" == "nextcloud" ] || [ "$1" == "discourse" ] || [ "$1" == "mediawiki" ] ||  [ "$1" == "direktkredit" ]	
+	then
+		if [ ! -d "store/$1" ]
+		then
+			prefixr "Module $1 not installed, cannot update"
+			return 0
+		fi		
+		versionInstalled=$(cat store/$1/version)
+		versionSetup=$(cat $1/version)
+
+		if [ -z $versionSetup ]
+		then
+			prefixr "Module $1: Setup version not found, cannot update"
+			return 1
+		elif [ -z $versionInstalled ]
+		then
+			prefixr "Module $1: Installed version not found, cannot update"
+			return 1			
+		elif [ $versionSetup == $versionInstalled ]
+		then
+			prefix "Module $1 is up to date"
+			return 0
+		elif [ $versionSetup < $versionInstalled ]
+		then
+			prefixr "Module $1: installed version $versionInstalled is higher than setup version $versionSetup, downgrad not possible"
+			return 1
+		else
+			if [ ! -f "$1/update.sh" ]
+			then
+				prefixr "Module $1 has no update.sh script, cannot update"
+				return 1
+			fi
+
+			prefix "Updating module $1 from $versionInstalled to $versionSetup..."
+			cd "$1"
+			./update.sh | prefixm $1
+			cp version "../store/$1"
+			cd ..
+			print_done
+		fi
+	else
+		prefixr "Module $1 unknown, available modules are: nginx, auth, nextcloud, discourse, direktkredit"
+		return 1
+	fi
 }
 
 check_dependencies () {
@@ -255,9 +298,24 @@ then
 		then
 			prefix "$module ${green}[INSTALLED]${reset}"
 		else
-			prefix "$module ${green}[INSTALLED]${reset}"
+			prefix "$module ${yellow}[NOT INSTALLED]${reset}"
 		fi	
 	done
+elif [ "$1" == "update" ]
+then
+	if [ -z "$2" ]
+	then
+		usage
+		exit 1
+	elif [ "$2" == "all" ]
+	then
+		for updateModule in "nginx" "auth" "nextcloud" "discourse" "direktkredit"
+		do
+			update_module $updateModule
+		done
+	else
+		update_module $2
+	fi
 elif [ "$1" == "help" ]
 then
 	usage
