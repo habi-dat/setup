@@ -4,7 +4,7 @@
 
 # habi\*DAT setup
 
-habi\*DAT is a collaboration platform comprised of an ldap user backend, a nextcloud server and a discourse forum. The goal is to integrate all these tools as seamlessly as possible. This setup script should make it easier to deploy and maintain the platform
+habi\*DAT is a collaboration platform comprised of an ldap user backend, a nextcloud server and a discourse forum. The goal is to integrate all these tools as seamlessly as possible. It is meant to server the needs of small collective projects. This setup script is meant to allow for easys installation and maintenance.
 
 ## Prerequisites
 
@@ -16,6 +16,8 @@ Make sure you have linux machine ready, are logged in as root and have the follo
 * curl
 * docker
 * docker-compose
+
+If you use the docker version, you only need to have docker and docker-compose installed.
 
 ### DNS
 
@@ -52,7 +54,7 @@ Now you can use the script "habidat.sh" to install the platform.
 
 To install a module run
 
-`./habidat.sh setup <module>`
+`./habidat.sh install <module>`
 
 Modules can only be installed after their dependencies. This makes the following installation order:
 
@@ -67,7 +69,7 @@ then
 
 You can also install all modules at once:
 
-`./habidat.sh setup all`
+`./habidat.sh install all`
 
 ### Uninstall module
 
@@ -85,8 +87,52 @@ You can also list all available modules and their installation status with
 
 ### Admin account
 
-After installation you can logon to all the services with username `admin`. The password is printed on installation of the auth module and can be looked up in `store/auth/passwords.env`
+After installation you can logon to all the services with username `admin`. The password is printed at the end of the installation process and can be looked up in `store/auth/passwords.env`
+
+## Docker in Docker
+
+You can also run habidat-setup with docker-compose. Here is an example for a docker-compose.yml including an environment file. In this case you do not need to clone the repository. 
+
+The `setup-docker.env` file:
+
+```
+HABIDAT_TITLE=habi*DAT
+HABIDAT_DESCRIPTION=habi*DAT Test Plattform fuer Hausprojekte
+HABIDAT_LOGO=habidat.png
+HABIDAT_ADMIN_EMAIL=admin@example.com
+HABIDAT_PROTOCOL=https
+HABIDAT_DOMAIN=habidat.local
+HABIDAT_NEXTCLOUD_SUBDOMAIN=cloud
+HABIDAT_DISCOURSE_SUBDOMAIN=discourse
+HABIDAT_DIREKTKREDIT_SUBDOMAIN=direktkredit
+HABIDAT_USER_SUBDOMAIN=user
+HABIDAT_LDAP_BASE=dc=habidat,dc=local
+HABIDAT_SMTP_HOST=mail.xaok.org
+HABIDAT_SMTP_PORT=25
+HABIDAT_DOCKER_PREFIX=habidat
+HABIDAT_CREATE_SELFSIGNED=true
+```
+
+The `docker-compose.yml`:
+
+```
+version: '3'
+
+services:
+
+  habidat:
+    image: habidat/setup
+    volumes:
+      - ./habidat:/habidat/store 
+      - /var/run/docker.sock:/var/run/docker.sock
+    env_file:
+      - ./setup-docker.env  
+```
+
+Running commands in this case looks like this:
+
+`docker-compose run habidat install nextcloud`
 
 ## Disclaimer
 
-This is in an early development stage, please only use for testing purposes. 
+This project is in an early development stage, please only use for testing purposes. 

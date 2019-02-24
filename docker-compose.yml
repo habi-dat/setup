@@ -2,27 +2,10 @@ version: '3'
 
 services:
 
-  setup:
+  habidat:
     image: habidat/setup
     volumes:
-      - ./habidat:/store
+      - ./habidat:/habidat/store 
       - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - HABIDAT_TITLE=Site Name
-      - HABIDAT_DESCRIPTION=Site Description
-      - HABIDAT_EMAIL=email@example.com
-      - HABIDAT_PROTOCOL=http
-      - HABIDAT_DOMAIN=habidat.local
-      - HABIDAT_NEXTCLOUD_SUBDOMAIN=cloud
-      - HABIDAT_DISCOURSE_SUBDOMAIN=discourse
-      - HABIDAT_USER_SUBDOMAIN=user
-      - HABIDAT_LDAP_BASE=dc=habidat,dc=local
-      - HABIDAT_SMTP_HOST=mail.example.com
-      - HABIDAT_SMTP_PORT=25
-      - HABIDAT_DOCKER_PREFIX=habidat
-    networks:
-      - habidat-back
-    logging:
-      options:
-        max-size: 50m
-
+    env_file:
+      - ./setup-docker.env  
