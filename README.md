@@ -115,7 +115,7 @@ HABIDAT_CREATE_SELFSIGNED=true
 
 The `docker-compose.yml`:
 
-```
+```yaml
 version: '3'
 
 services:
