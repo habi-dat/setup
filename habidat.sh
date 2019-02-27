@@ -2,7 +2,10 @@
 set -e
 
 # general
-source setup.env
+if [ -f ./setup.env ]
+then
+	source setup.env
+fi
 
 red=`tput setaf 1`
 green=`tput setaf 2`

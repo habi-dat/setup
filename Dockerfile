@@ -13,7 +13,7 @@ ADD . /habidat
 
 WORKDIR /habidat
 
-RUN chmod +x habidat.sh
+RUN rm setup.env && chmod +x habidat.sh
 
 COPY habidat.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
