@@ -40,7 +40,7 @@ services:
         max-size: 50m
 
   nextcloud:
-    image: habidat/nextcloud:15.0.4
+    image: habidat/nextcloud
     restart: unless-stopped
     container_name: $HABIDAT_DOCKER_PREFIX-nextcloud
     volumes:
@@ -57,7 +57,7 @@ services:
         max-size: 50m  
 
   cron:
-    image: habidat/nextcloud:15.0.4
+    image: habidat/nextcloud
     restart: unless-stopped
     container_name: $HABIDAT_DOCKER_PREFIX-nextcloud-cron
     volumes:

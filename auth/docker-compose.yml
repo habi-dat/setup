@@ -38,22 +38,39 @@ services:
 #  sso:
 #    build: 
 #      context: "https://github.com/LemonLDAPNG/lemonldap-ng-docker.git"
-#    container_name: habidat-sso      
+#    container_name: $HABIDAT_DOCKER_PREFIX-sso      
 #    restart: unless-stopped
 #    env_file:
-#      - ../store/auth/sso.env
+#      - ./sso.env
 #    volumes:
-#      - sso-config:/var/lib/lemonldap-ng/conf
+#      - ./sso-config:/var/lib/lemonldap-ng/conf
 #    ports:
 #      - 80
 #    extra_hosts:
-#      - "reload.habidat.local:127.0.0.1"   
+#      - "reload.$HABIDAT_DOMAIN:127.0.0.1"   
 #    networks:
-#      - habidat-proxy
-#      - habidat-back
+#      - $HABIDAT_DOCKER_PREFIX-proxy
+#      - $HABIDAT_DOCKER_PREFIX-back
 #    logging:
 #      options:
 #        max-size: 50m
+
+#  sso:
+#    build:
+#      context: ../../../habidat-sso
+#    restart: unless-stopped
+#    container_name: $HABIDAT_DOCKER_PREFIX-sso
+#    env_file:
+#      - ./sso.env
+#    volumes:
+#      - ./sso.yml:/params.yml
+#      - ./cert:/srv/simplesaml/cert
+#    networks:
+#      - $HABIDAT_DOCKER_PREFIX-proxy
+#      - $HABIDAT_DOCKER_PREFIX-back
+#    logging:
+#      options:
+#        max-size: 50m        
 
   user:
     image: habidat/user:1.0.0 

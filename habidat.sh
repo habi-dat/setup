@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set +x
 
 # general
 if [ -f ./setup.env ]

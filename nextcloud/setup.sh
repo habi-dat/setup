@@ -15,7 +15,6 @@ export HABIDAT_DISCOURSE_SSO_SECRET="$(openssl rand -base64 32)"
 
 # store passwords file
 echo "export HABIDAT_NEXTCLOUD_DB_PASSWORD=$HABIDAT_NEXTCLOUD_DB_PASSWORD" > ../store/nextcloud/passwords.env
-echo "export HABIDAT_NEXTCLOUD_ADMIN_PASSWORD=$HABIDAT_NEXTCLOUD_ADMIN_PASSWORD" >> ../store/nextcloud/passwords.env
 echo "export HABIDAT_NEXTCLOUD_DB_ROOT_PASSWORD=$HABIDAT_NEXTCLOUD_DB_ROOT_PASSWORD" >> ../store/nextcloud/passwords.env
 echo "export HABIDAT_DISCOURSE_SSO_SECRET=$HABIDAT_DISCOURSE_SSO_SECRET" >> ../store/nextcloud/passwords.env
 
@@ -57,3 +56,5 @@ echo "Configuring nextcloud..."
 docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud /habidat-bootstrap.sh
 
 docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec db mysql -u nextcloud --password="$HABIDAT_NEXTCLOUD_DB_PASSWORD" -e "insert into oc_ldap_group_mapping (ldap_dn, owncloud_name, directory_uuid) values ('cn=admin,ou=groups,$HABIDAT_LDAP_BASE', 'admin', 'admin')" nextcloud 
+
+docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" restart nextcloud

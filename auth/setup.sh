@@ -5,6 +5,8 @@ set +x
 #export HABIDAT_LDAP_ADMIN_PASSWORD=A5AFsfDrsr4DYswQ
 
 mkdir -p ../store/auth/bootstrap
+mkdir -p ../store/auth/sso-config
+mkdir -p ../store/auth/cert
 
 echo "Generating passwords..."
 
@@ -13,6 +15,8 @@ export HABIDAT_LDAP_READ_PASSWORD="$(openssl rand -base64 32)"
 export HABIDAT_LDAP_ADMIN_PASSWORD="$(openssl rand -base64 32)"
 export HABIDAT_LDAP_CONFIG_PASSWORD="$(openssl rand -base64 32)"
 export HABIDAT_ADMIN_PASSWORD="$(openssl rand -base64 12)"
+export HABIDAT_SSO_SALT="$(tr -c -d '0123456789abcdefghijklmnopqrstuvwxyz' </dev/urandom | dd bs=32 count=1 2>/dev/null;echo)"
+
 
 # store passwords file
 echo "export HABIDAT_LDAP_ADMIN_PASSWORD=$HABIDAT_LDAP_ADMIN_PASSWORD" > ../store/auth/passwords.env
@@ -20,12 +24,19 @@ echo "export HABIDAT_LDAP_READ_PASSWORD=$HABIDAT_LDAP_READ_PASSWORD" >> ../store
 echo "export HABIDAT_LDAP_CONFIG_PASSWORD=$HABIDAT_LDAP_CONFIG_PASSWORD" >> ../store/auth/passwords.env
 echo "export HABIDAT_ADMIN_PASSWORD=$HABIDAT_ADMIN_PASSWORD" >> ../store/auth/passwords.env
 
-#envsubst < config/sso.env > ../store/auth/sso.env
+# generalte SSO certificates
+echo "Generating SSO key and certificate..."
+openssl req -new -x509 -days 3652 -nodes -out ../store/auth/cert/server.cert -keyout ../store/auth/cert/server.pem -subj "/C=AT/ST=Upper Austria/L=Linz/O=habiDAT/OU=SSO/CN=$HABIDAT_DOMAIN"
+
+echo "Create environment files..."
+envsubst < config/sso.env > ../store/auth/sso.env
+envsubst < config/sso.yml > ../store/auth/sso.yml
 envsubst < config/ldap.env > ../store/auth/ldap.env
 envsubst < config/user.env > ../store/auth/user.env
 # envsubst < user-config.json > ../store/ldap/user-config.json
 envsubst < config/bootstrap.ldif > ../store/auth/bootstrap/bootstrap.ldif
-# envsubst < sso-config.js > ../store/ldap/sso-config.js
+#cp config/sso-config.js ../store/auth/sso-config/lmConf-1.js
+envsubst '$HABIDAT_DOMAIN $HABIDAT_LDAP_BASE $HABIDAT_DOCKER_PREFIX $HABIDAT_LDAP_ADMIN_PASSWORD' < config/sso-config.js > ../store/auth/sso-config/lmConf-1.js
 
 if [ $HABIDAT_CREATE_SELFSIGNED == "true" ]
 then
