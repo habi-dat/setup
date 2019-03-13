@@ -73,7 +73,7 @@ services:
 #        max-size: 50m        
 
   user:
-    image: habidat/user:1.0.0 
+    image: habidat/user:1.0.1
     restart: unless-stopped
     container_name: $HABIDAT_DOCKER_PREFIX-user
     env_file:
