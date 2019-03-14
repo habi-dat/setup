@@ -14,7 +14,10 @@ echo "Generating passwords..."
 export HABIDAT_LDAP_READ_PASSWORD="$(openssl rand -base64 32)"
 export HABIDAT_LDAP_ADMIN_PASSWORD="$(openssl rand -base64 32)"
 export HABIDAT_LDAP_CONFIG_PASSWORD="$(openssl rand -base64 32)"
-export HABIDAT_ADMIN_PASSWORD="$(openssl rand -base64 12)"
+if [ $HABIDAT_ADMIN_PASSWORD == "generate" ]
+then
+	export HABIDAT_ADMIN_PASSWORD="$(openssl rand -base64 12)"
+fi
 export HABIDAT_SSO_SALT="$(tr -c -d '0123456789abcdefghijklmnopqrstuvwxyz' </dev/urandom | dd bs=32 count=1 2>/dev/null;echo)"
 
 
@@ -28,6 +31,12 @@ echo "export HABIDAT_ADMIN_PASSWORD=$HABIDAT_ADMIN_PASSWORD" >> ../store/auth/pa
 echo "Generating SSO key and certificate..."
 openssl req -new -x509 -days 3652 -nodes -out ../store/auth/cert/server.cert -keyout ../store/auth/cert/server.pem -subj "/C=AT/ST=Upper Austria/L=Linz/O=habiDAT/OU=SSO/CN=$HABIDAT_DOMAIN"
 
+export HABIDAT_SSO_CERTIFICATE=$(cat ../store/auth/cert/server.cert | sed --expression=':a;N;$!ba;s/\n/\\n/g')
+echo "export HABIDAT_SSO_CERTIFICATE='$HABIDAT_SSO_CERTIFICATE'" >> ../store/auth/passwords.env
+
+export HABIDAT_SSO_CERTIFICATE_SINGLE_LINE=$(cat ../store/auth/cert/server.cert | sed --expression=':a;N;$!ba;s/\n//g' | sed --expression='s/-----BEGIN CERTIFICATE-----//g' | sed --expression='s/-----END CERTIFICATE-----//g')
+echo "export HABIDAT_SSO_CERTIFICATE_SINGLE_LINE='$HABIDAT_SSO_CERTIFICATE_SINGLE_LINE'" >> ../store/auth/passwords.env
+
 echo "Create environment files..."
 envsubst < config/sso.env > ../store/auth/sso.env
 envsubst < config/sso.yml > ../store/auth/sso.yml
@@ -36,7 +45,7 @@ envsubst < config/user.env > ../store/auth/user.env
 # envsubst < user-config.json > ../store/ldap/user-config.json
 envsubst < config/bootstrap.ldif > ../store/auth/bootstrap/bootstrap.ldif
 #cp config/sso-config.js ../store/auth/sso-config/lmConf-1.js
-envsubst '$HABIDAT_DOMAIN $HABIDAT_LDAP_BASE $HABIDAT_DOCKER_PREFIX $HABIDAT_LDAP_ADMIN_PASSWORD' < config/sso-config.js > ../store/auth/sso-config/lmConf-1.js
+# envsubst '$HABIDAT_DOMAIN $HABIDAT_LDAP_BASE $HABIDAT_DOCKER_PREFIX $HABIDAT_LDAP_ADMIN_PASSWORD' < config/sso-config.js > ../store/auth/sso-config/lmConf-1.js
 
 if [ $HABIDAT_CREATE_SELFSIGNED == "true" ]
 then
@@ -52,5 +61,6 @@ envsubst < docker-compose.yml > ../store/auth/docker-compose.yml
 
 echo "Spinning up containers..."
 
+docker-compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" pull
 docker-compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d
 

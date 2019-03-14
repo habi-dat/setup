@@ -27,14 +27,21 @@ idp_hosted:
     authsource:      ldap
 
 sp_remote: 
-  - entityid:                   https://$HABIDAT_NEXTCLOUD_SUBDOMAIN.$HABIDAT_DOMAIN
-    assertionconsumerservice:   https://$HABIDAT_NEXTCLOUD_SUBDOMAIN.$HABIDAT_DOMAIN.$HABIDAT_DOMAIN/apps/user_saml/saml/acs
+  - entityid:                   https://$HABIDAT_NEXTCLOUD_SUBDOMAIN.$HABIDAT_DOMAIN/apps/user_saml/saml/metadata
+    assertionconsumerservice:   https://$HABIDAT_NEXTCLOUD_SUBDOMAIN.$HABIDAT_DOMAIN/apps/user_saml/saml/acs
     nameidformat:               urn:oasis:names:tc:SAML:2.0:nameid-format:unspecified
     ssnameidattribute:          uid
     ssattributes:               true
+    singlelogoutservice:        https://$HABIDAT_NEXTCLOUD_SUBDOMAIN.$HABIDAT_DOMAIN/apps/user_saml/saml/sls    
+  - entityid:                   https://$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN
+    assertionconsumerservice:   https://$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN/saml/consume
+    nameidformat:               urn:oasis:names:tc:SAML:2.0:nameid-format:unspecified
+    ssnameidattribute:          uid
+    ssattributes:               true
+    singlelogoutservice:        https://$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN/saml/logout   
 
 # Config
-baseurlpath:             simplesaml/
+baseurlpath:             https://sso.$HABIDAT_DOMAIN/simplesaml/
 certdir:                 cert/
 loggingdir:              log/
 datadir:                 data/
@@ -48,7 +55,7 @@ admin_protectindexpage:  true
 admin_protectmetadata:   true
 technicalcontact_name:   Admin
 technicalcontact_email:  $HABIDAT_ADMIN_EMAIL
-timezone:                Austria/Vienna
+timezone:                Europe/Vienna
 loggin_level:            NOTICE
 logging_handler:         syslog
 enable_saml20_idp:       true

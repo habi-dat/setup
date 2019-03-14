@@ -47,6 +47,7 @@ envsubst < docker-compose.yml > ../store/nextcloud/docker-compose.yml
 
 echo "Spinning up containers..."
 
+docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" pull
 docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" up -d
 echo "Waiting for containers to start (20 seconds)..."
 sleep 20
