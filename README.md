@@ -28,6 +28,7 @@ Also you need to have a domain and subdomains for the different apps:
 * Nextcloud app (e.g. cloud.example.com)
 * Discourse app (e.g. discourse.example.com)
 * Direct Loan app (e.g. direktkredit.example.com)
+* Semantic Mediawiki (e.g. wiki.example.com)
 
 If you just want to have a local test installation add the following lines to your /etc/hosts files:
 
@@ -37,6 +38,7 @@ If you just want to have a local test installation add the following lines to yo
 127.0.0.1       sso.habidat.local
 127.0.0.1       discourse.habidat.local
 127.0.0.1       direktkredit.habidat.local
+127.0.0.1       wiki.habidat.local
 ```
 
 ### Mail Server
@@ -69,6 +71,7 @@ then
 
 * direktkredit
 * discourse
+* medaiwiki
 
 You can also install all modules at once:
 

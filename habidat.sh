@@ -271,7 +271,7 @@ then
 
 	if [ $2 == "all" ]
 	then
-		for setupModule in "nginx" "auth" "nextcloud" "discourse" "direktkredit"
+		for setupModule in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit"
 		do
 			check_exists "$setupModule" "$3"
 			if [ $? == "1" ] && [ "force" != "$3" ]
@@ -322,11 +322,11 @@ then
 		check_child_dependecies $2
 		remove_module $2
 	else 
-		prefixr "Module $2 unknown, available modules are: nginx, auth, nextcloud, discourse, direktkredit"
+		prefixr "Module $2 unknown, available modules are: nginx, auth, nextcloud, discourse, mediawiki, direktkredit"
 	fi
 elif [ "$1" == "modules" ]
 then
-	for module in "nginx" "auth" "nextcloud" "discourse" "direktkredit"
+	for module in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit"
 	do
 		if [ -d "store/$module" ]
 		then
@@ -343,7 +343,7 @@ then
 		exit 1
 	elif [ "$2" == "all" ]
 	then
-		for updateModule in "nginx" "auth" "nextcloud" "discourse" "direktkredit"
+		for updateModule in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit"
 		do
 			update_module $updateModule
 		done
@@ -358,7 +358,7 @@ then
 		exit 1
 	elif [ "$2" == "all" ]
 	then
-		for exportModule in "nginx" "auth" "nextcloud" "discourse" "direktkredit"
+		for exportModule in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit"
 		do
 			export_module $exportModule
 		done
