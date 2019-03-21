@@ -144,3 +144,9 @@ Running commands in this case looks like this:
 ## Disclaimer
 
 This project is in an early development stage, please only use for testing purposes. 
+
+## Known Issues
+
+* Mediawiki shows and error message after login, even though it actually logs in
+* Nextcloud sometimes does not install, just try again until it does not show any error messages with ./habidat.sh install nextcloud force
+
