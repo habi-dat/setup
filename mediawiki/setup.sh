@@ -30,9 +30,15 @@ fi
 
 echo "Spinning up containers..."
 
-docker-compose -f ../store/mediawiki/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mediawiki" build
+docker-compose -f ../store/mediawiki/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mediawiki" pull
 docker-compose -f ../store/mediawiki/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mediawiki" up -d
 
+echo "Waiting for mediawiki container to initialize (this can take several minutes)..."
+# wait until discourse bootstrap is done
+until [ -e $(docker volume inspect --format '{{ .Mountpoint }}' $HABIDAT_DOCKER_PREFIX-mediawiki_web)/CONTAINER_INITIALIZED ]
+do
+	sleep .5	
+done
 
 echo "Add project logo..."
 
@@ -40,7 +46,7 @@ if [ -f "../$HABIDAT_LOGO" ]
 then
 	docker cp "../$HABIDAT_LOGO" $HABIDAT_DOCKER_PREFIX-mediawiki:/var/www/html/images
 fi
-docker-compose -f ../store/mediawiki/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mediawiki" exec --user www-data php maintenance/importImages.php images
+docker-compose -f ../store/mediawiki/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mediawiki" exec --user www-data web php maintenance/importImages.php images
 
 # update nextcloud external sites
 echo "Add link to nextcloud..."
