@@ -5,8 +5,11 @@ set +x
 #export HABIDAT_LDAP_ADMIN_PASSWORD=A5AFsfDrsr4DYswQ
 
 mkdir -p ../store/auth/bootstrap
-mkdir -p ../store/auth/sso-config
-mkdir -p ../store/auth/cert
+if [ $HABIDAT_SSO == "true" ]
+then
+	mkdir -p ../store/auth/sso-config
+	mkdir -p ../store/auth/cert
+fi
 
 echo "Generating passwords..."
 
@@ -18,8 +21,6 @@ if [ $HABIDAT_ADMIN_PASSWORD == "generate" ]
 then
 	export HABIDAT_ADMIN_PASSWORD="$(openssl rand -base64 12)"
 fi
-export HABIDAT_SSO_SALT="$(tr -c -d '0123456789abcdefghijklmnopqrstuvwxyz' </dev/urandom | dd bs=32 count=1 2>/dev/null;echo)"
-
 
 # store passwords file
 echo "export HABIDAT_LDAP_ADMIN_PASSWORD=$HABIDAT_LDAP_ADMIN_PASSWORD" > ../store/auth/passwords.env
@@ -27,19 +28,29 @@ echo "export HABIDAT_LDAP_READ_PASSWORD=$HABIDAT_LDAP_READ_PASSWORD" >> ../store
 echo "export HABIDAT_LDAP_CONFIG_PASSWORD=$HABIDAT_LDAP_CONFIG_PASSWORD" >> ../store/auth/passwords.env
 echo "export HABIDAT_ADMIN_PASSWORD=$HABIDAT_ADMIN_PASSWORD" >> ../store/auth/passwords.env
 
-# generalte SSO certificates
-echo "Generating SSO key and certificate..."
-openssl req -new -x509 -days 3652 -nodes -out ../store/auth/cert/server.cert -keyout ../store/auth/cert/server.pem -subj "/C=AT/ST=Upper Austria/L=Linz/O=habiDAT/OU=SSO/CN=$HABIDAT_DOMAIN"
+if [ $HABIDAT_SSO == "true" ]
+then
 
-export HABIDAT_SSO_CERTIFICATE=$(cat ../store/auth/cert/server.cert | sed --expression=':a;N;$!ba;s/\n/\\n/g')
-echo "export HABIDAT_SSO_CERTIFICATE='$HABIDAT_SSO_CERTIFICATE'" >> ../store/auth/passwords.env
+	# generalte SSO certificates
+	echo "Generating SSO key and certificate..."
+	openssl req -new -x509 -days 3652 -nodes -out ../store/auth/cert/server.cert -keyout ../store/auth/cert/server.pem -subj "/C=AT/ST=Upper Austria/L=Linz/O=habiDAT/OU=SSO/CN=$HABIDAT_DOMAIN"
 
-export HABIDAT_SSO_CERTIFICATE_SINGLE_LINE=$(cat ../store/auth/cert/server.cert | sed --expression=':a;N;$!ba;s/\n//g' | sed --expression='s/-----BEGIN CERTIFICATE-----//g' | sed --expression='s/-----END CERTIFICATE-----//g')
-echo "export HABIDAT_SSO_CERTIFICATE_SINGLE_LINE='$HABIDAT_SSO_CERTIFICATE_SINGLE_LINE'" >> ../store/auth/passwords.env
+	export HABIDAT_SSO_CERTIFICATE=$(cat ../store/auth/cert/server.cert | sed --expression=':a;N;$!ba;s/\n/\\n/g')
+	echo "export HABIDAT_SSO_CERTIFICATE='$HABIDAT_SSO_CERTIFICATE'" >> ../store/auth/passwords.env
+
+	export HABIDAT_SSO_CERTIFICATE_SINGLE_LINE=$(cat ../store/auth/cert/server.cert | sed --expression=':a;N;$!ba;s/\n//g' | sed --expression='s/-----BEGIN CERTIFICATE-----//g' | sed --expression='s/-----END CERTIFICATE-----//g')
+	echo "export HABIDAT_SSO_CERTIFICATE_SINGLE_LINE='$HABIDAT_SSO_CERTIFICATE_SINGLE_LINE'" >> ../store/auth/passwords.env
+fi
 
 echo "Create environment files..."
-envsubst < config/sso.env > ../store/auth/sso.env
-envsubst < config/sso.yml > ../store/auth/sso.yml
+if [ $HABIDAT_SSO == "true" ]
+then
+	envsubst < config/sso.env > ../store/auth/sso.env
+	envsubst < config/sso.yml > ../store/auth/sso.yml
+else
+	export HABIDAT_SSO_DISABLE='#'
+fi
+
 envsubst < config/ldap.env > ../store/auth/ldap.env
 envsubst < config/user.env > ../store/auth/user.env
 # envsubst < user-config.json > ../store/ldap/user-config.json

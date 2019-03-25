@@ -3,7 +3,7 @@ version: '3.5'
 volumes: 
   ldap-data:
   ldap-config:
-  sso-config:
+$HABIDAT_SSO_DISABLE  sso-config:
 
 networks:
   $HABIDAT_DOCKER_PREFIX-proxy:
@@ -35,21 +35,21 @@ services:
       options:
         max-size: 50m  
 
-  sso:
-    image: habidat/sso
-    restart: unless-stopped
-    container_name: $HABIDAT_DOCKER_PREFIX-sso
-    env_file:
-      - ./sso.env
-    volumes:
-      - ./sso.yml:/params.yml
-      - ./cert:/var/simplesaml/cert
-    networks:
-      - $HABIDAT_DOCKER_PREFIX-proxy
-      - $HABIDAT_DOCKER_PREFIX-back
-    logging:
-      options:
-        max-size: 50m        
+$HABIDAT_SSO_DISABLE  sso:
+$HABIDAT_SSO_DISABLE    image: habidat/sso
+$HABIDAT_SSO_DISABLE    restart: unless-stopped
+$HABIDAT_SSO_DISABLE    container_name: $HABIDAT_DOCKER_PREFIX-sso
+$HABIDAT_SSO_DISABLE    env_file:
+$HABIDAT_SSO_DISABLE      - ./sso.env
+$HABIDAT_SSO_DISABLE    volumes:
+$HABIDAT_SSO_DISABLE      - ./sso.yml:/params.yml
+$HABIDAT_SSO_DISABLE      - ./cert:/var/simplesaml/cert
+$HABIDAT_SSO_DISABLE    networks:
+$HABIDAT_SSO_DISABLE      - $HABIDAT_DOCKER_PREFIX-proxy
+$HABIDAT_SSO_DISABLE      - $HABIDAT_DOCKER_PREFIX-back
+$HABIDAT_SSO_DISABLE    logging:
+$HABIDAT_SSO_DISABLE      options:
+$HABIDAT_SSO_DISABLE        max-size: 50m        
 
   user:
     image: habidat/user
