@@ -52,6 +52,7 @@ First you have to edit the file `setup.env` and fill in all necessary parameters
 * HABIDAT_DOCKER_PREFIX: Is used as a prefix for all the docker names (containers, volumes, networks, ...). Set to anything that prevents collisions with other containers on your system.
 * HABIDAT_CREATE_SELFSIGNED: If you want the setup to create a self-signed wildcard certificate, set this to "true" (only for testing/development purposes)
 * HABIDAT_ADMIN_PASSWORD: You can choose the password for your admin account or set it to "generate" to have the setup generate a secure password for you
+* HABIDAT_SSO: set to true if you want to add authenticaiton via SAML (Single-Sign-On) - experimental
 
 Now you can use the script "habidat.sh" to install the platform.
 
@@ -119,7 +120,7 @@ HABIDAT_SMTP_HOST=mail.xaok.org
 HABIDAT_SMTP_PORT=25
 HABIDAT_DOCKER_PREFIX=habidat
 HABIDAT_CREATE_SELFSIGNED=true
-HABIDAT_SSO=true
+HABIDAT_SSO=false
 ```
 
 The `docker-compose.yml`:
