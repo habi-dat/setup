@@ -24,8 +24,10 @@ usage() {
     prefix "  start   <module>|all            start module or all modules"
     prefix "  restart <module>|all            restart module or all modules"
     prefix "  stop    <module>|all            stop module or all modules"
+    prefix "  up      <module>|all            up module or all modules (start and/or create containers)"
     prefix "  down    <module>|all            down module or all modules (stop and remove containers)"
     prefix "  update  <module>|all            update module or all modules"
+    prefix "  build   <module>|all            build module or all modules (only if you changed the compose files to build images)"
     prefix "  export  <module>|all            export module data"    
     prefix "  modules                         list module status"
     prefix
@@ -101,7 +103,6 @@ start_module() {
 	then
 		prefix "Module $1 not installed, skip starting..."
 		return 0	
-	else
 	fi
 
 	prefix "Starting $1 module...."
@@ -113,7 +114,6 @@ restart_module() {
 	then
 		prefix "Module $1 not installed, skip restarting..."
 		return 0	
-	else
 	fi
 
 	prefix "Restarting $1 module...."
@@ -125,7 +125,6 @@ stop_module() {
 	then
 		prefix "Module $1 not installed, skip stopping..."
 		return 0	
-	else
 	fi
 
 	prefix "Stopping $1 module...."
@@ -137,11 +136,32 @@ down_module() {
 	then
 		prefix "Module $1 not installed, skip downing..."
 		return 0	
-	else
 	fi
 
 	prefix "Downing $1 module...."
 	docker-compose -f "store/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-$1"  down | prefixm "$1"
+}
+
+up_module() {
+	if [ ! -d "store/$1" ]
+	then
+		prefix "Module $1 not installed, skip upping..."
+		return 0	
+	fi
+
+	prefix "Upping $1 module...."
+	docker-compose -f "store/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-$1"  up -d | prefixm "$1"
+}
+
+build_module() {
+	if [ ! -d "store/$1" ]
+	then
+		prefix "Module $1 not installed, skip building..."
+		return 0	
+	fi
+
+	prefix "Building $1 module...."
+	docker-compose -f "store/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-$1"  build | prefixm "$1"
 }
 
 setup_module() {
@@ -237,22 +257,23 @@ check_dependencies () {
 	then
 		return
 	fi
-	dependencies_missing=()
+
 	while read -r module
 	do
 		if [ ! -d "store/$module" ]
 		then
 			prefix "$module ${red}[NOT INSTALLED]${reset}"
-			dependencies_missing+=($module)
+			dependencies_missing+=" "$module
 		else
 			prefix "$module ${green}[INSTALLED]${reset}"
 		fi
 	done < "$1/dependencies"
-	if [ ${#dependencies_missing[@]} != "0" ]
+	
+	if [ ! -z "$dependencies_missing" ]
 	then
 
 		read -p "There are missing dependencies, do you want to install them? [y/n] " -n 1 -r
-		echo    
+		echo
 		if [[ ! $REPLY =~ ^[Yy]$ ]]
 		then
 			prefixr "Please install dependencies first, abort..."
@@ -260,6 +281,7 @@ check_dependencies () {
 	    else
 			for setupModule in $dependencies_missing
 			do
+				dependencies_missing=""
 				check_dependencies $setupModule
 				setup_module $setupModule
 			done	    	
@@ -417,6 +439,21 @@ then
 	else
 		start_module $2
 	fi
+elif [ "$1" == "build" ]
+then
+	if [ -z "$2" ]
+	then
+		usage
+		exit 1
+	elif [ "$2" == "all" ]
+	then
+		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit"
+		do
+			build_module $mod
+		done
+	else
+		build_module $2
+	fi	
 elif [ "$1" == "restart" ]
 then
 	if [ -z "$2" ]
@@ -461,6 +498,21 @@ then
 		done
 	else
 		down_module $2
+	fi	
+elif [ "$1" == "up" ]
+then
+	if [ -z "$2" ]
+	then
+		usage
+		exit 1
+	elif [ "$2" == "all" ]
+	then
+		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit"
+		do
+			up_module $mod
+		done
+	else
+		up_module $2
 	fi		
 elif [ "$1" == "export" ]
 then
