@@ -18,12 +18,16 @@ usage() {
     prefix "Usage: habidat.sh ${txtunderline}COMMAND${txtreset}"
     prefix
     prefix "Commands:"
-    prefix "  help                           show help."
-    prefix "  install <module>|all [force]   install module or all modules"
-    prefix "  remove <module>                remove module (caution: all module data is lost)"
-    prefix "  update <module>|all            update module or all modules"
-    prefix "  export <module>|all            export module data"    
-    prefix "  modules                        list module status"
+    prefix "  help                            show help."
+    prefix "  install <module>|all [force]    install module or all modules"
+    prefix "  remove  <module>                remove module (caution: all module data is lost)"
+    prefix "  start   <module>|all            start module or all modules"
+    prefix "  restart <module>|all            restart module or all modules"
+    prefix "  stop    <module>|all            stop module or all modules"
+    prefix "  down    <module>|all            down module or all modules (stop and remove containers)"
+    prefix "  update  <module>|all            update module or all modules"
+    prefix "  export  <module>|all            export module data"    
+    prefix "  modules                         list module status"
     prefix
 }
 
@@ -90,6 +94,54 @@ remove_module() {
 	prefix "Removing $1 module...."
 	docker-compose -f "store/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-$1"  down -v --remove-orphans | prefixm "$1"
 	rm -rf "store/$1"	
+}
+
+start_module() {
+	if [ ! -d "store/$1" ]
+	then
+		prefix "Module $1 not installed, skip starting..."
+		return 0	
+	else
+	fi
+
+	prefix "Starting $1 module...."
+	docker-compose -f "store/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-$1"  start | prefixm "$1"
+}
+
+restart_module() {
+	if [ ! -d "store/$1" ]
+	then
+		prefix "Module $1 not installed, skip restarting..."
+		return 0	
+	else
+	fi
+
+	prefix "Restarting $1 module...."
+	docker-compose -f "store/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-$1"  restart | prefixm "$1"
+}
+
+stop_module() {
+	if [ ! -d "store/$1" ]
+	then
+		prefix "Module $1 not installed, skip stopping..."
+		return 0	
+	else
+	fi
+
+	prefix "Stopping $1 module...."
+	docker-compose -f "store/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-$1"  stop | prefixm "$1"
+}
+
+down_module() {
+	if [ ! -d "store/$1" ]
+	then
+		prefix "Module $1 not installed, skip downing..."
+		return 0	
+	else
+	fi
+
+	prefix "Downing $1 module...."
+	docker-compose -f "store/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-$1"  down | prefixm "$1"
 }
 
 setup_module() {
@@ -350,6 +402,66 @@ then
 	else
 		update_module $2
 	fi
+elif [ "$1" == "start" ]
+then
+	if [ -z "$2" ]
+	then
+		usage
+		exit 1
+	elif [ "$2" == "all" ]
+	then
+		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit"
+		do
+			start_module $mod
+		done
+	else
+		start_module $2
+	fi
+elif [ "$1" == "restart" ]
+then
+	if [ -z "$2" ]
+	then
+		usage
+		exit 1
+	elif [ "$2" == "all" ]
+	then
+		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit"
+		do
+			restart_module $mod
+		done
+	else
+		restart_module $2
+	fi
+elif [ "$1" == "stop" ]
+then
+	if [ -z "$2" ]
+	then
+		usage
+		exit 1
+	elif [ "$2" == "all" ]
+	then
+		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit"
+		do
+			stop_module $mod
+		done
+	else
+		stop_module $2
+	fi
+elif [ "$1" == "down" ]
+then
+	if [ -z "$2" ]
+	then
+		usage
+		exit 1
+	elif [ "$2" == "all" ]
+	then
+		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit"
+		do
+			down_module $mod
+		done
+	else
+		down_module $2
+	fi		
 elif [ "$1" == "export" ]
 then
 	if [ -z "$2" ]
