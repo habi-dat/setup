@@ -29,6 +29,7 @@ Also you need to have a domain and subdomains for the different apps:
 * Discourse app (e.g. discourse.example.com)
 * Direct Loan app (e.g. direktkredit.example.com)
 * Semantic Mediawiki (e.g. wiki.example.com)
+* Mailtrain including public and sandbox subdomains (e.g. mailtrain.example.com, lists.example.com, sandbox.mailtrain.example.com)
 
 If you just want to have a local test installation add the following lines to your /etc/hosts files:
 
@@ -39,6 +40,9 @@ If you just want to have a local test installation add the following lines to yo
 127.0.0.1       discourse.habidat.local
 127.0.0.1       direktkredit.habidat.local
 127.0.0.1       wiki.habidat.local
+127.0.0.1       mailtrain.habidat.local
+127.0.0.1       sandbox.mailtrain.habidat.local
+127.0.0.1       lists.habidat.local
 ```
 
 ### Mail Server
@@ -53,6 +57,7 @@ First you have to edit the file `setup.env` and fill in all necessary parameters
 * HABIDAT_CREATE_SELFSIGNED: If you want the setup to create a self-signed wildcard certificate, set this to "true" (only for testing/development purposes)
 * HABIDAT_ADMIN_PASSWORD: You can choose the password for your admin account or set it to "generate" to have the setup generate a secure password for you
 * HABIDAT_SSO: set to true if you want to add authenticaiton via SAML (Single-Sign-On) - experimental
+* HABIDAT_LDAP_BASE: the ldap base needs to be based on HABIDAT_DOMAIN, e.g. "example.com" becomes "dc=example,dc=com"
 
 Now you can use the script "habidat.sh" to install the platform.
 
@@ -73,6 +78,7 @@ then
 * direktkredit
 * discourse
 * medaiwiki
+* mailtrain
 
 You can also install all modules at once:
 
@@ -91,6 +97,14 @@ IMPORTANT: Please note that all data will be lost, as this also removes all moun
 You can also list all available modules and their installation status with
 
 `./habidat.sh modules`
+
+### Start, stop, restart, down modules
+
+By 
+
+`./habidat.sh start|stop|restart|down <module>|[all]` 
+
+you can start, stop, restart and down a modules or all modules at once.
 
 ### Admin account
 
@@ -115,6 +129,9 @@ HABIDAT_DISCOURSE_SUBDOMAIN=discourse
 HABIDAT_DIREKTKREDIT_SUBDOMAIN=direktkredit
 HABIDAT_USER_SUBDOMAIN=user
 HABIDAT_MEDIAWIKI_SUBDOMAIN=wiki
+HABIDAT_MAILTRAIN_PUBLIC_SUBDOMAIN=lists
+HABIDAT_MAILTRAIN_SUBDOMAIN=mailtrain
+HABIDAT_MAILTRAIN_SANDBOX_SUBDOMAIN=sandbox.mailtrain
 HABIDAT_LDAP_BASE=dc=habidat,dc=local
 HABIDAT_SMTP_HOST=mail.xaok.org
 HABIDAT_SMTP_PORT=25

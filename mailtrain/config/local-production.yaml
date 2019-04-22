@@ -1,0 +1,84 @@
+# This file is the default config file for Mailtrain. To use a environment specific
+# configuration add new file {ENV}.{ext} (eg. production.yaml) to the same folder.
+# {ENV} is defined by NODE_ENV environment variable.
+#
+# Do not modify this file directly, otherwise you might lose your modifications when upgrading
+#
+# You should only define the options you want to change in your additional config file.
+# For example if the only thing you want to change is the port number for the www server
+# then your additional config file should look like this:
+#   # production.yaml
+#   www:
+#     port: 80
+
+# Process title visible in monitoring logs and process listing
+title: mailtrain
+
+# GDPR related settings (https://en.wikipedia.org/wiki/General_Data_Protection_Regulation)
+gdpr:
+  # If enabled, after a user unsubscribes or complains, his/her data are removed from the subscription.
+  # Only hashed email remains to prevent resubscription via import
+  deleteDataAfterUnsubscribe:
+    enabled: true
+    secondsAfterUnsubscribe: 86400 # 1 day
+
+  # If enabled, after the time below, an entry of a subscriber that unsubscribed or complained
+  # is completely removed from the subscribers list (including the hashed email)
+  deleteSubscriptionAfterUnsubscribe:
+    enabled: true
+    secondsAfterUnsubscribe: 2592000 # 30 days
+
+# Enabled HTML editors
+editors:
+- grapesjs
+- mosaico
+- mosaicoWithFsTemplate
+- ckeditor4
+- codeeditor
+
+# Default language to use
+defaultLanguage: en-US
+
+# Enabled languages
+enabledLanguages:
+- en-US
+- es-ES
+
+mysql:
+  host: $HABIDAT_DOCKER_PREFIX-mailtrain-db
+  user: $HABIDAT_DOCKER_PREFIX
+  password: $HABIDAT_MAILTRAIN_DB_PASSWORD
+  database: $HABIDAT_DOCKER_PREFIX
+  # Some installations, eg. MAMP can use a different port (8889)
+  # MAMP users should also turn on Allow network access to MySQL otherwise MySQL might not be accessible
+  port: 3306
+  charset: utf8mb4
+  # The timezone configured on the MySQL server. This can be 'local', 'Z', or an offset in the form +HH:MM or -HH:MM
+  # If the MySQL server runs on the same server as Mailtrain, use 'local'
+  timezone: local
+
+ldap:
+  # enable to use ldap user backend
+  enabled: true
+  # method is ldapjs or ldapauth - it chooses the library to be used. If not given, it chooses the one present.
+  # method: ldapjs
+  host: $HABIDAT_DOCKER_PREFIX-ldap
+  port: 389
+  baseDN: ou=users,$HABIDAT_LDAP_BASE
+  filter: (|(cn={{username}})(mail={{username}})(uid={{username}}))
+  # Username field in LDAP (uid/cn/username)
+  uidTag: cn
+  # nameTag identifies the attribute to be used for user's full name
+  nameTag: cn
+  passwordresetlink: $HABIDAT_PROTOCOL://$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN/lostpasswd
+  newUserRole: Campaigns Admin
+  # Global namespace id
+  newUserNamespaceId: 1
+  # Use a different user to bind LDAP (final bind DN will be: {{uidTag}}: {{bindUser}},{{baseDN}})
+  bindUser: cn=admin,$HABIDAT_LDAP_BASE
+  bindPassword: $HABIDAT_LDAP_ADMIN_PASSWORD
+
+log:
+  # silly|verbose|info|http|warn|error|silent
+  level: warn
+

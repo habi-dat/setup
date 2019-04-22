@@ -1,0 +1,112 @@
+version: '3.5'
+
+volumes: 
+  redis: 
+  db: 
+  mongo:
+  files:
+  reports:
+  modules:
+
+networks:
+  $HABIDAT_DOCKER_PREFIX-proxy:
+    external:
+      name: $HABIDAT_DOCKER_PREFIX-proxy
+  $HABIDAT_DOCKER_PREFIX-back:
+    external:
+      name: $HABIDAT_DOCKER_PREFIX-back
+
+services:
+  mysql:
+    image: mariadb
+    container_name: $HABIDAT_DOCKER_PREFIX-mailtrain-db    
+    restart: unless-stopped    
+    env_file:
+      - ./db.env   
+    volumes:
+    - db:/var/lib/mysql
+    networks:
+      - $HABIDAT_DOCKER_PREFIX-back
+    logging:
+      options:
+        max-size: 50m    
+
+  redis:
+    image: redis
+    container_name: $HABIDAT_DOCKER_PREFIX-mailtrain-redis
+    restart: unless-stopped    
+    volumes:
+    - redis:/data
+    networks:
+      - $HABIDAT_DOCKER_PREFIX-back
+    logging:
+      options:
+        max-size: 50m    
+
+  mongo:
+    image: mongo
+    container_name: $HABIDAT_DOCKER_PREFIX-mailtrain-mongo    
+    restart: unless-stopped    
+    volumes:
+    - mongo:/data/db
+    networks:
+      - $HABIDAT_DOCKER_PREFIX-back
+    logging:
+      options:
+        max-size: 50m    
+
+  public:
+    image: alpine/socat
+    container_name: $HABIDAT_DOCKER_PREFIX-mailtrain-public    
+    command: TCP-LISTEN:3003,fork TCP:web:3003
+    env_file:
+      - ./public.env       
+    ports:
+      - 3003
+    networks:
+      - $HABIDAT_DOCKER_PREFIX-back
+      - $HABIDAT_DOCKER_PREFIX-proxy      
+    logging:
+      options:
+        max-size: 50m   
+
+  sandbox:
+    image: alpine/socat
+    container_name: $HABIDAT_DOCKER_PREFIX-mailtrain-sandbox    
+    command: TCP-LISTEN:3004,fork TCP:web:3004
+    env_file:
+      - ./sandbox.env       
+    ports:
+      - 3004
+    networks:
+      - $HABIDAT_DOCKER_PREFIX-back
+      - $HABIDAT_DOCKER_PREFIX-proxy      
+    logging:
+      options:
+        max-size: 50m     
+
+  mailtrain:
+    image: mailtrain/mailtrain:latest
+#    build:
+#      context: https://github.com/Mailtrain-org/mailtrain.git#development
+    container_name: $HABIDAT_DOCKER_PREFIX-mailtrain   
+    restart: unless-stopped    
+    command: --trustedUrlBase https://$HABIDAT_MAILTRAIN_SUBDOMAIN.$HABIDAT_DOMAIN --sandboxUrlBase https://$HABIDAT_MAILTRAIN_SANDBOX_SUBDOMAIN.$HABIDAT_DOMAIN --publicUrlBase https://$HABIDAT_MAILTRAIN_PUBLIC_SUBDOMAIN.$HABIDAT_DOMAIN --withProxy --mongoHost $HABIDAT_DOCKER_PREFIX-mailtrain-mongo --redisHost $HABIDAT_DOCKER_PREFIX-mailtrain-redis
+    env_file:
+      - ./mailtrain.env
+    ports:
+    - "3000"
+    - "3003:3003"
+    - "3004:3004"
+    volumes:
+    - files:/app/server/files
+    - reports:/app/protected/reports
+    - modules:/app/node_modules
+    - ./local-production.yaml:/app/server/config/local-production.yaml
+    networks:
+      - $HABIDAT_DOCKER_PREFIX-back
+      - $HABIDAT_DOCKER_PREFIX-proxy      
+    logging:
+      options:
+        max-size: 50m     
+

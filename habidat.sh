@@ -27,6 +27,7 @@ usage() {
     prefix "  up      <module>|all            up module or all modules (start and/or create containers)"
     prefix "  down    <module>|all            down module or all modules (stop and remove containers)"
     prefix "  update  <module>|all            update module or all modules"
+    prefix "  pull    <module>|all            pull module or all modules"
     prefix "  build   <module>|all            build module or all modules (only if you changed the compose files to build images)"
     prefix "  export  <module>|all            export module data"    
     prefix "  modules                         list module status"
@@ -153,6 +154,17 @@ up_module() {
 	docker-compose -f "store/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-$1"  up -d | prefixm "$1"
 }
 
+pull_module() {
+	if [ ! -d "store/$1" ]
+	then
+		prefix "Module $1 not installed, skip pulling..."
+		return 0	
+	fi
+
+	prefix "Pulling $1 module...."
+	docker-compose -f "store/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-$1"  pull | prefixm "$1"
+}
+
 build_module() {
 	if [ ! -d "store/$1" ]
 	then
@@ -178,7 +190,7 @@ setup_module() {
 }
 
 update_module() {
-	if [ "$1" == "nginx" ] || [ "$1" == "auth" ] || [ "$1" == "nextcloud" ] || [ "$1" == "discourse" ] || [ "$1" == "mediawiki" ] ||  [ "$1" == "direktkredit" ]	
+	if [ "$1" == "nginx" ] || [ "$1" == "auth" ] || [ "$1" == "nextcloud" ] || [ "$1" == "discourse" ] || [ "$1" == "mediawiki" ] ||  [ "$1" == "direktkredit" ] ||  [ "$1" == "mailtrain" ]	
 	then
 		if [ ! -d "store/$1" ]
 		then
@@ -219,13 +231,13 @@ update_module() {
 			print_done
 		fi
 	else
-		prefixr "Module $1 unknown, available modules are: nginx, auth, nextcloud, discourse, direktkredit"
+		prefixr "Module $1 unknown, available modules are: nginx, auth, nextcloud, discourse, direktkredit, mailtrain"
 		return 1
 	fi
 }
 
 export_module() {
-	if [ "$1" == "nginx" ] || [ "$1" == "auth" ] || [ "$1" == "nextcloud" ] || [ "$1" == "discourse" ] || [ "$1" == "mediawiki" ] ||  [ "$1" == "direktkredit" ]	
+	if [ "$1" == "nginx" ] || [ "$1" == "auth" ] || [ "$1" == "nextcloud" ] || [ "$1" == "discourse" ] || [ "$1" == "mediawiki" ] ||  [ "$1" == "direktkredit" ] ||  [ "$1" == "mailtrain" ]		
 	then
 		if [ ! -d "store/$1" ]
 		then
@@ -245,7 +257,7 @@ export_module() {
 		print_done
 
 	else
-		prefixr "Module $1 unknown, available modules are: nginx, auth, nextcloud, discourse, direktkredit"
+		prefixr "Module $1 unknown, available modules are: nginx, auth, nextcloud, discourse, direktkredit, mailtrain"
 		return 1
 	fi
 }
@@ -345,7 +357,7 @@ then
 
 	if [ $2 == "all" ]
 	then
-		for setupModule in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit"
+		for setupModule in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit" "mailtrain"
 		do
 			check_exists "$setupModule" "$3"
 			if [ $? == "1" ] && [ "force" != "$3" ]
@@ -365,13 +377,13 @@ then
 			exit 1
 		fi
 
-		if [ "$2" == "nginx" ] || [ "$2" == "auth" ] || [ "$2" == "nextcloud" ] || [ "$2" == "discourse" ] || [ "$2" == "mediawiki" ] ||  [ "$2" == "direktkredit" ]
+		if [ "$2" == "nginx" ] || [ "$2" == "auth" ] || [ "$2" == "nextcloud" ] || [ "$2" == "discourse" ] || [ "$2" == "mediawiki" ] ||  [ "$2" == "direktkredit" ] ||  [ "$2" == "mailtrain" ]	
 		then
 			check_dependencies $2
 			setup_module $2
 			print_admin_credentials
 		else 
-			prefixr "Module $2 unknown, available modules are: nginx, auth, nextcloud, discourse, direktkredit"
+			prefixr "Module $2 unknown, available modules are: nginx, auth, nextcloud, discourse, direktkredit, mailtrain"
 			exit 1
 		fi
 	fi
@@ -385,7 +397,7 @@ then
 		exit 1
 	fi
 
-	if [ "$2" == "nginx" ] || [ "$2" == "auth" ] || [ "$2" == "nextcloud" ] || [ "$2" == "discourse" ] || [ "$2" == "mediawiki" ] ||  [ "$2" == "direktkredit" ]
+	if [ "$2" == "nginx" ] || [ "$2" == "auth" ] || [ "$2" == "nextcloud" ] || [ "$2" == "discourse" ] || [ "$2" == "mediawiki" ] ||  [ "$2" == "direktkredit" ] ||  [ "$2" == "mailtrain" ]	
 	then
 		read -p "Do you really want to remove module $2 (all data will be lost) [y/n] " -n 1 -r
 		echo    
@@ -396,11 +408,11 @@ then
 		check_child_dependecies $2
 		remove_module $2
 	else 
-		prefixr "Module $2 unknown, available modules are: nginx, auth, nextcloud, discourse, mediawiki, direktkredit"
+		prefixr "Module $2 unknown, available modules are: nginx, auth, nextcloud, discourse, mediawiki, direktkredit, mailtrain"
 	fi
 elif [ "$1" == "modules" ]
 then
-	for module in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit"
+	for module in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit" "mailtrain"
 	do
 		if [ -d "store/$module" ]
 		then
@@ -417,7 +429,7 @@ then
 		exit 1
 	elif [ "$2" == "all" ]
 	then
-		for updateModule in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit"
+		for updateModule in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit" "mailtrain"
 		do
 			update_module $updateModule
 		done
@@ -432,7 +444,7 @@ then
 		exit 1
 	elif [ "$2" == "all" ]
 	then
-		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit"
+		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit" "mailtrain"
 		do
 			start_module $mod
 		done
@@ -447,7 +459,7 @@ then
 		exit 1
 	elif [ "$2" == "all" ]
 	then
-		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit"
+		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit" "mailtrain"
 		do
 			build_module $mod
 		done
@@ -462,7 +474,7 @@ then
 		exit 1
 	elif [ "$2" == "all" ]
 	then
-		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit"
+		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit" "mailtrain"
 		do
 			restart_module $mod
 		done
@@ -477,7 +489,7 @@ then
 		exit 1
 	elif [ "$2" == "all" ]
 	then
-		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit"
+		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit" "mailtrain"
 		do
 			stop_module $mod
 		done
@@ -492,7 +504,7 @@ then
 		exit 1
 	elif [ "$2" == "all" ]
 	then
-		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit"
+		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit" "mailtrain"
 		do
 			down_module $mod
 		done
@@ -507,12 +519,27 @@ then
 		exit 1
 	elif [ "$2" == "all" ]
 	then
-		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit"
+		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit" "mailtrain"
 		do
 			up_module $mod
 		done
 	else
 		up_module $2
+	fi		
+elif [ "$1" == "pull" ]
+then
+	if [ -z "$2" ]
+	then
+		usage
+		exit 1
+	elif [ "$2" == "all" ]
+	then
+		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit" "mailtrain"
+		do
+			pull_module $mod
+		done
+	else
+		pull_module $2
 	fi		
 elif [ "$1" == "export" ]
 then
@@ -522,7 +549,7 @@ then
 		exit 1
 	elif [ "$2" == "all" ]
 	then
-		for exportModule in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit"
+		for exportModule in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit" "mailtrain"
 		do
 			export_module $exportModule
 		done
