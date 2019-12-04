@@ -25,6 +25,13 @@ export HABIDAT_DISCOURSE_ADMIN_PASSWORD="$(openssl rand -base64 12)"
 echo "export HABIDAT_DISCOURSE_DB_PASSWORD=$HABIDAT_DISCOURSE_DB_PASSWORD" > ../store/discourse/passwords.env
 echo "export HABIDAT_DISCOURSE_ADMIN_PASSWORD=$HABIDAT_DISCOURSE_ADMIN_PASSWORD" >> ../store/discourse/passwords.env
 
+if [ $HABIDAT_SMTP_TLS == "true" ]
+then
+	export HABIDAT_SMTP_TLS_YESNO=yes
+else
+	export HABIDAT_SMTP_TLS_YESNO=no
+fi
+
 envsubst < config/db.env > ../store/discourse/db.env
 envsubst < config/discourse.env > ../store/discourse/discourse.env
 
@@ -45,6 +52,7 @@ echo "Spinning up containers..."
 docker-compose -f ../store/discourse/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-discourse" up -d
 
 echo "Waiting for discourse container to initialize (this can take several minutes)..."
+sleep 10	
 # wait until discourse bootstrap is done
 until nc -z $(docker inspect "$HABIDAT_DOCKER_PREFIX-discourse" | grep IPAddress | tail -n1 | grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}') 3000
 do
@@ -61,7 +69,12 @@ docker-compose -f ../store/discourse/docker-compose.yml -p "$HABIDAT_DOCKER_PREF
 
 echo "Generating API key and update user service..."
 
-export HABIDAT_DISCOURSE_API_KEY=$(echo $(docker-compose -f ../store/discourse/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-discourse" exec -e RAILS_ENV=production -e BUNDLE_GEMFILE=/opt/bitnami/discourse/Gemfile discourse bundle exec rake -s -f /opt/bitnami/discourse/Rakefile api_key:get) | tr -d "\r" | awk '{print $NF}')
+unset HABIDAT_DISCOURSE_API_KEY
+export HABIDAT_DISCOURSE_API_KEY=$(echo $(docker-compose -f ../store/discourse/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-discourse" exec  -w /opt/bitnami/discourse -e RAILS_ENV=production discourse bundle exec rake -s api_key:get) | tr -d "\r" | awk '{print $NF}')
+while [ -z "$HABIDAT_DISCOURSE_API_KEY" ]
+do
+	sleep .5
+done
 echo "export HABIDAT_DISCOURSE_API_KEY=$HABIDAT_DISCOURSE_API_KEY" >> ../store/discourse/passwords.env
 
 # remove API vars from user module env
@@ -80,7 +93,7 @@ docker-compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-au
 echo "Theming..."
 # set colors
 curl -k --header "Content-Type: application/json" \
-        --request POST --data '{"color_scheme": { "base_scheme_id": "default", "colors": [ { "hex": "212121", "name": "primary" }, { "hex": "fafafa", "name": "secondary" }, { "hex": "448aff", "name": "tertiary" }, { "hex": "e92e4e", "name": "quaternary" }, { "hex": "a40023", "name": "header_background" }, { "hex": "ffffff", "name": "header_primary" }, { "hex": "ffff8d", "name": "highlight" }, { "hex": "ff6d00", "name": "danger" }, { "hex": "4caf50", "name": "success" }, { "hex": "fa6c8d", "name": "love" } ], "name": "habidat"}}' \
+        --request POST --data '{"color_scheme": { "base_scheme_id": "Light", "colors": [ { "hex": "212121", "name": "primary" }, { "hex": "fafafa", "name": "secondary" }, { "hex": "448aff", "name": "tertiary" }, { "hex": "e92e4e", "name": "quaternary" }, { "hex": "a40023", "name": "header_background" }, { "hex": "ffffff", "name": "header_primary" }, { "hex": "ffff8d", "name": "highlight" }, { "hex": "ff6d00", "name": "danger" }, { "hex": "4caf50", "name": "success" }, { "hex": "fa6c8d", "name": "love" } ], "name": "habidat"}}' \
         "$HABIDAT_PROTOCOL://$HABIDAT_DISCOURSE_SUBDOMAIN.$HABIDAT_DOMAIN/admin/color_schemes.json?api_username=admin&api_key=$HABIDAT_DISCOURSE_API_KEY"
 
 curl -k --header "Content-Type: application/json" \

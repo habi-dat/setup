@@ -48,9 +48,15 @@ envsubst < docker-compose.yml > ../store/nextcloud/docker-compose.yml
 echo "Spinning up containers..."
 
 docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" pull
+docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" build
 docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" up -d
-echo "Waiting for containers to start (20 seconds)..."
-sleep 20
+echo "Waiting for containers to start (2 minutes)..."
+sleep 120
+# wait until nextcloud bootstrap is done
+#until nc -z $(docker inspect "$HABIDAT_DOCKER_PREFIX-nextcloud" | grep IPAddress | tail -n1 | grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}') 80
+#do
+#	sleep .5	
+#done
 #docker-compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX" exec --user www-data nextcloud php occ maintenance:install --database "mysql" --database-host "db" --database-name "nextcloud"  --database-user "nextcloud" --database-pass "$HABIDAT_NEXTCLOUD_DB_PASSWORD" --admin-user "admin" --admin-pass "$HABIDAT_NEXTCLOUD_ADMIN_PASSWORD"
 
 echo "Configuring nextcloud..."

@@ -8,9 +8,6 @@ notification_email: info-no-reply@$HABIDAT_DISCOURSE_SUBDOMAIN.$HABIDAT_DOMAIN
 site_contact_username: admin
 logo_url: "/images/d-logo-sketch.png"
 logo_small_url: "/images/d-logo-sketch-small.png"
-company_short_name: habiDAT
-company_full_name: habiDAT
-company_domain: $HABIDAT_DOMAIN
 top_menu: latest|categories|new|unread|top
 share_links: email
 desktop_category_page_style: categories_and_latest_topics

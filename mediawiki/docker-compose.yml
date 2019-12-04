@@ -28,9 +28,9 @@ services:
         max-size: 50m
 
   web:
-#    image: habidat/mediawiki
-    build:
-      context: ../../../habidat-mediawiki
+    image: habidat/mediawiki
+#    build:
+#      context: ../../../habidat-mediawiki
     restart: unless-stopped
     container_name: $HABIDAT_DOCKER_PREFIX-mediawiki  
     env_file:

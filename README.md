@@ -77,7 +77,7 @@ then
 
 * direktkredit
 * discourse
-* medaiwiki
+* mediawiki
 * mailtrain
 
 You can also install all modules at once:
