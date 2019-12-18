@@ -151,7 +151,13 @@ up_module() {
 	fi
 
 	prefix "Upping $1 module...."
-	docker-compose -f "store/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-$1"  up -d | prefixm "$1"
+	if [ -f "$1/up.sh" ]
+	then
+		cd "$1"
+		./up.sh | prefixm $1		
+	else
+		docker-compose -f "store/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-$1"  up -d | prefixm "$1"
+    fi
 }
 
 pull_module() {
@@ -200,21 +206,21 @@ update_module() {
 		versionInstalled=$(cat store/$1/version)
 		versionSetup=$(cat $1/version)
 
-		if [ -z $versionSetup ]
+		if [ -z $versionSetup ] && [ "$2" != "force" ]
 		then
-			prefixr "Module $1: Setup version not found, cannot update"
+			prefixr "Module $1: Setup version not found, cannot update, use force option to update anyway"
 			return 1
-		elif [ -z $versionInstalled ]
+		elif [ -z $versionInstalled ] && [ "$2" != "force" ]
 		then
-			prefixr "Module $1: Installed version not found, cannot update"
+			prefixr "Module $1: Installed version not found, cannot update. Use force option to update anyway"
 			return 1			
-		elif [ $versionSetup == $versionInstalled ]
+		elif [ $versionSetup == $versionInstalled ] && [ "$2" != "force" ]
 		then
-			prefix "Module $1 is up to date, version $versionInstalled"
+			prefix "Module $1 is up to date, version $versionInstalled, use force option to update anyway"
 			return 0
-		elif [ $versionSetup < $versionInstalled ]
+		elif [ $versionSetup < $versionInstalled ] && [ "$2" != "force" ]
 		then
-			prefixr "Module $1: installed version $versionInstalled is higher than setup version $versionSetup, downgrad not possible"
+			prefixr "Module $1: installed version $versionInstalled is higher than setup version $versionSetup, downgrad not possible. Use force option to update anyway"
 			return 1
 		else
 			if [ ! -f "$1/update.sh" ]
@@ -431,10 +437,10 @@ then
 	then
 		for updateModule in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit" "mailtrain"
 		do
-			update_module $updateModule
+			update_module $updateModule $3
 		done
 	else
-		update_module $2
+		update_module $2 $3
 	fi
 elif [ "$1" == "start" ]
 then

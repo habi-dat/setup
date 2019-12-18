@@ -34,6 +34,7 @@ then
 	# generalte SSO certificates
 	echo "Generating SSO key and certificate..."
 	openssl req -new -x509 -days 3652 -nodes -out ../store/auth/cert/server.cert -keyout ../store/auth/cert/server.pem -subj "/C=AT/ST=Upper Austria/L=Linz/O=habiDAT/OU=SSO/CN=$HABIDAT_DOMAIN"
+	chown -R www-data:www-data ../store/auth/cert
 
 	export HABIDAT_SSO_CERTIFICATE=$(cat ../store/auth/cert/server.cert | sed --expression=':a;N;$!ba;s/\n/\\n/g')
 	echo "export HABIDAT_SSO_CERTIFICATE='$HABIDAT_SSO_CERTIFICATE'" >> ../store/auth/passwords.env

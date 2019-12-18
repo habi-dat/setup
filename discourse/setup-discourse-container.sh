@@ -5,7 +5,10 @@ RAILS_ENV=production bundle exec rake plugin:install repo=https://github.com/jon
 RAILS_ENV=production bundle exec rake plugin:install repo=https://github.com/soudis/discourse-allow-same-origin.git 
 RAILS_ENV=production bundle exec rake plugin:install repo=https://github.com/gdpelican/retort.git
 RAILS_ENV=production bundle exec rake assets:precompile
-RAILS_ENV=production bundle exec rake site_settings:import < /discourse-settings.yml
+if [ -f /discourse-settings.yml ]
+then
+	RAILS_ENV=production bundle exec rake site_settings:import < /discourse-settings.yml
+fi
 
 #apt update && apt install -y postgresql-client
 #docker-compose exec -e RAILS_ENV=production -e BUNDLE_GEMFILE=/opt/bitnami/discourse/Gemfile discourse bundle exec rake -s -f /opt/bitnami/discourse/Rakefile  plugin:install repo=https://github.com/jonmbake/discourse-ldap-auth.git
