@@ -36,9 +36,9 @@ services:
         max-size: 50m  
 
 $HABIDAT_SSO_DISABLE  sso:
-#$HABIDAT_SSO_DISABLE    image: habidat/sso
-    build:
-      context: ../../../habidat-sso
+$HABIDAT_SSO_DISABLE    image: habidat/sso
+#    build:
+#      context: ../../../habidat-sso
 $HABIDAT_SSO_DISABLE    restart: unless-stopped
 $HABIDAT_SSO_DISABLE    container_name: $HABIDAT_DOCKER_PREFIX-sso
 $HABIDAT_SSO_DISABLE    env_file:
