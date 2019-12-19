@@ -206,19 +206,19 @@ update_module() {
 		versionInstalled=$(cat store/$1/version)
 		versionSetup=$(cat $1/version)
 
-		if [ -z $versionSetup ] && [ "$2" != "force" ]
+		if [ -z "$versionSetup" ] && [ "$2" != "force" ]
 		then
 			prefixr "Module $1: Setup version not found, cannot update, use force option to update anyway"
 			return 1
-		elif [ -z $versionInstalled ] && [ "$2" != "force" ]
+		elif [ -z "$versionInstalled" ] && [ "$2" != "force" ]
 		then
 			prefixr "Module $1: Installed version not found, cannot update. Use force option to update anyway"
 			return 1			
-		elif [ $versionSetup == $versionInstalled ] && [ "$2" != "force" ]
+		elif [ "$versionSetup" == "$versionInstalled" ] && [ "$2" != "force" ]
 		then
 			prefix "Module $1 is up to date, version $versionInstalled, use force option to update anyway"
 			return 0
-		elif [ $versionSetup < $versionInstalled ] && [ "$2" != "force" ]
+		elif [ "$versionSetup" < "$versionInstalled" ] && [ "$2" != "force" ]
 		then
 			prefixr "Module $1: installed version $versionInstalled is higher than setup version $versionSetup, downgrad not possible. Use force option to update anyway"
 			return 1

@@ -4,7 +4,7 @@ title: $HABIDAT_TITLE
 site_description: $HABIDAT_DESCRIPTION
 contact_email: $HABIDAT_EMAIL
 contact_url: $HABIDAT_DOMAIN
-notification_email: info-no-reply@$HABIDAT_DISCOURSE_SUBDOMAIN.$HABIDAT_DOMAIN
+notification_email: $HABIDAT_SMTP_EMAILFROM
 site_contact_username: admin
 logo_url: "/images/d-logo-sketch.png"
 logo_small_url: "/images/d-logo-sketch-small.png"
