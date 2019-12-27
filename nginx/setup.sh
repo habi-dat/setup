@@ -3,6 +3,12 @@ set +x
 
 mkdir -p ../store/nginx
 
+echo "Create environment files..."
+if [ $HABIDAT_LETSENCRYPT != "true" ]
+then
+	export HABIDAT_LETSENCRYPT_DISABLE='#'
+fi
+
 envsubst < docker-compose.yml > ../store/nginx/docker-compose.yml
 
 echo "Spinning up containers..."

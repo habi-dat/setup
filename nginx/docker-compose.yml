@@ -24,15 +24,16 @@ services:
       options:
         max-size: 50m
 
-  nginx-letsencrypt-companion:
-    restart: unless-stopped
-    image: jrcs/letsencrypt-nginx-proxy-companion:v1.10
-    container_name: $HABIDAT_DOCKER_PREFIX-letsencrypt
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./certificates:/etc/nginx/certs:rw
-    environment:
-      - NGINX_DOCKER_GEN_CONTAINER=$HABIDAT_DOCKER_PREFIX-nginx
-    logging:
-      options:
-        max-size: 50m      
+$HABIDAT_LETSENCRYPT_DISABLE  nginx-letsencrypt-companion:
+$HABIDAT_LETSENCRYPT_DISABLE    restart: unless-stopped
+$HABIDAT_LETSENCRYPT_DISABLE    image: jrcs/letsencrypt-nginx-proxy-companion:v1.10
+$HABIDAT_LETSENCRYPT_DISABLE    container_name: $HABIDAT_DOCKER_PREFIX-letsencrypt
+$HABIDAT_LETSENCRYPT_DISABLE    volumes:
+$HABIDAT_LETSENCRYPT_DISABLE      - /var/run/docker.sock:/var/run/docker.sock:ro
+$HABIDAT_LETSENCRYPT_DISABLE      - ./certificates:/etc/nginx/certs:rw
+$HABIDAT_LETSENCRYPT_DISABLE    environment:
+$HABIDAT_LETSENCRYPT_DISABLE      - NGINX_DOCKER_GEN_CONTAINER=$HABIDAT_DOCKER_PREFIX-nginx
+$HABIDAT_LETSENCRYPT_DISABLE      - DEFAULT_EMAIL=$HABIDAT_ADMIN_EMAIL
+$HABIDAT_LETSENCRYPT_DISABLE    logging:
+$HABIDAT_LETSENCRYPT_DISABLE      options:
+$HABIDAT_LETSENCRYPT_DISABLE        max-size: 50m      
