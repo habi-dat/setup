@@ -1,0 +1,35 @@
+version: '3.5'
+
+volumes: 
+  data:
+  config:
+  plugins:
+  templates:
+
+networks:
+  $HABIDAT_DOCKER_PREFIX-proxy:
+    external:
+      name: $HABIDAT_DOCKER_PREFIX-proxy
+  $HABIDAT_DOCKER_PREFIX-back:
+    external:
+      name: $HABIDAT_DOCKER_PREFIX-back
+
+services:
+
+  web:
+    image: mprasil/dokuwiki
+    restart: unless-stopped
+    container_name: $HABIDAT_DOCKER_PREFIX-dokuwiki
+    env_file:
+      - ./web.env   
+    volumes:
+      - data:/dokuwiki/data
+      - config:/dokuwiki/conf
+      - plugins:/dokuwiki/lib/plugins
+      - templates:/dokuwiki/lib/tpl
+    networks:
+      - $HABIDAT_DOCKER_PREFIX-proxy
+      - $HABIDAT_DOCKER_PREFIX-back
+    logging:
+      options:
+        max-size: 50m

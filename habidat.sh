@@ -196,7 +196,7 @@ setup_module() {
 }
 
 update_module() {
-	if [ "$1" == "nginx" ] || [ "$1" == "auth" ] || [ "$1" == "nextcloud" ] || [ "$1" == "discourse" ] || [ "$1" == "mediawiki" ] ||  [ "$1" == "direktkredit" ] ||  [ "$1" == "mailtrain" ]	
+	if [ "$1" == "nginx" ] || [ "$1" == "auth" ] || [ "$1" == "nextcloud" ] || [ "$1" == "discourse" ] || [ "$1" == "mediawiki" ] || [ "$1" == "dokuwiki" ] ||  [ "$1" == "direktkredit" ] ||  [ "$1" == "mailtrain" ]	
 	then
 		if [ ! -d "store/$1" ]
 		then
@@ -237,13 +237,13 @@ update_module() {
 			print_done
 		fi
 	else
-		prefixr "Module $1 unknown, available modules are: nginx, auth, nextcloud, discourse, direktkredit, mailtrain"
+		prefixr "Module $1 unknown, available modules are: nginx, auth, nextcloud, discourse, mediawiki, dokuwiki, direktkredit, mailtrain"
 		return 1
 	fi
 }
 
 export_module() {
-	if [ "$1" == "nginx" ] || [ "$1" == "auth" ] || [ "$1" == "nextcloud" ] || [ "$1" == "discourse" ] || [ "$1" == "mediawiki" ] ||  [ "$1" == "direktkredit" ] ||  [ "$1" == "mailtrain" ]		
+	if [ "$1" == "nginx" ] || [ "$1" == "auth" ] || [ "$1" == "nextcloud" ] || [ "$1" == "discourse" ] || [ "$1" == "mediawiki" ] || [ "$1" == "dokuwiki" ] ||  [ "$1" == "direktkredit" ] ||  [ "$1" == "mailtrain" ]		
 	then
 		if [ ! -d "store/$1" ]
 		then
@@ -263,7 +263,7 @@ export_module() {
 		print_done
 
 	else
-		prefixr "Module $1 unknown, available modules are: nginx, auth, nextcloud, discourse, direktkredit, mailtrain"
+		prefixr "Module $1 unknown, available modules are: nginx, auth, nextcloud, discourse, mediawiki, dokuwiki, direktkredit, mailtrain"
 		return 1
 	fi
 }
@@ -363,7 +363,7 @@ then
 
 	if [ $2 == "all" ]
 	then
-		for setupModule in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit" "mailtrain"
+		for setupModule in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "dokuwiki" "direktkredit" "mailtrain"
 		do
 			check_exists "$setupModule" "$3"
 			if [ $? == "1" ] && [ "force" != "$3" ]
@@ -383,13 +383,13 @@ then
 			exit 1
 		fi
 
-		if [ "$2" == "nginx" ] || [ "$2" == "auth" ] || [ "$2" == "nextcloud" ] || [ "$2" == "discourse" ] || [ "$2" == "mediawiki" ] ||  [ "$2" == "direktkredit" ] ||  [ "$2" == "mailtrain" ]	
+		if [ "$2" == "nginx" ] || [ "$2" == "auth" ] || [ "$2" == "nextcloud" ] || [ "$2" == "discourse" ] || [ "$2" == "mediawiki" ] || [ "$2" == "dokuwiki" ] ||  [ "$2" == "direktkredit" ] ||  [ "$2" == "mailtrain" ]	
 		then
 			check_dependencies $2
 			setup_module $2
 			print_admin_credentials
 		else 
-			prefixr "Module $2 unknown, available modules are: nginx, auth, nextcloud, discourse, direktkredit, mailtrain"
+			prefixr "Module $2 unknown, available modules are: nginx, auth, nextcloud, discourse, mediawiki, dokuwiki, direktkredit, mailtrain"
 			exit 1
 		fi
 	fi
@@ -403,7 +403,7 @@ then
 		exit 1
 	fi
 
-	if [ "$2" == "nginx" ] || [ "$2" == "auth" ] || [ "$2" == "nextcloud" ] || [ "$2" == "discourse" ] || [ "$2" == "mediawiki" ] ||  [ "$2" == "direktkredit" ] ||  [ "$2" == "mailtrain" ]	
+	if [ "$2" == "nginx" ] || [ "$2" == "auth" ] || [ "$2" == "nextcloud" ] || [ "$2" == "discourse" ] || [ "$2" == "mediawiki" ] || [ "$2" == "dokuwiki" ] ||  [ "$2" == "direktkredit" ] ||  [ "$2" == "mailtrain" ]	
 	then
 		read -p "Do you really want to remove module $2 (all data will be lost) [y/n] " -n 1 -r
 		echo    
@@ -414,11 +414,11 @@ then
 		check_child_dependecies $2
 		remove_module $2
 	else 
-		prefixr "Module $2 unknown, available modules are: nginx, auth, nextcloud, discourse, mediawiki, direktkredit, mailtrain"
+		prefixr "Module $2 unknown, available modules are: nginx, auth, nextcloud, discourse, mediawiki, dokuwiki, direktkredit, mailtrain"
 	fi
 elif [ "$1" == "modules" ]
 then
-	for module in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit" "mailtrain"
+	for module in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "dokuwiki" "direktkredit" "mailtrain"
 	do
 		if [ -d "store/$module" ]
 		then
@@ -435,7 +435,7 @@ then
 		exit 1
 	elif [ "$2" == "all" ]
 	then
-		for updateModule in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit" "mailtrain"
+		for updateModule in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "dokuwiki" "direktkredit" "mailtrain"
 		do
 			update_module $updateModule $3
 		done
@@ -450,7 +450,7 @@ then
 		exit 1
 	elif [ "$2" == "all" ]
 	then
-		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit" "mailtrain"
+		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "dokuwiki" "direktkredit" "mailtrain"
 		do
 			start_module $mod
 		done
@@ -465,7 +465,7 @@ then
 		exit 1
 	elif [ "$2" == "all" ]
 	then
-		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit" "mailtrain"
+		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "dokuwiki" "direktkredit" "mailtrain"
 		do
 			build_module $mod
 		done
@@ -480,7 +480,7 @@ then
 		exit 1
 	elif [ "$2" == "all" ]
 	then
-		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit" "mailtrain"
+		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "dokuwiki" "direktkredit" "mailtrain"
 		do
 			restart_module $mod
 		done
@@ -495,7 +495,7 @@ then
 		exit 1
 	elif [ "$2" == "all" ]
 	then
-		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit" "mailtrain"
+		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "dokuwiki" "direktkredit" "mailtrain"
 		do
 			stop_module $mod
 		done
@@ -510,7 +510,7 @@ then
 		exit 1
 	elif [ "$2" == "all" ]
 	then
-		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit" "mailtrain"
+		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "dokuwiki" "direktkredit" "mailtrain"
 		do
 			down_module $mod
 		done
@@ -525,7 +525,7 @@ then
 		exit 1
 	elif [ "$2" == "all" ]
 	then
-		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit" "mailtrain"
+		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "dokuwiki" "direktkredit" "mailtrain"
 		do
 			up_module $mod
 		done
@@ -540,7 +540,7 @@ then
 		exit 1
 	elif [ "$2" == "all" ]
 	then
-		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit" "mailtrain"
+		for mod in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "dokuwiki" "direktkredit" "mailtrain"
 		do
 			pull_module $mod
 		done
@@ -555,7 +555,7 @@ then
 		exit 1
 	elif [ "$2" == "all" ]
 	then
-		for exportModule in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "direktkredit" "mailtrain"
+		for exportModule in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "dokuwiki" "direktkredit" "mailtrain"
 		do
 			export_module $exportModule
 		done

@@ -3,6 +3,7 @@ version: '3.5'
 volumes: 
   db:
   data:
+  redis:
 
 networks:
   $HABIDAT_DOCKER_PREFIX-proxy:
@@ -38,6 +39,20 @@ services:
     logging:
       options:
         max-size: 50m
+
+  redis:
+    image: 'bitnami/redis'
+    container_name: $HABIDAT_DOCKER_PREFIX-nextcloud-redis
+    restart: unless-stopped    
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+    volumes:
+      - redis:/bitnami
+    networks:
+      - $HABIDAT_DOCKER_PREFIX-back      
+    logging:
+      options:
+        max-size: 50m        
 
   nextcloud:
     image: habidat/nextcloud
