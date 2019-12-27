@@ -28,7 +28,8 @@ Also you need to have a domain and subdomains for the different apps:
 * Nextcloud app (e.g. cloud.example.com)
 * Discourse app (e.g. discourse.example.com)
 * Direct Loan app (e.g. direktkredit.example.com)
-* Semantic Mediawiki (e.g. wiki.example.com)
+* Semantic Mediawiki (e.g. mediawiki.example.com)
+* Dokuwiki (e.g. dokuwiki.example.com)
 * Mailtrain including public and sandbox subdomains (e.g. mailtrain.example.com, lists.example.com, sandbox.mailtrain.example.com)
 
 If you just want to have a local test installation add the following lines to your /etc/hosts files:
@@ -39,7 +40,8 @@ If you just want to have a local test installation add the following lines to yo
 127.0.0.1       sso.habidat.local
 127.0.0.1       discourse.habidat.local
 127.0.0.1       direktkredit.habidat.local
-127.0.0.1       wiki.habidat.local
+127.0.0.1       mediawiki.habidat.local
+127.0.0.1       dokuwiki.habidat.local
 127.0.0.1       mailtrain.habidat.local
 127.0.0.1       sandbox.mailtrain.habidat.local
 127.0.0.1       lists.habidat.local
@@ -78,6 +80,7 @@ then
 * direktkredit
 * discourse
 * mediawiki
+* dokuwiki
 * mailtrain
 
 You can also install all modules at once:
@@ -167,5 +170,5 @@ This project is in an early development stage, please only use for testing purpo
 ## Known Issues
 
 * Mediawiki shows and error message after login, even though it actually logs in
-* Nextcloud sometimes does not install, just try again until it does not show any error messages with ./habidat.sh install nextcloud force
+* Dokuwiki module does not support SAML SSO yet
 
