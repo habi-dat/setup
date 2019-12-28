@@ -3,6 +3,7 @@ set +x
 
 mkdir -p ../store/discourse
 
+source ../store/nginx/networks.env
 source ../store/nextcloud/passwords.env
 
 #export HABIDAT_TITLE='habi*DAT'

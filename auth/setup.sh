@@ -1,6 +1,8 @@
 #!/bin/bash
 set +x
 
+source ../store/nginx/networks.env
+
 #export HABIDAT_LDAP_BASE=dc=habidat-staging
 #export HABIDAT_LDAP_ADMIN_PASSWORD=A5AFsfDrsr4DYswQ
 

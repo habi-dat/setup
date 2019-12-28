@@ -1,6 +1,7 @@
 #!/bin/bash
 set +x
 
+source ../store/nginx/networks.env
 source ../store/auth/passwords.env
 
 mkdir -p ../store/mailtrain
@@ -36,6 +37,7 @@ fi
 echo "Spinning up containers..."
 
 # docker-compose -f ../store/mailtrain/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mailtrain" build
+docker-compose -f ../store/mailtrain/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mailtrain" pull
 docker-compose -f ../store/mailtrain/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mailtrain" up -d
 docker-compose -f ../store/mailtrain/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mailtrain" exec mailtrain npm install passport-ldapauth
 docker-compose -f ../store/mailtrain/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mailtrain" restart mailtrain

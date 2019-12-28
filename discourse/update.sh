@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
 
+source ../store/nginx/networks.env
 source ../store/auth/passwords.env
 source ../store/nextcloud/passwords.env
 source ../store/discourse/passwords.env

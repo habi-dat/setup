@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
 
+source ../store/nginx/networks.env
 source ../store/auth/passwords.env
 
 mkdir -p ../store/nextcloud

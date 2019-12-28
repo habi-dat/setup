@@ -11,7 +11,7 @@ volumes:
 networks:
   $HABIDAT_DOCKER_PREFIX-proxy:
     external:
-      name: $HABIDAT_DOCKER_PREFIX-proxy
+      name: $HABIDAT_PROXY_NETWORK
   $HABIDAT_DOCKER_PREFIX-back:
     external:
       name: $HABIDAT_DOCKER_PREFIX-back
@@ -91,7 +91,7 @@ services:
 #      context: https://github.com/Mailtrain-org/mailtrain.git#development
     container_name: $HABIDAT_DOCKER_PREFIX-mailtrain   
     restart: unless-stopped    
-    command: --trustedUrlBase https://$HABIDAT_MAILTRAIN_SUBDOMAIN.$HABIDAT_DOMAIN --sandboxUrlBase https://$HABIDAT_MAILTRAIN_SANDBOX_SUBDOMAIN.$HABIDAT_DOMAIN --publicUrlBase https://$HABIDAT_MAILTRAIN_PUBLIC_SUBDOMAIN.$HABIDAT_DOMAIN --withProxy --mongoHost $HABIDAT_DOCKER_PREFIX-mailtrain-mongo --redisHost $HABIDAT_DOCKER_PREFIX-mailtrain-redis
+#    command: --withProxy
     env_file:
       - ./mailtrain.env
     ports:
@@ -100,8 +100,6 @@ services:
     - "3004:3004"
     volumes:
     - files:/app/server/files
-    - reports:/app/protected/reports
-    - modules:/app/node_modules
     - ./local-production.yaml:/app/server/config/local-production.yaml
     networks:
       - $HABIDAT_DOCKER_PREFIX-back

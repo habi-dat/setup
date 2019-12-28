@@ -8,7 +8,7 @@ $HABIDAT_SSO_DISABLE  sso-config:
 networks:
   $HABIDAT_DOCKER_PREFIX-proxy:
     external:
-      name: $HABIDAT_DOCKER_PREFIX-proxy
+      name: $HABIDAT_PROXY_NETWORK
   $HABIDAT_DOCKER_PREFIX-back:
     driver: bridge  
     name: $HABIDAT_DOCKER_PREFIX-back

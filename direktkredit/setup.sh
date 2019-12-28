@@ -1,6 +1,7 @@
 #!/bin/bash
 set +x
 
+source ../store/nginx/networks.env
 source ../store/auth/passwords.env
 
 mkdir -p ../store/direktkredit
