@@ -63,7 +63,7 @@ envsubst < config/bootstrap.ldif > ../store/auth/bootstrap/bootstrap.ldif
 
 if [ $HABIDAT_CREATE_SELFSIGNED == "true" ]
 then
-#	openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 \
+#	openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 \a
 #    -subj "/C=US/ST=Denial/L=Springfield/O=Dis/CN=$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN" \
 #    -keyout "../store/nginx/certificates/$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN.key"  -out "../store/nginx/certificates/$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN.crt"
 
@@ -81,7 +81,7 @@ else
 	export HABIDAT_INTERNAL_NETWORK_DISABLE='#'
 	export HABIDAT_EXTERNAL_NETWORK_DISABLE=
 fi
-echo "export HABIDAT_BACKEND_NETWORK=$HABIDAT_BACKEND_NETWORK" > ../store/nginx/networks.env
+echo "export HABIDAT_BACKEND_NETWORK=$HABIDAT_BACKEND_NETWORK" >> ../store/nginx/networks.env
 
 
 envsubst < docker-compose.yml > ../store/auth/docker-compose.yml
