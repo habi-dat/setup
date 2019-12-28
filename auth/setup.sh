@@ -71,6 +71,19 @@ then
 	echo "CERT_NAME=$HABIDAT_DOMAIN" >> ../store/auth/user.env
 fi
 
+if [ -z $HABIDAT_EXISTING_BACKEND_NETWORK ]
+then
+	export HABIDAT_BACKEND_NETWORK="$HABIDAT_DOCKER_PREFIX-backend"
+	export HABIDAT_EXTERNAL_NETWORK_DISABLE='#'
+	export HABIDAT_INTERNAL_NETWORK_DISABLE=
+else
+	export HABIDAT_BACKEND_NETWORK="$HABIDAT_EXISTING_BACKEND_NETWORK"
+	export HABIDAT_INTERNAL_NETWORK_DISABLE='#'
+	export HABIDAT_EXTERNAL_NETWORK_DISABLE=
+fi
+echo "export HABIDAT_BACKEND_NETWORK=$HABIDAT_BACKEND_NETWORK" > ../store/nginx/networks.env
+
+
 envsubst < docker-compose.yml > ../store/auth/docker-compose.yml
 
 echo "Spinning up containers..."

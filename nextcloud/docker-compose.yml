@@ -11,7 +11,7 @@ networks:
       name: $HABIDAT_PROXY_NETWORK
   $HABIDAT_DOCKER_PREFIX-back:
     external:
-      name: $HABIDAT_DOCKER_PREFIX-back
+      name: $HABIDAT_BACKEND_NETWORK
 
 services:  
   db:
