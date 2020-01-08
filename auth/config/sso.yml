@@ -38,7 +38,7 @@ sp_remote:
     nameidformat:               urn:oasis:names:tc:SAML:2.0:nameid-format:unspecified
     ssnameidattribute:          uid
     ssattributes:               true
-    singlelogoutservice:        https://$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN/saml/logout   
+    singlelogoutservice:        https://$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN/saml/consume   
   - entityid:                   https://$HABIDAT_MEDIAWIKI_SUBDOMAIN.$HABIDAT_DOMAIN/extensions/SamlSingleSignOnAuth/
     assertionconsumerservice:   https://$HABIDAT_MEDIAWIKI_SUBDOMAIN.$HABIDAT_DOMAIN/
     nameidformat:               urn:oasis:names:tc:SAML:2.0:nameid-format:unspecified
