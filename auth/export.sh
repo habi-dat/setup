@@ -12,6 +12,7 @@ docker-compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-au
 #slapadd -v -c -l backup.ldif
 DATE=$(date +"%Y%m%d%H%M")
 docker cp "$HABIDAT_DOCKER_PREFIX-ldap":/backup.ldif ../store/export/auth/export-$DATE.ldif
+sed -f export.sed ../store/export/auth/export-$DATE.ldif
 echo "Compressing data..."
 cd ../store/export/auth/ 
 tar -czf auth-$DATE.tar.gz export-$DATE.ldif

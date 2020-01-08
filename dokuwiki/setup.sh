@@ -66,4 +66,4 @@ sed -i '/HABIDAT_DOKUWIKI_SUBDOMAIN/d' ../store/nextcloud/nextcloud.env
 echo "HABIDAT_DOKUWIKI_SUBDOMAIN=$HABIDAT_DOKUWIKI_SUBDOMAIN" >> ../store/nextcloud/nextcloud.env
 docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" up -d nextcloud
 sleep 5
-docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud /habidat-update-externalsites.sh
+docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud /habidat-add-externalsite.sh dokuwiki

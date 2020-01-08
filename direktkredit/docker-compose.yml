@@ -31,7 +31,7 @@ services:
         max-size: 50m
 
   web:
-    image: habidat/direktkredit:1.0
+    image: habidat/direktkredit
     restart: unless-stopped
     container_name: $HABIDAT_DOCKER_PREFIX-direktkredit  
     env_file:

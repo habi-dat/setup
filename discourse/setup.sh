@@ -105,6 +105,9 @@ echo
 
 docker-compose -f ../store/discourse/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-discourse" restart discourse
 
+echo "Add link to nextcloud..."
+docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud /habidat-add-externalsite.sh discourse
+
 
 
 #docker-compose -f ../nextcloud/docker-compose.yml exec --user www-data nextcloud php occ config:app:set discoursesso clientsecret --value="$HABIDAT_DISCOURSE_SSO_SECRET"

@@ -218,7 +218,7 @@ update_module() {
 		then
 			prefix "Module $1 is up to date, version $versionInstalled, use force option to update anyway"
 			return 0
-		elif [ "$versionSetup" < "$versionInstalled" ] && [ "$2" != "force" ]
+		elif [ "v$versionSetup" < "v$versionInstalled" ] && [ "$2" != "force" ]
 		then
 			prefixr "Module $1: installed version $versionInstalled is higher than setup version $versionSetup, downgrad not possible. Use force option to update anyway"
 			return 1
