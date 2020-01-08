@@ -22,7 +22,7 @@ echo "Exporting ldap data..."
 
 docker-compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" exec ldap slapcat -l /backup.ldif -H 'ldap:///???(&(!(objectClass=organizationalRole))(!(objectClass=dcObject))(!(objectClass=organizationalUnit)))'
 docker cp "$HABIDAT_DOCKER_PREFIX-ldap":/backup.ldif ../store/auth/bootstrap/import.ldif
-sed -f export.sed ../store/auth/bootstrap/import.ldif >> ../store/auth/bootstrap/import.ldif
+sed -f export.sed ../store/auth/bootstrap/import.ldif > ../store/auth/bootstrap/import.ldif
 
 echo "Pulling images and recreate containers..."
 
