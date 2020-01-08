@@ -6,7 +6,7 @@ source ../store/nginx/networks.env
 if [ -z $HABIDAT_EXISTING_NGINX_GENERATOR_NETWORK ]
 then
 
-	if [ $HABIDAT_LETSENCRYPT != "true" ]
+	if [ "$HABIDAT_LETSENCRYPT" != "true" ]
 	then
 		export HABIDAT_LETSENCRYPT_DISABLE='#'
 	fi
