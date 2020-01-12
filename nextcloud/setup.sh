@@ -22,6 +22,7 @@ echo "export HABIDAT_DISCOURSE_SSO_SECRET=$HABIDAT_DISCOURSE_SSO_SECRET" >> ../s
 envsubst < config/db.env > ../store/nextcloud/db.env
 envsubst < config/nextcloud.env > ../store/nextcloud/nextcloud.env
 
+
 #export HABIDAT_NEXTCLOUD_SUBDOMAIN="cloud"
 #export HABIDAT_DOMAIN="habidat-staging"
 #export HABIDAT_PROTOCOL="http"
@@ -68,3 +69,12 @@ docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREF
 docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec db mysql -u nextcloud --password="$HABIDAT_NEXTCLOUD_DB_PASSWORD" -e "insert into oc_ldap_group_mapping (ldap_dn, owncloud_name, directory_uuid) values ('cn=admins,ou=groups,$HABIDAT_LDAP_BASE', 'admin', 'admin')" nextcloud 
 
 docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" restart nextcloud
+
+echo "Configuring user module..."
+
+# remove nextcloud vars from user module env
+sed -i '/HABIDAT_USER_NEXTCLOUD_DB_PASSWORD=/d' ../store/auth/user.env
+
+# rewrite API vars to user module env
+echo "HABIDAT_USER_NEXTCLOUD_DB_PASSWORD=$HABIDAT_NEXTCLOUD_DB_PASSWORD" >> ../store/auth/user.env
+docker-compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d user
