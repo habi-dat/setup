@@ -90,19 +90,6 @@ echo "HABIDAT_DISCOURSE_API_USERNAME=admin" >> ../store/auth/user.env
 
 docker-compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d user
 
-
-echo "Theming..."
-# set colors
-curl -k --header "Content-Type: application/json" \
-        --request POST --data '{"color_scheme": { "base_scheme_id": "Light", "colors": [ { "hex": "212121", "name": "primary" }, { "hex": "fafafa", "name": "secondary" }, { "hex": "448aff", "name": "tertiary" }, { "hex": "e92e4e", "name": "quaternary" }, { "hex": "a40023", "name": "header_background" }, { "hex": "ffffff", "name": "header_primary" }, { "hex": "ffff8d", "name": "highlight" }, { "hex": "ff6d00", "name": "danger" }, { "hex": "4caf50", "name": "success" }, { "hex": "fa6c8d", "name": "love" } ], "name": "habidat"}}' \
-        "$HABIDAT_PROTOCOL://$HABIDAT_DISCOURSE_SUBDOMAIN.$HABIDAT_DOMAIN/admin/color_schemes.json?api_username=admin&api_key=$HABIDAT_DISCOURSE_API_KEY"
-
-curl -k --header "Content-Type: application/json" \
-        --request PUT --data '{"theme": {"color_scheme_id": "2" }}' \
-        "$HABIDAT_PROTOCOL://$HABIDAT_DISCOURSE_SUBDOMAIN.$HABIDAT_DOMAIN/admin/themes/2?api_username=admin&api_key=$HABIDAT_DISCOURSE_API_KEY"
-
-echo
-
 docker-compose -f ../store/discourse/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-discourse" restart discourse
 
 echo "Add link to nextcloud..."
