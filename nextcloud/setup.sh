@@ -72,8 +72,6 @@ docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREF
 
 echo "Configuring user module..."
 
-HABIDAT_USER_NEXTCLOUD_API_URL=https://$HABIDAT_NEXTCLOUD_SUBDOMAIN.$HABIDAT_DOMAIN
-
 # remove nextcloud vars from user module env
 sed -i '/HABIDAT_USER_NEXTCLOUD_DB_PASSWORD=/d' ../store/auth/user.env
 sed -i '/HABIDAT_USER_NEXTCLOUD_API_URL=/d' ../store/auth/user.env
