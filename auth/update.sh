@@ -33,7 +33,7 @@ then
 	sleep 10
 	docker-compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" restart user
 else
-	echo "Exported LDIF is empty, aborting update to prevent data loss..."	
+	echo "Exported LDIF is empty, abort update to prevent data loss..."	
 fi
 
 

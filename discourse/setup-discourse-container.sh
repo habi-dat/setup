@@ -2,8 +2,21 @@
 set +x
 cd /opt/bitnami/discourse 
 RAILS_ENV=production bundle exec rake plugin:install repo=https://github.com/jonmbake/discourse-ldap-auth.git
-RAILS_ENV=production bundle exec rake plugin:install repo=https://github.com/soudis/discourse-allow-same-origin.git 
 RAILS_ENV=production bundle exec rake plugin:install repo=https://github.com/gdpelican/retort.git
+RAILS_ENV=production bundle exec rake plugin:install repo=https://github.com/soudis/discourse-allow-same-origin.git 
+
+HABIDAT_DISCOURSE_API_KEY=$(RAILS_ENV=production bundle exec rake -s api_key:get  | tr -d "\r" | awk '{print $NF}')
+
+curl -k --header "Content-Type: application/json" \
+        --request POST --data '{"color_scheme": { "base_scheme_id": "Light", "colors": [ { "hex": "212121", "name": "primary" }, { "hex": "fafafa", "name": "secondary" }, { "hex": "448aff", "name": "tertiary" }, { "hex": "e92e4e", "name": "quaternary" }, { "hex": "a40023", "name": "header_background" }, { "hex": "ffffff", "name": "header_primary" }, { "hex": "ffff8d", "name": "highlight" }, { "hex": "ff6d00", "name": "danger" }, { "hex": "4caf50", "name": "success" }, { "hex": "fa6c8d", "name": "love" } ], "name": "habidat"}}' \
+        "http://localhost:3000/admin/color_schemes.json?api_username=admin&api_key=$HABIDAT_DISCOURSE_API_KEY"
+
+curl -k --header "Content-Type: application/json" \
+        --request PUT --data '{"theme": {"color_scheme_id": "2" }}' \
+        "http://localhost:3000/admin/themes/2?api_username=admin&api_key=$HABIDAT_DISCOURSE_API_KEY"
+
+
+RAILS_ENV=production bundle exec rake db:migrate
 RAILS_ENV=production bundle exec rake assets:precompile
 if [ -f /discourse-settings.yml ]
 then
