@@ -73,6 +73,40 @@ print_done() {
 	prefix "DONE"
 }
 
+update_installed_modules() {
+	if [ -d "store/auth" ]
+	then
+		HABIDAT_USER_INSTALLED_MODULES="nginx,auth"
+		if [ -d "store/nextcloud" ]
+		then
+  			HABIDAT_USER_INSTALLED_MODULES="$HABIDAT_USER_INSTALLED_MODULES,nextcloud"
+		fi
+		if [ -d "store/discourse" ]
+		then
+  			HABIDAT_USER_INSTALLED_MODULES="$HABIDAT_USER_INSTALLED_MODULES,discourse"
+		fi
+		if [ -d "store/direktkredit" ]
+		then
+  			HABIDAT_USER_INSTALLED_MODULES="$HABIDAT_USER_INSTALLED_MODULES,direktkredit"
+		fi
+		if [ -d "store/dokuwiki" ]
+		then
+  			HABIDAT_USER_INSTALLED_MODULES="$HABIDAT_USER_INSTALLED_MODULES,dokuwiki"
+		fi
+		if [ -d "store/mediawiki" ]
+		then
+  			HABIDAT_USER_INSTALLED_MODULES="$HABIDAT_USER_INSTALLED_MODULES,mediawiki"
+		fi
+		if [ -d "store/mailtrain" ]
+		then
+  			HABIDAT_USER_INSTALLED_MODULES="$HABIDAT_USER_INSTALLED_MODULES,mailtrain"
+		fi
+		sed -i '/HABIDAT_USER_INSTALLED_MODULES/d' store/auth/user.env
+		echo "HABIDAT_USER_INSTALLED_MODULES=$HABIDAT_USER_INSTALLED_MODULES" >> store/auth/user.env		
+		docker-compose -f store/auth/docker-compose.yml -p $HABIDAT_DOCKER_PREFIX-auth up -d user
+	fi
+}
+
 check_exists() {
 	if [ -d "store/$1" ]
 	then
@@ -97,6 +131,7 @@ remove_module() {
 	prefix "Removing $1 module...."
 	docker-compose -f "store/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-$1"  down -v --remove-orphans | prefixm "$1"
 	rm -rf "store/$1"	
+    update_installed_modules		
 }
 
 start_module() {
@@ -192,6 +227,7 @@ setup_module() {
 	  cp dependencies "../store/$1"
 	fi
 	cd ..
+    update_installed_modules	
 	print_done		
 }
 

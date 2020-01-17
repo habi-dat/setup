@@ -45,6 +45,9 @@ then
 	echo "export HABIDAT_SSO_CERTIFICATE_SINGLE_LINE='$HABIDAT_SSO_CERTIFICATE_SINGLE_LINE'" >> ../store/auth/passwords.env
 fi
 
+# set installed modules
+export HABIDAT_USER_INSTALLED_MODULES="nginx,auth,"
+
 echo "Create environment files..."
 if [ $HABIDAT_SSO == "true" ]
 then

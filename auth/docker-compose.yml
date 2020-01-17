@@ -3,6 +3,7 @@ version: '3.5'
 volumes: 
   ldap-data:
   ldap-config:
+  user-data:
 $HABIDAT_SSO_DISABLE  sso-config:
 
 networks:
@@ -64,8 +65,8 @@ $HABIDAT_SSO_DISABLE        max-size: 50m
     container_name: $HABIDAT_DOCKER_PREFIX-user
     env_file:
       - ./user.env
-#    volumes:
-#      - ../store/auth/user-config.json:/habidat-user/config/config.json
+    volumes:
+      - user-data:/habidat-user/data
     ports:
       - 8090
     #command: node app.js
