@@ -12,7 +12,7 @@ habi\*DAT is a collaboration platform comprised of an ldap user backend, a nextc
 
 Make sure you have linux machine ready, are logged in as root and have the following software installed:
 
-* envsubst (debian package gettext-base)
+* envsubst (debian package gettext-base, redhat/centos package gettext)
 * curl
 * docker
 * docker-compose
