@@ -12,11 +12,13 @@ docker-compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-au
 #slapadd -v -c -l backup.ldif
 DATE=$(date +"%Y%m%d%H%M")
 docker cp "$HABIDAT_DOCKER_PREFIX-ldap":/backup.ldif $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/export-$DATE.ldif.tmp
+docker cp "$HABIDAT_DOCKER_PREFIX-user":/habidat-user/data/activationStore.json $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/activationStore-$DATE.json
 sed -f export.sed $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/export-$DATE.ldif.tmp > $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/export-$DATE.ldif
 rm $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/export-$DATE.ldif.tmp
 echo "Compressing data..."
 cd $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth 
-tar -czf auth-$DATE.tar.gz export-$DATE.ldif
+tar -czf auth-$DATE.tar.gz export-$DATE.ldif activationStore-$DATE.json
 rm export-$DATE.ldif
+rm activationStore-$DATE.json
 
 echo "Finished, filename: $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/auth-$DATE.tar.gz"
