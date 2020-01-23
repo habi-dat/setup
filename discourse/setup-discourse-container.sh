@@ -12,9 +12,8 @@ curl -k --header "Content-Type: application/json" \
         "http://localhost:3000/admin/color_schemes.json?api_username=admin&api_key=$HABIDAT_DISCOURSE_API_KEY"
 
 curl -k --header "Content-Type: application/json" \
-        --request PUT --data '{"theme": {"color_scheme_id": "2" }}' \
+        --request PUT --data '{"theme":{"color_scheme_id": "2", "theme_fields":[{"name":"scss","target":"common","value":"@import url(\"https://'$HABIDAT_USER_SUBDOMAIN'.'$HABIDAT_DOMAIN'/public/stylesheets/appmenu.css\");","type_id":1},{"name":"header","target":"common","value":"<script> $(document).ready(function(){ $.get(\"https://'$HABIDAT_USER_DOMAIN'.'$HABIDAT_DOMAIN'/appmenu/'$HABIDAT_DISCOURSE_SUBDOMAIN'.'$HABIDAT_DOMAIN'\", function( data ) { $(\"#site-logo\").parent().parent().prepend( data );});})</script>","type_id":0}]}}' \
         "http://localhost:3000/admin/themes/2?api_username=admin&api_key=$HABIDAT_DISCOURSE_API_KEY"
-
 
 RAILS_ENV=production bundle exec rake db:migrate
 RAILS_ENV=production bundle exec rake assets:precompile
