@@ -27,12 +27,12 @@ idp_hosted:
     authsource:      ldap
 
 sp_remote: 
-  - entityid:                   https://$HABIDAT_NEXTCLOUD_SUBDOMAIN.$HABIDAT_DOMAIN/index.php/apps/user_saml/saml/metadata
-    assertionconsumerservice:   https://$HABIDAT_NEXTCLOUD_SUBDOMAIN.$HABIDAT_DOMAIN/index.php/apps/user_saml/saml/acs
+  - entityid:                   https://$HABIDAT_NEXTCLOUD_SUBDOMAIN.$HABIDAT_DOMAIN/apps/user_saml/saml/metadata
+    assertionconsumerservice:   https://$HABIDAT_NEXTCLOUD_SUBDOMAIN.$HABIDAT_DOMAIN/apps/user_saml/saml/acs
     nameidformat:               urn:oasis:names:tc:SAML:2.0:nameid-format:unspecified
     ssnameidattribute:          uid
     ssattributes:               true
-    singlelogoutservice:        https://$HABIDAT_NEXTCLOUD_SUBDOMAIN.$HABIDAT_DOMAIN/index.php/apps/user_saml/saml/sls    
+    singlelogoutservice:        https://$HABIDAT_NEXTCLOUD_SUBDOMAIN.$HABIDAT_DOMAIN/apps/user_saml/saml/sls    
   - entityid:                   https://$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN
     assertionconsumerservice:   https://$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN/saml/consume
     nameidformat:               urn:oasis:names:tc:SAML:2.0:nameid-format:unspecified

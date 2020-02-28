@@ -46,7 +46,7 @@ services:
         max-size: 50m
 
   sidekiq:
-    image: 'bitnami/discourse:2.3.8'
+    image: 'bitnami/discourse:2.4.0'
     container_name: $HABIDAT_DOCKER_PREFIX-discourse-sidekiq
     restart: unless-stopped     
     depends_on:
@@ -63,7 +63,7 @@ services:
         max-size: 50m
 
   discourse:
-    image: 'bitnami/discourse:2.3.8'
+    image: 'bitnami/discourse:2.4.0'
     container_name: $HABIDAT_DOCKER_PREFIX-discourse
     restart: unless-stopped     
     ports:
