@@ -30,7 +30,7 @@ then
 	docker-compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" pull
 	docker-compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d 
 
-	docker cp ../store/export/auth/activationStore-$DATE.json "$HABIDAT_DOCKER_PREFIX-user":/habidat-user/data/
+	docker cp ../store/export/auth/activationStore-$DATE.json "$HABIDAT_DOCKER_PREFIX-user":/habidat-user/data/activationStore.json
 	rm ../store/export/auth/activationStore-$DATE.json
 
 	echo "Restarting user module..."
