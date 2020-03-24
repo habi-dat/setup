@@ -23,5 +23,5 @@ sed -i '/HABIDAT_USER_NEXTCLOUD_API_URL=/d' ../store/auth/user.env
 
 # rewrite API vars to user module env
 echo "HABIDAT_USER_NEXTCLOUD_DB_PASSWORD=$HABIDAT_NEXTCLOUD_DB_PASSWORD" >> ../store/auth/user.env
-echo "HABIDAT_USER_NEXTCLOUD_API_URL=https://admin:$HABIDAT_ADMIN_PASSWORD@$HABIDAT_NEXTCLOUD_SUBDOMAIN.$HABIDAT_DOMAIN/ocs/v1.php" >> ../store/auth/user.env
+echo "HABIDAT_USER_NEXTCLOUD_API_URL=http://admin:$HABIDAT_ADMIN_PASSWORD@$HABIDAT_DOCKER_PREFIX-nextcloud/ocs/v1.php" >> ../store/auth/user.env
 docker-compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d user
