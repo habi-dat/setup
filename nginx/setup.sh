@@ -17,6 +17,8 @@ then
 
 	envsubst < docker-compose.yml > ../store/nginx/docker-compose.yml
 
+	cp nginx.conf ../store/nginx
+
 	echo "Spinning up containers..."
 
 	docker-compose -f ../store/nginx/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nginx" up -d
