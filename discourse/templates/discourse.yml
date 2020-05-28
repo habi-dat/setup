@@ -1,0 +1,119 @@
+# IMPORTANT: SET A SECRET PASSWORD in Postgres for the Discourse User
+# TODO: change SOME_SECRET in this template
+
+templates:
+  - "templates/web.template.yml"
+  - "templates/web.ratelimited.template.yml"
+## Uncomment these two lines if you wish to add Lets Encrypt (https)
+  #- "templates/web.ssl.template.yml"
+  #- "templates/web.letsencrypt.ssl.template.yml"
+
+## which TCP/IP ports should this container expose?
+## If you want Discourse to share a port with another webserver like Apache or nginx,
+## see https://meta.discourse.org/t/17247 for details
+expose:
+  - "80"   # http
+
+# Use 'links' key to link containers together, aka use Docker --link flag.
+#links:
+#  - link:
+#      name: $HABIDAT_DOCKER_PREFIX-discourse-data
+#      alias: data
+
+# any extra arguments for Docker?
+# docker_args:
+
+docker_args:
+  - "--network=$HABIDAT_BACKEND_NETWORK"
+
+params:
+  ## Which Git revision should this container use? (default: tests-passed)
+  version: stable
+
+env:
+  LANG: en_US.UTF-8
+  DISCOURSE_DEFAULT_LOCALE: de
+
+  ## How many concurrent web requests are supported? Depends on memory and CPU cores.
+  ## will be set automatically by bootstrap based on detected CPUs, or you can override
+  #UNICORN_WORKERS: 3
+
+  ## TODO: The domain name this Discourse instance will respond to
+  DISCOURSE_HOSTNAME: '$HABIDAT_DISCOURSE_SUBDOMAIN.$HABIDAT_DOMAIN'
+  VIRTUAL_HOST: '$HABIDAT_DISCOURSE_SUBDOMAIN.$HABIDAT_DOMAIN'
+
+  ## Uncomment if you want the container to be started with the same
+  ## hostname (-h option) as specified above (default "$hostname-$config")
+  #DOCKER_USE_HOSTNAME: true
+
+  ## TODO: List of comma delimited emails that will be made admin and developer
+  ## on initial signup example 'user1@example.com,user2@example.com'
+  DISCOURSE_DEVELOPER_EMAILS: '$HABIDAT_ADMIN_EMAIL'
+
+  ## TODO: The SMTP mail server used to validate new accounts and send notifications
+  # SMTP ADDRESS, username, and password are required
+  # WARNING the char '#' in SMTP password can cause problems!
+  DISCOURSE_SMTP_ADDRESS: $HABIDAT_SMTP_HOST
+  DISCOURSE_SMTP_PORT: $HABIDAT_SMTP_PORT
+  DISCOURSE_SMTP_USER_NAME: $HABIDAT_SMTP_USER
+  DISCOURSE_SMTP_PASSWORD: '$HABIDAT_SMTP_PASSWORD'
+  DISCOURSE_SMTP_ENABLE_START_TLS: $HABIDAT_SMTP_TLS
+
+  ## If you added the Lets Encrypt template, uncomment below to get a free SSL certificate
+  #LETSENCRYPT_ACCOUNT_EMAIL: me@example.com
+
+  ## TODO: configure connectivity to the databases
+  DISCOURSE_DB_SOCKET: ''
+  #DISCOURSE_DB_USERNAME: discourse
+  DISCOURSE_DB_PASSWORD: $HABIDAT_DISCOURSE_DB_PASSWORD
+  DISCOURSE_DB_HOST: $HABIDAT_DOCKER_PREFIX-discourse-data
+  DISCOURSE_REDIS_HOST: $HABIDAT_DOCKER_PREFIX-discourse-data
+
+  ## The http or https CDN address for this Discourse instance (configured to pull)
+  ## see https://meta.discourse.org/t/14857 for details
+  #DISCOURSE_CDN_URL: https://discourse-cdn.example.com
+
+volumes:
+  - volume:
+      host: $HABIDAT_DOCKER_PREFIX-discourse
+      guest: /shared
+  - volume:
+      host: $PWD/../store/discourse/bootstrap
+      guest: /bootstrap     
+#  - volume:
+#      host: /var/discourse/shared/web-only/log/var-log
+#      guest: /var/log
+
+## Plugins go here
+## see https://meta.discourse.org/t/19157 for details
+hooks:
+  after_code:
+    - exec:
+        cd: $home/plugins
+        cmd:
+          - git clone https://github.com/discourse/docker_manager.git
+          - git clone https://github.com/jonmbake/discourse-ldap-auth.git
+          - git clone https://github.com/gdpelican/retort.git
+          - git clone https://github.com/soudis/discourse-allow-same-origin.git
+
+
+## Remember, this is YAML syntax - you can only have one block with a name
+run:
+  - exec: echo "Beginning of custom commands"
+
+  - exec:
+      cd: $home
+      cmd:
+        - rake site_settings:import < /bootstrap/discourse-settings.yml
+
+  ## If you want to configure password login for root, uncomment and change:
+  ## Use only one of the following lines:
+  #- exec: /usr/sbin/usermod -p 'PASSWORD_HASH' root
+  #- exec: /usr/sbin/usermod -p "$(mkpasswd -m sha-256 'RAW_PASSWORD')" root
+
+  ## If you want to authorized additional users, uncomment and change:
+  #- exec: ssh-import-id username
+  #- exec: ssh-import-id anotherusername
+
+  - exec: echo "End of custom commands"
+  - exec: awk -F\# '{print $1;}' ~/.ssh/authorized_keys | awk 'BEGIN { print "Authorized SSH keys for this container:"; } NF>=2 {print $NF;}'
