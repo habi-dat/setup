@@ -5,6 +5,7 @@ mkdir -p ../store/discourse
 
 source ../store/nginx/networks.env
 source ../store/nextcloud/passwords.env
+source ../store/auth/passwords.env
 
 git clone https://github.com/discourse/discourse_docker ../store/discourse
 
@@ -96,9 +97,9 @@ done
 
 echo "Creating admin user..."
 
-echo $HABIDAT_ADMIN_EMAIL > create_admin_user
-echo $HABIDAT_ADMIN_PASSWORD >> create_admin_user
-echo $HABIDAT_ADMIN_PASSWORD >> create_admin_user
+echo "$HABIDAT_ADMIN_EMAIL" > create_admin_user
+echo "$HABIDAT_ADMIN_PASSWORD" >> create_admin_user
+echo "$HABIDAT_ADMIN_PASSWORD" >> create_admin_user
 echo "Y" >> create_admin_user
 
 docker exec -i $HABIDAT_DOCKER_PREFIX-discourse rake admin:create < create_admin_user
