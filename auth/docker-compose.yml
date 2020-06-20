@@ -30,7 +30,7 @@ services:
       - 389
     volumes:
       - ldap-data:/var/lib/ldap/
-      - ldap-config:/etc/ldap/slap.d/
+      - ldap-config:/etc/ldap/slapd.d/
       - ./bootstrap:/container/service/slapd/assets/config/bootstrap/ldif/custom
     command: --copy-service --loglevel debug
     networks:

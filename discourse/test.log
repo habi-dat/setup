@@ -1,6 +1,0 @@
-Ensuring launcher is up to date
-Fordere an von origin
-Launcher is up-to-date
-cd /pups && git pull && /pups/bin/pups --stdin
-** FAILED TO BOOTSTRAP ** please scroll up and look for earlier error messages, there may be more than one.
-./discourse-doctor may help diagnose the problem.
