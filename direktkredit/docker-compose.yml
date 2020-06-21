@@ -2,7 +2,7 @@ version: '3.5'
 
 networks:
   $HABIDAT_DOCKER_PREFIX-direktkredit-proxy:
-    external
+    external:
       name: $HABIDAT_DOCKER_PREFIX-direktkredit-proxy
   $HABIDAT_DOCKER_PREFIX-proxy:
     external:
