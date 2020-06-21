@@ -12,7 +12,7 @@ services:
 
   nginx:
     image: habidat/direktkredit-nginx
-    container_name: direktkredit-nginx
+    container_name: $HABIDAT_DOCKER_PREFIX-direktkredit-nginx
     restart: unless-stopped
     volumes:
       - ./projects.json:/habidat/projects.json
