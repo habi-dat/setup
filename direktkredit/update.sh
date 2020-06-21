@@ -7,7 +7,9 @@ source ../store/direktkredit/passwords.env
 
 envsubst < docker-compose.yml > ../store/direktkredit/docker-compose.yml
 
-echo "Pulling images and recreate containers..."
+echo "Pulling images and recreate containers (for all projects)..."
 
-docker-compose -f ../store/direktkredit/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-direktkredit" pull
-docker-compose -f ../store/direktkredit/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-direktkredit" up -d 
+cd ../store/direktkredit
+./update-projects.sh all
+./update-projects.sh nginx
+cd ../../direktkredit

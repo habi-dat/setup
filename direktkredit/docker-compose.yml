@@ -1,54 +1,35 @@
 version: '3.5'
 
-volumes: 
-  db:
-  config:
-  files:
-  upload:
-  images:
-
 networks:
+  $HABIDAT_DOCKER_PREFIX-direktkredit-proxy:
+    external
+      name: $HABIDAT_DOCKER_PREFIX-direktkredit-proxy
   $HABIDAT_DOCKER_PREFIX-proxy:
     external:
       name: $HABIDAT_PROXY_NETWORK
-  $HABIDAT_DOCKER_PREFIX-back:
-    external:
-      name: $HABIDAT_BACKEND_NETWORK
+
+volumes:
 
 services:
-  db:
-    image: mariadb
-    container_name: $HABIDAT_DOCKER_PREFIX-direktkredit-db    
-    restart: unless-stopped
-    volumes:
-      - db:/var/lib/mysql
-    env_file:
-      - ./db.env    
-    networks:
-      - $HABIDAT_DOCKER_PREFIX-back
-    logging:
-      options:
-        max-size: 50m
 
-  web:
-    image: habidat/direktkredit
+  nginx:
+    image: habidat/direktkredit-nginx
+    container_name: direktkredit-nginx
     restart: unless-stopped
-    container_name: $HABIDAT_DOCKER_PREFIX-direktkredit  
-    env_file:
-      - ./web.env   
     volumes:
-      - config:/habidat/config
-#      - direktkredit-templates:/habidat/templates
-      - files:/habidat/public/files
-      - images:/habidat/public/images
-      - upload:/habidat/upload      
-    depends_on:
-      - db
+      - ./projects.json:/habidat/projects.json
+      - ./domains.txt:/habidat/domains.txt
+    env_file:
+      - ./domains.env # contains settings for jwilder proxy generation and letsencrypt companion (very handy)
+    environment:
+      - SSL_PROVIDER=proxy
+      - SELFSIGNED=$HABIDAT_CREATE_SELFSIGNED
+      - SELFSIGNED_CERT_NAME=$HABIDAT_DOMAIN
     ports:
-      - 8020
+      - 80
     networks:
       - $HABIDAT_DOCKER_PREFIX-proxy
-      - $HABIDAT_DOCKER_PREFIX-back
+      - $HABIDAT_DOCKER_PREFIX-direktkredit-proxy
     logging:
       options:
-        max-size: 50m
+        max-size: 50m    
