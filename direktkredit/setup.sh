@@ -11,6 +11,9 @@ envsubst < docker-compose.yml > ../store/direktkredit/docker-compose.yml
 
 echo "Spinning up containers..."
 
+cd ../store/direktkredit
+./bootstrap.sh
+cd ../../direktkredit
 docker-compose -f ../store/direktkredit/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-direktkredit" up -d
 
 # update nextcloud external sites
