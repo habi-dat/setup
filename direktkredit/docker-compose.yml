@@ -8,8 +8,6 @@ networks:
     external:
       name: $HABIDAT_PROXY_NETWORK
 
-volumes:
-
 services:
 
   nginx:
