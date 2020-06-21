@@ -6,17 +6,12 @@ source ../store/auth/passwords.env
 source ../store/nextcloud/passwords.env
 source ../store/discourse/passwords.env
 
-envsubst < docker-compose.yml > ../store/discourse/docker-compose.yml
+echo "Rebuilding and starting containers..."
 
-echo "Pulling images and recreate containers..."
+# delete settings bootstrap to avoid overriding settings that have been made already
+echo "" > ../store/discourse/bootstrap/discourse-settings.yml
 
-docker-compose -f ../store/discourse/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-discourse" pull
-docker-compose -f ../store/discourse/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-discourse" up -d 
+../store/discourse/launcher rebuild $HABIDAT_DOCKER_PREFIX-discourse-data
+../store/discourse/launcher rebuild $HABIDAT_DOCKER_PREFIX-discourse
 
-echo "Waiting for discourse container to initialize (this can take several minutes)..."
-sleep 10	
-# wait until discourse bootstrap is done
-until nc -z $(docker inspect "$HABIDAT_DOCKER_PREFIX-discourse" | grep IPAddress | tail -n1 | grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}') 3000
-do
-	sleep .5	
-done
+docker network connect $HABIDAT_PROXY_NETWORK $HABIDAT_DOCKER_PREFIX-discourse
