@@ -15,6 +15,7 @@ docker network create $HABIDAT_DOCKER_PREFIX-direktkredit-proxy
 cd ../store/direktkredit
 ./bootstrap.sh
 cd ../../direktkredit
+docker-compose -f ../store/direktkredit/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-direktkredit" pull
 docker-compose -f ../store/direktkredit/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-direktkredit" up -d
 
 # update nextcloud external sites
