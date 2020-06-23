@@ -22,6 +22,19 @@ git clone https://github.com/discourse/discourse_docker ../store/discourse
 #export HABIDAT_LDAP_READ_USER="ldap-read"
 #export HABIDAT_LDAP_READ_PASSWORD="dDD2TNM6kHuUeC4n"
 
+if [ $HABIDAT_CREATE_SELFSIGNED == "true" ]
+then
+#       openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 \a
+#    -subj "/C=US/ST=Denial/L=Springfield/O=Dis/CN=$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN" \
+#    -keyout "../store/nginx/certificates/$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN.key"  -out "../store/nginx/certificates/$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN.crt"
+
+#    echo "CERT_NAME=$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN" >> ../store/auth/user.env
+   CERT_NAME="$HABIDAT_DOMAIN"
+else 
+   LETSENCRYPT_HOST="$HABIDAT_DISCOURSE_SUBDOMAIN.$HABIDAT_DOMAIN"
+fi
+
+
 echo "Generating passwords..."
 
 export HABIDAT_DISCOURSE_DB_PASSWORD="$(openssl rand -base64 32)"
@@ -44,7 +57,7 @@ fi
 
 
 envsubst < templates/discourse-data.yml > ../store/discourse/containers/$HABIDAT_DOCKER_PREFIX-discourse-data.yml
-envsubst '${HABIDAT_BACKEND_NETWORK} ${PWD} ${HABIDAT_DISCOURSE_SUBDOMAIN} ${HABIDAT_DOMAIN} ${HABIDAT_ADMIN_EMAIL} ${HABIDAT_SMTP_HOST} ${HABIDAT_SMTP_PORT} ${HABIDAT_SMTP_USER} ${HABIDAT_SMTP_PASSWORD} ${HABIDAT_SMTP_TLS} ${HABIDAT_DISCOURSE_DB_PASSWORD} ${HABIDAT_DOCKER_PREFIX}' < templates/discourse.yml > ../store/discourse/containers/$HABIDAT_DOCKER_PREFIX-discourse.yml
+envsubst '${HABIDAT_BACKEND_NETWORK} ${PWD} ${CERT_NAME} ${LETSENCRYPT_HOST} ${HABIDAT_DISCOURSE_SUBDOMAIN} ${HABIDAT_DOMAIN} ${HABIDAT_ADMIN_EMAIL} ${HABIDAT_SMTP_HOST} ${HABIDAT_SMTP_PORT} ${HABIDAT_SMTP_USER} ${HABIDAT_SMTP_PASSWORD} ${HABIDAT_SMTP_TLS} ${HABIDAT_DISCOURSE_DB_PASSWORD} ${HABIDAT_DOCKER_PREFIX}' < templates/discourse.yml > ../store/discourse/containers/$HABIDAT_DOCKER_PREFIX-discourse.yml
 
 
 

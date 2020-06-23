@@ -41,7 +41,8 @@ env:
   ## TODO: The domain name this Discourse instance will respond to
   DISCOURSE_HOSTNAME: '$HABIDAT_DISCOURSE_SUBDOMAIN.$HABIDAT_DOMAIN'
   VIRTUAL_HOST: '$HABIDAT_DISCOURSE_SUBDOMAIN.$HABIDAT_DOMAIN'
-  LETSENCRYPT_HOST: '$HABIDAT_DISCOURSE_SUBDOMAIN.$HABIDAT_DOMAIN'
+  LETSENCRYPT_HOST: '$LETSENCRYPT_HOST'
+  CERT_NAME: '$CERT_NAME'
 
   ## Uncomment if you want the container to be started with the same
   ## hostname (-h option) as specified above (default "$hostname-$config")
