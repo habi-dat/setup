@@ -30,7 +30,8 @@ if [ -z "$1" ]
 then
   tar -czf $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud/nextcloud-$DATE.tar.gz -C $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud db.sql -C "$datapath" data
 else 
-  tar -czf $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud/nextcloud-$DATE.tar.gz -C $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud db.sql -C "$datapath" data/appdata_* "$datapath" data/.ocdata 
+  appdata_dir=$(basename $(ls -d /var/lib/docker/volumes/syndidat-nextcloud_data/_data/data/appdata_*))
+  tar -czf $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud/nextcloud-$DATE.tar.gz -C $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud db.sql -C "$datapath" /data/$appdata_dir
 fi
 rm $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud/db.sql
 
