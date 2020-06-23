@@ -16,7 +16,7 @@ echo "Deleting existing data..."
 
 echo "Extracting data..."
 
-tar -xzf -C "$datapath" $1 
+tar -xzf $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud/$1 -C $datapath
 
 echo "Restoring database dump..."
 
