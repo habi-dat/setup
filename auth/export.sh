@@ -14,6 +14,7 @@ sed -f export.sed $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/export.ldif.tm
 rm $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/export.ldif.tmp
 echo "Compressing data..."
 tar -czf auth-$DATE.tar.gz -C $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth export.ldif -C $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth activationStore.json
+mv auth-$DATE.tar.gz $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/
 rm $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/export.ldif
 rm $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/activationStore.json
 

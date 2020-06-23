@@ -378,7 +378,7 @@ import_module() {
 			ls -ltr $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/$1
 			return 0
 		else
-			if [ ! -f $2 ]; then
+			if [ ! -f $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/$1/$2 ]; then
 				echo "Import file $2 not found"
 				return 0
 			fi
