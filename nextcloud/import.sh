@@ -14,7 +14,7 @@ datapath=`docker volume inspect -f "{{.Mountpoint}}" $HABIDAT_DOCKER_PREFIX-next
 
 echo "Deleting existing data..."
 
-# rm -rf "$datapath/data"
+rm -rf "$datapath/data"
 
 echo "Extracting data..."
 

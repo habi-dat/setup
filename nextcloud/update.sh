@@ -12,6 +12,9 @@ echo "Pulling images and recreate containers..."
 docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" pull
 docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" up -d
 
+echo "Waiting for containers to start (2 minutes)..."
+sleep 120
+
 echo "Installing code fixes..."
 docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud /habidat-afterupdate.sh
 
