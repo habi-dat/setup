@@ -1,0 +1,6 @@
+---
+
+sso_url: https://$HABIDAT_NEXTCLOUD_SUBDOMAIN.$HABIDAT_DOMAIN/index.php/apps/discoursesso
+sso_secret: $HABIDAT_DISCOURSE_SSO_SECRET
+enable_sso: 'true'
+logout_redirect: $HABIDAT_PROTOCOL://$HABIDAT_NEXTCLOUD_SUBDOMAIN.$HABIDAT_DOMAIN/index.php/apps/discoursesso/logout

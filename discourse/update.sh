@@ -8,8 +8,8 @@ source ../store/discourse/passwords.env
 
 echo "Rebuilding and starting containers..."
 
-# delete settings bootstrap to avoid overriding settings that have been made already
-echo "" > ../store/discourse/bootstrap/discourse-settings.yml
+
+envsubst < config/discourse-settings-update.yml > ../store/discourse/bootstrap/discourse-settings.yml
 
 ../store/discourse/launcher rebuild $HABIDAT_DOCKER_PREFIX-discourse-data
 ../store/discourse/launcher rebuild $HABIDAT_DOCKER_PREFIX-discourse
