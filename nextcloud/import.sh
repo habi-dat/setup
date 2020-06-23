@@ -14,11 +14,16 @@ datapath=`docker volume inspect -f "{{.Mountpoint}}" $HABIDAT_DOCKER_PREFIX-next
 
 echo "Deleting existing data..."
 
+appdata_dir=$(basename $(ls -d $datapath/data/appdata_*))
+
 rm -rf "$datapath/data"
 
 echo "Extracting data..."
 
 tar -xzf $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud/$1 -C $datapath
+
+appdata_dir_import=$(basename $(ls -d $datapath/data/appdata_*))
+mv $database/data/$appdata_dir_import $database/data/$appdata_dir
 
 chown -R www-data:www-data $datapath/data
 
