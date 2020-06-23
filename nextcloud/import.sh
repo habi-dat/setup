@@ -20,6 +20,8 @@ echo "Extracting data..."
 
 tar -xzf $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud/$1 -C $datapath
 
+chown -R www-data:www-data $datapath/data
+
 echo "Restoring database dump..."
 
 source ../store/nextcloud/passwords.env
