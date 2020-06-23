@@ -3,7 +3,7 @@ set +x
 
 echo "Copying backup file to discourse container..."
 
-docker exec $HABIDAT_DOCKER_PREFIX-discourse mkdir /shared/backups/default
+docker exec $HABIDAT_DOCKER_PREFIX-discourse mkdir -p /shared/backups/default
 
 docker cp $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/discourse/$1 $HABIDAT_DOCKER_PREFIX-discourse:/shared/backups/default
 
