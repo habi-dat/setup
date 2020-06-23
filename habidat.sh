@@ -347,7 +347,7 @@ export_module() {
 		fi		
 		
 		cd "$1"
-		./export.sh | prefixm $1
+		./export.sh $2 | prefixm $1
 		cd ..
 		print_done
 

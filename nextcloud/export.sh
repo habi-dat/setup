@@ -6,7 +6,7 @@ set +x
 
 if [ -z "$1" ]
 then
-	echo "Exporting nextcloud with user data (user option 'nodata' for excluding user data)..."
+	echo "Exporting nextcloud with user data (use option 'nodata' for excluding user data)..."
 elif [ "$1" == "nodata" ]
 then
 	echo "Exporting nextcloud without user data"
