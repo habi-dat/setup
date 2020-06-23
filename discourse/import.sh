@@ -13,13 +13,12 @@ echo "Restoring..."
 
 ../store/discourse/launcher run $HABIDAT_DOCKER_PREFIX-discourse "discourse restore $1" > import.log
 
-SUCCESS=$(import.log | grep "[SUCCESS]")
-
-if [ -z "$SUCCESS" ]; then
+if grep -q "\[SUCCESS\]" import.log 
+	rm import.log
+	echo "Finished, imported: $1"
+else
 	cat import.log
 	rm import.log
 	echo "Import failed, please check above logs"
 	exit 0
-else
-	echo "Finished, imported: $1"
 fi
