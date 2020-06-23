@@ -13,11 +13,11 @@ source ../store/nextcloud/passwords.env
 docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec db bash -c "mysqldump nextcloud -u root --password=$HABIDAT_NEXTCLOUD_DB_ROOT_PASSWORD > /backup.sql"
 #slapadd -v -c -l backup.ldif
 DATE=$(date +"%Y%m%d%H%M")
-docker cp "$HABIDAT_DOCKER_PREFIX-nextcloud-db":/backup.sql $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud/export-$DATE.sql
+docker cp "$HABIDAT_DOCKER_PREFIX-nextcloud-db":/backup.sql $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud/db.sql
 
 echo "Compressing data..."
 datapath=`docker volume inspect -f "{{.Mountpoint}}" $HABIDAT_DOCKER_PREFIX-nextcloud_data`
-tar -czf $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud/nextcloud-$DATE.tar.gz -C $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud export-$DATE.sql -C "$datapath" data
-rm $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud/export-$DATE.sql
+tar -czf $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud/nextcloud-$DATE.tar.gz -C $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud db.sql -C "$datapath" data
+rm $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud/db.sql
 
 echo "Finished, filename: $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud/nextcloud-$DATE.tar.gz"

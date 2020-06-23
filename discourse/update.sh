@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set +x
 
 source ../store/nginx/networks.env
 source ../store/auth/passwords.env

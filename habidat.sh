@@ -18,19 +18,20 @@ usage() {
     prefix "Usage: habidat.sh ${txtunderline}COMMAND${txtreset}"
     prefix
     prefix "Commands:"
-    prefix "  help                            show help."
-    prefix "  install <module>|all [force]    install module or all modules"
-    prefix "  remove  <module>                remove module (caution: all module data is lost)"
-    prefix "  start   <module>|all            start module or all modules"
-    prefix "  restart <module>|all            restart module or all modules"
-    prefix "  stop    <module>|all            stop module or all modules"
-    prefix "  up      <module>|all            up module or all modules (start and/or create containers)"
-    prefix "  down    <module>|all            down module or all modules (stop and remove containers)"
-    prefix "  update  <module>|all            update module or all modules"
-    prefix "  pull    <module>|all            pull module or all modules"
-    prefix "  build   <module>|all            build module or all modules (only if you changed the compose files to build images)"
-    prefix "  export  <module>|all            export module data"    
-    prefix "  modules                         list module status"
+    prefix "  help                                           show help."
+    prefix "  install <module>|all [force]                   install module or all modules"
+    prefix "  remove  <module>                               remove module (caution: all module data is lost)"
+    prefix "  start   <module>|all                           start module or all modules"
+    prefix "  restart <module>|all                           restart module or all modules"
+    prefix "  stop    <module>|all                           stop module or all modules"
+    prefix "  up      <module>|all                           [experimental!] up module or all modules (start and/or create containers)"
+    prefix "  down    <module>|all                           [experimental!]down module or all modules (stop and remove containers)"
+    prefix "  update  <module>|all                           update module or all modules"
+    prefix "  pull    <module>|all                           pull module or all modules"
+    prefix "  build   <module>|all                           [experimental!] build module or all modules (only if you changed the compose files to build images)"
+    prefix "  export  <module>|all                           export module data"    
+    prefix "  import  <module>|all <filename>|list           import module data or list available filenames"    
+    prefix "  modules                                        list module status"
     prefix
 }
 
@@ -356,6 +357,43 @@ export_module() {
 	fi
 }
 
+
+import_module() {
+	if [ "$1" == "nginx" ] || [ "$1" == "auth" ] || [ "$1" == "nextcloud" ] || [ "$1" == "discourse" ] || [ "$1" == "mediawiki" ] || [ "$1" == "dokuwiki" ] ||  [ "$1" == "direktkredit" ] ||  [ "$1" == "mailtrain" ]		
+	then
+		if [ ! -d "store/$1" ]
+		then
+			prefixr "Module $1 not installed, cannot export"
+			return 0
+		fi
+
+		if [ ! -f "$1/import.sh" ]
+		then
+			prefixr "Module $1 has no import.sh script, cannot import"
+			return 0
+		fi		
+
+		if [ "$2" == "list" ]; then
+			echo "Listing available filenames for import"
+			ls -ltr $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/$1
+			return 0
+		else
+			if [ ! -f $2 ]; then
+				echo "Import file $2 not found"
+				return 0
+			fi
+			cd "$1"
+			./import.sh $2 | prefixm $1
+			cd ..
+			print_done
+		fi		
+
+	else
+		prefixr "Module $1 unknown, available modules are: nginx, auth, nextcloud, discourse, mediawiki, dokuwiki, direktkredit, mailtrain"
+		return 1
+	fi
+}
+
 check_dependencies () {
 
 	prefix "Checking dependencies for module $1..."
@@ -649,6 +687,19 @@ then
 		done
 	else
 		export_module $2
+	fi	
+elif [ "$1" == "import" ]
+then
+	if [ $# -ne 3 ]
+	then
+		usage
+		exit 1
+	elif [ "$2" == "all" ]
+	then
+		echo "Import can only be done per module"
+		exit 1
+	else
+		import_module $2 $3
 	fi	
 elif [ "$1" == "help" ]
 then

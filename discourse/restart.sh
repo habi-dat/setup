@@ -1,3 +1,5 @@
 #!/bin/bash
+set +x
 
-echo "no action for this modules"
+../store/discourse/launcher restart $HABIDAT_DOCKER_PREFIX-discourse-data
+../store/discourse/launcher restart $HABIDAT_DOCKER_PREFIX-discourse

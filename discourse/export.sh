@@ -1,22 +1,26 @@
 #!/bin/bash
 set +x
 
-echo "Generating discourse backup file..."
+echo "Creating discourse backup file (this may take a while)..."
 
 mkdir -p $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/discourse
 
-filename=$(docker-compose -f ../store/discourse/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-discourse" exec -e RAILS_ENV=production -e BUNDLE_GEMFILE=/opt/bitnami/discourse/Gemfile discourse bash -c "bundle exec ruby /opt/bitnami/discourse/script/discourse backup" | sed -n 's#Output file is in: /opt/bitnami/discourse/public/backups/\([0-9a-z./-]*\)#\1#p')
-if [ -z $filename ]
-then
-	echo "Backup file could not be generated, please check discourse logs! Aborting export..."
-	exit 1
+../store/discourse/launcher run $HABIDAT_DOCKER_PREFIX-discourse "discourse backup" > export.log
+
+SUCCESS=$(export.log | grep "[SUCCESS]")
+
+if [ -z "$SUCCESS" ]; then
+	cat export.log
+	rm export.log
+	echo "Creating backup file failed, please check above logs"
+	exit 0
+else
+	rm export.log
+	BACKUP_FILENAME=$(docker exec $HABIDAT_DOCKER_PREFIX-discourse ls -Art /shared/backups/default | tail -n 1)	
+
+	echo "Creating backup file succeeded, copying $BACKUP_FILENAME to $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/discourse ..."
+	docker cp $HABIDAT_DOCKER_PREFIX-discourse:/shared/backups/default/$BACKUP_FILENAME $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/discourse
+
+	echo "Finished, filename: $BACKUP_FILENAME"
+
 fi
-
-# remove control characters (this is somehow necessary...)
-filename="${filename%%[[:cntrl:]]}"
-
-DATE=$(date +"%Y%m%d%H%M")
-docker cp "$HABIDAT_DOCKER_PREFIX-discourse:/bitnami/discourse/public/backups/$filename" $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/discourse/discourse-$DATE.tar.gz
-
-echo "Finished, filename: $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/discourse/discourse-$DATE.tar.gz"
-exit 0
