@@ -13,7 +13,7 @@ docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREF
 docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" up -d
 
 echo "Installing code fixes..."
-docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud /habidat-fixes.sh
+docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud /habidat-afterupdate.sh
 
 echo "Configuring user module..."
 
