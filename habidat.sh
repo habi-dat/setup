@@ -29,7 +29,7 @@ usage() {
     prefix "  update  <module>|all                           update module or all modules"
     prefix "  pull    <module>|all                           pull module or all modules"
     prefix "  build   <module>|all                           [experimental!] build module or all modules (only if you changed the compose files to build images)"
-    prefix "  export  <module>|all                           export module data"    
+    prefix "  export  <module>|all [options]                 export module data"    
     prefix "  import  <module>|all <filename>|list           import module data or list available filenames"    
     prefix "  modules                                        list module status"
     prefix
@@ -683,10 +683,10 @@ then
 	then
 		for exportModule in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "dokuwiki" "direktkredit" "mailtrain"
 		do
-			export_module $exportModule
+			export_module $exportModule $3
 		done
 	else
-		export_module $2
+		export_module $2 $3
 	fi	
 elif [ "$1" == "import" ]
 then

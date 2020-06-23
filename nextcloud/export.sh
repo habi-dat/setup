@@ -4,7 +4,16 @@ set +x
 #export HABIDAT_LDAP_BASE=dc=habidat-staging
 #export HABIDAT_LDAP_ADMIN_PASSWORD=A5AFsfDrsr4DYswQ
 
-echo "Exporting nextcloud database..."
+if [ -z "$1" ]
+then
+	echo "Exporting nextcloud with user data (user option 'nodata' for excluding user data)..."
+elif [ "$1" == "nodata" ]
+then
+	echo "Exporting nextcloud without user data"
+else
+	echo "Invalid option, available options: nodata"
+	exit 0
+fi 
 
 mkdir -p $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud
 
@@ -17,7 +26,12 @@ docker cp "$HABIDAT_DOCKER_PREFIX-nextcloud-db":/backup.sql $HABIDAT_BACKUP_DIR/
 
 echo "Compressing data..."
 datapath=`docker volume inspect -f "{{.Mountpoint}}" $HABIDAT_DOCKER_PREFIX-nextcloud_data`
-tar -czf $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud/nextcloud-$DATE.tar.gz -C $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud db.sql -C "$datapath" data
+if [ -z "$1" ]
+then
+  tar -czf $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud/nextcloud-$DATE.tar.gz -C $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud db.sql -C "$datapath" data
+else 
+  tar -czf $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud/nextcloud-$DATE.tar.gz -C $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud db.sql -C "$datapath" data/appdata_* "$datapath" data/.ocdata 
+fi
 rm $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud/db.sql
 
 echo "Finished, filename: $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud/nextcloud-$DATE.tar.gz"
