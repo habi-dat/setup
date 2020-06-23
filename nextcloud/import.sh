@@ -23,7 +23,7 @@ echo "Extracting data..."
 tar -xzf $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud/$1 -C $datapath
 
 appdata_dir_import=$(basename $(ls -d $datapath/data/appdata_*))
-mv $database/data/$appdata_dir_import $database/data/$appdata_dir
+mv $datapath/data/$appdata_dir_import $datapath/data/$appdata_dir
 
 chown -R www-data:www-data $datapath/data
 
