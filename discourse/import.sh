@@ -1,6 +1,11 @@
 #!/bin/bash
 set +x
 
+source ../store/nginx/networks.env
+source ../store/auth/passwords.env
+source ../store/nextcloud/passwords.env
+source ../store/discourse/passwords.env
+
 echo "Copying backup file to discourse container..."
 
 docker exec $HABIDAT_DOCKER_PREFIX-discourse mkdir -p /shared/backups/default
