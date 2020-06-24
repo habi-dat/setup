@@ -15,6 +15,9 @@ echo "Restoring..."
 
 ../store/discourse/launcher run $HABIDAT_DOCKER_PREFIX-discourse "discourse restore $1" > import.log
 
+envsubst < config/discourse-settings-update.yml > ../store/discourse/bootstrap/discourse-settings.yml
+../store/discourse/launcher run $HABIDAT_DOCKER_PREFIX-discourse "rake site_settings:import < /bootstrap/discourse-settings.yml"
+
 if grep -q "\[SUCCESS\]" import.log 
 then
 	rm import.log
