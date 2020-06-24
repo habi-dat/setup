@@ -31,7 +31,7 @@ then
   tar -czf $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud/nextcloud-$DATE.tar.gz -C $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud db.sql -C "$datapath" data
 else 
   appdata_dir=$(basename $(ls -d $datapath/data/appdata_*))
-  tar -czf $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud/nextcloud-$DATE.tar.gz -C $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud db.sql -C "$datapath" data/$appdata_dir/theming
+  tar -czf $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud/nextcloud-$DATE.tar.gz -C $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud db.sql -C "$datapath" data/$appdata_dir/theming -C "$datapath" data/$appdata_dir/external
 fi
 rm $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud/db.sql
 
