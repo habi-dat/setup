@@ -33,3 +33,25 @@ else
 	echo "Import failed, please check above logs"
 	exit 0
 fi
+
+echo "Generating API key and update user service..."
+
+unset HABIDAT_DISCOURSE_API_KEY
+export HABIDAT_DISCOURSE_API_KEY=$(echo $(docker exec $HABIDAT_DOCKER_PREFIX-discourse rake api_key:create_master[usertool]) | tr -d "\r" | awk '{print $NF}')
+while [ -z "$HABIDAT_DISCOURSE_API_KEY" ]
+do
+	sleep .5
+done
+echo "export HABIDAT_DISCOURSE_API_KEY=$HABIDAT_DISCOURSE_API_KEY" >> ../store/discourse/passwords.env
+
+# remove API vars from user module env
+sed -i '/HABIDAT_DISCOURSE_API_KEY/d' ../store/auth/user.env
+sed -i '/HABIDAT_DISCOURSE_API_URL/d' ../store/auth/user.env
+sed -i '/HABIDAT_DISCOURSE_API_USERNAME/d' ../store/auth/user.env
+
+# rewrite API vars to user module env
+echo "HABIDAT_DISCOURSE_API_KEY=$HABIDAT_DISCOURSE_API_KEY" >> ../store/auth/user.env
+echo "HABIDAT_DISCOURSE_API_URL=http://$HABIDAT_DOCKER_PREFIX-discourse:80" >> ../store/auth/user.env
+echo "HABIDAT_DISCOURSE_API_USERNAME=system" >> ../store/auth/user.env
+
+docker-compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d user

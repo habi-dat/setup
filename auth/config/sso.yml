@@ -7,17 +7,27 @@ authsources_ldap:
     host:            $HABIDAT_DOCKER_PREFIX-ldap
     enable_tls:      FALSE
     dn_pattern:      null
+    attributes:
+      - uid
+      - cn
+      - givenName
+      - sn
+      - mail
+      - title
+      - ou
+      - l
+      - description
+      - memberOf
     search_enable:   TRUE
     search_base:     ou=users,$HABIDAT_LDAP_BASE
     search_scope:    onelevel
     search_filter:   (objectClass=inetOrgPerson)
     search_username: cn=admin,$HABIDAT_LDAP_BASE
     search_password: $HABIDAT_LDAP_ADMIN_PASSWORD
-    attributes:
+    search_attributes:
       - uid
       - cn
       - mail
-      - memberOf
 
 idp_hosted:  
   - entityid:        https://sso.$HABIDAT_DOMAIN
@@ -33,18 +43,21 @@ sp_remote:
     ssnameidattribute:          uid
     ssattributes:               true
     singlelogoutservice:        https://$HABIDAT_NEXTCLOUD_SUBDOMAIN.$HABIDAT_DOMAIN/apps/user_saml/saml/sls    
+    restricttoldapgroup:        all
   - entityid:                   https://$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN
     assertionconsumerservice:   https://$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN/saml/consume
     nameidformat:               urn:oasis:names:tc:SAML:2.0:nameid-format:unspecified
     ssnameidattribute:          uid
     ssattributes:               true
     singlelogoutservice:        https://$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN/saml/consume   
+    restricttoldapgroup:        all
   - entityid:                   https://$HABIDAT_MEDIAWIKI_SUBDOMAIN.$HABIDAT_DOMAIN/extensions/SamlSingleSignOnAuth/
     assertionconsumerservice:   https://$HABIDAT_MEDIAWIKI_SUBDOMAIN.$HABIDAT_DOMAIN/
     nameidformat:               urn:oasis:names:tc:SAML:2.0:nameid-format:unspecified
     ssnameidattribute:          uid
     ssattributes:               true
     singlelogoutservice:        https://$HABIDAT_MEDIAWIKI_SUBDOMAIN.$HABIDAT_DOMAIN/
+    restricttoldapgroup:        all
 
 # Config
 baseurlpath:             https://sso.$HABIDAT_DOMAIN/simplesaml/
