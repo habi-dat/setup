@@ -10,13 +10,15 @@ docker-compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-au
 DATE=$(date +"%Y%m%d%H%M")
 docker cp "$HABIDAT_DOCKER_PREFIX-ldap":/backup.ldif $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/export.ldif.tmp
 docker cp "$HABIDAT_DOCKER_PREFIX-user":/habidat-user/data/activationStore.json $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/activationStore.json
+docker cp "$HABIDAT_DOCKER_PREFIX-user":/habidat-user/data/emailTemplateStore.json $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/emailTemplateStore.json
 sed -f export.sed $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/export.ldif.tmp > $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/export.ldif
 rm $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/export.ldif.tmp
 echo "Compressing data..."
-tar -czf auth-$DATE.tar.gz -C $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth export.ldif -C $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth activationStore.json
+tar -czf auth-$DATE.tar.gz -C $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth export.ldif -C $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth activationStore.json -C $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth emailTemplateStore.json
 mv auth-$DATE.tar.gz $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/
 rm $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/export.ldif
 rm $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/activationStore.json
+rm $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/emailTemplateStore.json
 
 echo "NOTE: importing this data only works for data with the same domain / LDAP base"
 
