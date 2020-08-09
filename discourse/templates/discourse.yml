@@ -3,7 +3,7 @@
 
 templates:
   - "templates/web.template.yml"
-  - "templates/web.ratelimited.template.yml"
+#  - "templates/web.ratelimited.template.yml"
 ## Uncomment these two lines if you wish to add Lets Encrypt (https)
   #- "templates/web.ssl.template.yml"
   #- "templates/web.letsencrypt.ssl.template.yml"
@@ -33,6 +33,7 @@ params:
 env:
   LANG: en_US.UTF-8
   DISCOURSE_DEFAULT_LOCALE: de
+  DISCOURSE_MAX_ADMIN_API_REQS_PER_KEY_PER_MINUTE: 100000  
 
   ## How many concurrent web requests are supported? Depends on memory and CPU cores.
   ## will be set automatically by bootstrap based on detected CPUs, or you can override
