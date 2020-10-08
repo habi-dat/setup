@@ -43,13 +43,12 @@ services:
   redis:
     image: 'bitnami/redis'
     container_name: $HABIDAT_DOCKER_PREFIX-nextcloud-redis
-    restart: unless-stopped    
-    environment:
-      - ALLOW_EMPTY_PASSWORD=yes
+    restart: unless-stopped
     volumes:
       - redis:/bitnami
     networks:
       - $HABIDAT_DOCKER_PREFIX-back      
+    command: redis-server --requirepass "$HABIDAT_NEXTCLOUD_REDIS_PASSWORD"
     logging:
       options:
         max-size: 50m        

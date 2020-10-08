@@ -12,11 +12,13 @@ echo "Generating passwords..."
 export HABIDAT_NEXTCLOUD_DB_PASSWORD="$(openssl rand -base64 32)"
 export HABIDAT_NEXTCLOUD_ADMIN_PASSWORD="$(openssl rand -base64 32)"
 export HABIDAT_NEXTCLOUD_DB_ROOT_PASSWORD="$(openssl rand -base64 32)"
+export HABIDAT_NEXTCLOUD_REDIS_PASSWORD="$(openssl rand -base64 32)"
 export HABIDAT_DISCOURSE_SSO_SECRET="$(openssl rand -base64 32)"
 
 # store passwords file
 echo "export HABIDAT_NEXTCLOUD_DB_PASSWORD=$HABIDAT_NEXTCLOUD_DB_PASSWORD" > ../store/nextcloud/passwords.env
 echo "export HABIDAT_NEXTCLOUD_DB_ROOT_PASSWORD=$HABIDAT_NEXTCLOUD_DB_ROOT_PASSWORD" >> ../store/nextcloud/passwords.env
+echo "export HABIDAT_NEXTCLOUD_REDIS_PASSWORD=$HABIDAT_NEXTCLOUD_REDIS_PASSWORD" >> ../store/nextcloud/passwords.env
 echo "export HABIDAT_DISCOURSE_SSO_SECRET=$HABIDAT_DISCOURSE_SSO_SECRET" >> ../store/nextcloud/passwords.env
 
 envsubst < config/db.env > ../store/nextcloud/db.env

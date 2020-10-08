@@ -5,6 +5,13 @@ source ../store/nginx/networks.env
 source ../store/auth/passwords.env
 source ../store/nextcloud/passwords.env
 
+# NEXTCLOUD 19 specific
+if ! grep -q HABIDAT_NEXTCLOUD_REDIS_PASSWORD "../store/nextcloud/passwords.env"; then
+  export HABIDAT_NEXTCLOUD_REDIS_PASSWORD="$(openssl rand -base64 32)"
+  echo "export HABIDAT_NEXTCLOUD_REDIS_PASSWORD=$HABIDAT_NEXTCLOUD_REDIS_PASSWORD" >> ../store/nextcloud/passwords.env
+  echo "REDIS_HOST_PASSWORD=$HABIDAT_NEXTCLOUD_REDIS_PASSWORD" >> ../store/nextcloud/nextcloud.env
+fi
+
 envsubst < docker-compose.yml > ../store/nextcloud/docker-compose.yml
 
 echo "Pulling images and recreate containers..."
@@ -17,6 +24,10 @@ sleep 120
 
 echo "Installing code fixes..."
 docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud /habidat-afterupdate.sh
+
+echo "DB updates"
+docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud php occ db:add-missing-indices
+docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud php occ db:add-missing-columns
 
 echo "Configuring user module..."
 
