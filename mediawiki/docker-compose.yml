@@ -2,7 +2,8 @@ version: '3.5'
 
 volumes: 
   db:
-  web:
+  images:
+  config:
 
 networks:
   $HABIDAT_DOCKER_PREFIX-proxy:
@@ -15,7 +16,7 @@ networks:
 services:
   db:
     image: mariadb
-    container_name: $HABIDAT_DOCKER_PREFIX-mediawiki-db    
+    container_name: $HABIDAT_DOCKER_PREFIX-mediawiki-$HABIDAT_MEDIAWIKI_PROJECTID-db    
     restart: unless-stopped
     volumes:
       - db:/var/lib/mysql
@@ -28,15 +29,16 @@ services:
         max-size: 50m
 
   web:
-    image: habidat/mediawiki
-#    build:
-#      context: ../../../habidat-mediawiki
+#    image: habidat/mediawiki
+    build:
+      context: ../../../../habidat-mediawiki
     restart: unless-stopped
-    container_name: $HABIDAT_DOCKER_PREFIX-mediawiki  
+    container_name: $HABIDAT_DOCKER_PREFIX-mediawiki-$HABIDAT_MEDIAWIKI_PROJECTID
     env_file:
       - ./web.env   
     volumes:
-      - web:/var/www/html
+      - images:/var/www/html/images
+      - config:/var/www/html/config
     depends_on:
       - db
     networks:

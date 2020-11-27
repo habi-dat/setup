@@ -133,12 +133,12 @@ remove_module() {
 	if [ -f "$1/remove.sh" ]
 	then
 		cd $1
-		./remove.sh | prefixm $1
+		./remove.sh ${@:2} | prefixm $1
 		cd ..
 	else
 		docker-compose -f "store/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-$1"  down -v --remove-orphans | prefixm "$1"		
+   		rm -rf "store/$1"	
 	fi
-	rm -rf "store/$1"	
     update_installed_modules		
 }
 
@@ -273,7 +273,7 @@ build_module() {
 setup_module() {
 	prefix "Setup $1 module..."
 	cd "$1"
-	./setup.sh | prefixm $1
+	./setup.sh ${@:2} | prefixm $1
 	cp version "../store/$1"
 	if [ -f dependencies ]
 	then
@@ -477,19 +477,9 @@ then
 		exit 1
 	fi
 
-	if [ "$3" == "force" ]
-	then
-		read -p "Using force option deletes all data of installed modules, are you sure? [y/n] " -n 1 -r
-		echo    
-		if [[ ! $REPLY =~ ^[Yy]$ ]]
-		then
-	    	exit 1
-		fi		
-	fi
-
 	if [ $2 == "all" ]
 	then
-		for setupModule in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "dokuwiki" "direktkredit" "mailtrain"
+		for setupModule in "nginx" "auth" "nextcloud" "discourse" "dokuwiki" "direktkredit" "mailtrain"
 		do
 			check_exists "$setupModule" "$3"
 			if [ $? == "1" ] && [ "force" != "$3" ]
@@ -497,22 +487,22 @@ then
 				prefix "Module $setupModule already installed, skipping..."
 			else
 				check_dependencies $setupModule
-				setup_module $setupModule
+				setup_module $setupModule 
 			fi			
 		done
 		print_admin_credentials
 	else
 		check_exists "$2" "$3"
-		if [ "$?" == "1" ] && [ "force" != "$3" ]
+		if [ "$?" == "1" ] && [ "$2" != "mediawiki" ]
 		then
-			prefixr "Module $2 already installed, use force option to remove module (including data)"
+			prefixr "Module $2 already installed, update module or remove module first"
 			exit 1
 		fi
 
 		if [ "$2" == "nginx" ] || [ "$2" == "auth" ] || [ "$2" == "nextcloud" ] || [ "$2" == "discourse" ] || [ "$2" == "mediawiki" ] || [ "$2" == "dokuwiki" ] ||  [ "$2" == "direktkredit" ] ||  [ "$2" == "mailtrain" ]	
 		then
 			check_dependencies $2
-			setup_module $2
+			setup_module ${@:2}
 			print_admin_credentials
 		else 
 			prefixr "Module $2 unknown, available modules are: nginx, auth, nextcloud, discourse, mediawiki, dokuwiki, direktkredit, mailtrain"
@@ -538,7 +528,7 @@ then
 		    exit 1
 		fi		
 		check_child_dependecies $2
-		remove_module $2
+		remove_module ${@:2}
 	else 
 		prefixr "Module $2 unknown, available modules are: nginx, auth, nextcloud, discourse, mediawiki, dokuwiki, direktkredit, mailtrain"
 	fi
