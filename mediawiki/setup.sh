@@ -62,7 +62,10 @@ echo "Spinning up containers..."
 
 docker-compose -f ../store/mediawiki/$1/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mediawiki-$1" pull
 docker-compose -f ../store/mediawiki/$1/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mediawiki-$1" build 
-docker-compose -f ../store/mediawiki/$1/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mediawiki-$1" up -d
+docker-compose -f ../store/mediawiki/$1/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mediawiki-$1" up -d db
+echo "Waiting for database to initialize..."
+sleep 20
+docker-compose -f ../store/mediawiki/$1/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mediawiki-$1" up -d web
 
 echo "Waiting for mediawiki container to initialize (this can take several minutes)..."
 # wait until discourse bootstrap is done

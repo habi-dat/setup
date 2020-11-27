@@ -51,13 +51,14 @@ sp_remote:
     ssattributes:               true
     singlelogoutservice:        https://$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN/saml/consume   
     restricttoldapgroup:        all
-  - entityid:                   https://$HABIDAT_MEDIAWIKI_SUBDOMAIN.$HABIDAT_DOMAIN/extensions/SamlSingleSignOnAuth/
-    assertionconsumerservice:   https://$HABIDAT_MEDIAWIKI_SUBDOMAIN.$HABIDAT_DOMAIN/
-    nameidformat:               urn:oasis:names:tc:SAML:2.0:nameid-format:unspecified
-    ssnameidattribute:          uid
-    ssattributes:               true
-    singlelogoutservice:        https://$HABIDAT_MEDIAWIKI_SUBDOMAIN.$HABIDAT_DOMAIN/
-    restricttoldapgroup:        all
+# sample entry for mediawiki instance
+#  - entityid:                   https://instance.$HABIDAT_MEDIAWIKI_SUBDOMAIN.$HABIDAT_DOMAIN
+#    assertionconsumerservice:   https://instance.$HABIDAT_MEDIAWIKI_SUBDOMAIN.$HABIDAT_DOMAIN/simplesaml/module.php/saml/sp/saml2-acs.php/habidat
+#    nameidformat:               urn:oasis:names:tc:SAML:2.0:nameid-format:unspecified
+#    ssnameidattribute:          uid
+#    ssattributes:               true
+#    singlelogoutservice:        https://instance.$HABIDAT_MEDIAWIKI_SUBDOMAIN.$HABIDAT_DOMAIN/simplesaml/module.php/saml/sp/saml2-logout.php/habidat
+#    restricttoldapgroup:        all    
 
 # Config
 baseurlpath:             https://sso.$HABIDAT_DOMAIN/simplesaml/
