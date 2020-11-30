@@ -320,7 +320,12 @@ update_module() {
 
 			prefix "Updating module $1 from $versionInstalled to $versionSetup..."
 			cd "$1"
-			./update.sh | prefixm $1
+			if [ "$2" == "force" ]
+			then
+			  ./update.sh ${@:3} | prefixm $1
+			else
+			  ./update.sh ${@:2} | prefixm $1
+			fi
 			cp version "../store/$1"
 			cd ..
 			print_done
@@ -553,10 +558,10 @@ then
 	then
 		for updateModule in "nginx" "auth" "nextcloud" "discourse" "mediawiki" "dokuwiki" "direktkredit" "mailtrain"
 		do
-			update_module $updateModule $3
+			update_module $updateModule ${@:3}
 		done
 	else
-		update_module $2 $3
+		update_module ${@:2}
 	fi
 elif [ "$1" == "start" ]
 then
