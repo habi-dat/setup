@@ -9,7 +9,7 @@ export HABIDAT_EXTERNAL_NETWORK_DISABLE=
 
 envsubst < docker-compose.yml > ../store/auth/docker-compose.yml
 envsubst < config/bootstrap-update.ldif > ../store/auth/bootstrap/bootstrap.ldif
-cp memberOf.ldif ../store/auth/memberOf.ldif
+cp config/memberOf.ldif ../store/auth/memberOf.ldif
 
 #DATE=$(date +"%Y%m%d%H%M")
 #docker-compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" exec ldap slapcat -l /backup.ldif -H 'ldap:///???(&(!(objectClass=organizationalRole))(!(objectClass=dcObject))(!(objectClass=organizationalUnit)))'

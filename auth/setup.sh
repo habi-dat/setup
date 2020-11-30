@@ -61,6 +61,7 @@ envsubst < config/ldap.env > ../store/auth/ldap.env
 envsubst < config/user.env > ../store/auth/user.env
 # envsubst < user-config.json > ../store/ldap/user-config.json
 envsubst < config/bootstrap.ldif > ../store/auth/bootstrap/bootstrap.ldif
+cp config/memberOf.ldif ../store/auth/memberOf.ldif
 #cp config/sso-config.js ../store/auth/sso-config/lmConf-1.js
 # envsubst '$HABIDAT_DOMAIN $HABIDAT_LDAP_BASE $HABIDAT_DOCKER_PREFIX $HABIDAT_LDAP_ADMIN_PASSWORD' < config/sso-config.js > ../store/auth/sso-config/lmConf-1.js
 
