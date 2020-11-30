@@ -32,6 +32,7 @@ services:
       - ldap-data:/var/lib/ldap/
       - ldap-config:/etc/ldap/slapd.d/
       - ./bootstrap:/container/service/slapd/assets/config/bootstrap/ldif/custom
+      - ./memberOf.ldif:/container/service/slapd/assets/config/bootstrap/ldif/03-memberOf.ldif 
     command: --copy-service --loglevel debug
     networks:
       - $HABIDAT_DOCKER_PREFIX-back
