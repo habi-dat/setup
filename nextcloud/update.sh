@@ -28,6 +28,7 @@ docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREF
 echo "DB updates"
 docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud php occ db:add-missing-indices
 docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud php occ db:add-missing-columns
+docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud php occ db:add-missing-primary-keys
 
 echo "Configuring user module..."
 
