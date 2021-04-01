@@ -54,7 +54,7 @@ prefixm() {
 }
 
 prefix() {
-	local p="HABI*DAT                              "
+	local p="$HABIDAT_TITLE                              "
 	p="${p:0:12}"
 	p="${green}${bold}$p${reset}| "
 	local c="s/^/$p/"
@@ -62,7 +62,7 @@ prefix() {
 }
 
 prefixr() {
-	local p="HABI*DAT                              "
+	local p="$HABIDAT_TITLE                              "
 	p="${p:0:12}"
 	p="${red}${bold}$p${reset}| "
 	local c="s/^/$p/"
