@@ -8,4 +8,4 @@ dn: ou=users,$HABIDAT_LDAP_BASE
 ou: users
 objectClass: top
 objectClass: organizationalUnit
-description: habi*DAT Users
+description: $HABIDAT_TITLE Users
