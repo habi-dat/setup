@@ -14,7 +14,7 @@ networks:
 
 services:  
   db:
-    image: mariadb
+    image: mariadb:10.5
     container_name: $HABIDAT_DOCKER_PREFIX-nextcloud-db
     restart: unless-stopped
     volumes:
