@@ -51,7 +51,7 @@ services:
         max-size: 50m        
 
   nextcloud:
-    image: habidat/nextcloud
+    image: habidat/nextcloud:22.2.5
 #    build:
 #      context: ../../../habidat-nextcloud   
     restart: unless-stopped
