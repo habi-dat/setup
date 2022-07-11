@@ -51,7 +51,7 @@ services:
         max-size: 50m        
 
   nextcloud:
-    image: habidat/nextcloud:22.2.5
+    image: habidat/nextcloud:23
 #    build:
 #      context: ../../../habidat-nextcloud   
     restart: unless-stopped
@@ -70,7 +70,7 @@ services:
         max-size: 50m  
 
   cron:
-    image: habidat/nextcloud
+    image: habidat/nextcloud:23
 #    build:
 #      context: ../../../habidat-nextcloud  
     restart: unless-stopped
