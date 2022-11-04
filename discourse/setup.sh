@@ -153,13 +153,13 @@ curl -k --header "Content-Type: application/json" --header "Accept: application/
         "http://$DISCOURSE_IP/admin/color_schemes.json"
 
 curl -k --header "Content-Type: application/json" --header "Accept: application/json" \
-        --request PUT --data '{"theme":{"color_scheme_id": "2", "theme_fields":[{"name":"scss","target":"common","value":"@import url(\"https://'$HABIDAT_USER_SUBDOMAIN'.'$HABIDAT_DOMAIN'/public/stylesheets/appmenu.css\");","type_id":1},{"name":"header","target":"common","value":"<script> $(document).ready(function(){ $.get(\"https://'$HABIDAT_USER_SUBDOMAIN'.'$HABIDAT_DOMAIN'/appmenu/'$HABIDAT_DISCOURSE_SUBDOMAIN'.'$HABIDAT_DOMAIN'\", function( data ) { var update = function() { if (!$(\".habidat-dropdown\").length) $(\"span.header-buttons\").prepend( data );}; setInterval(update,1000);});})</script>","type_id":0}]}}' \
+        --request PUT --data '{"theme":{"color_scheme_id": "2", "theme_fields":[{"name":"scss","target":"common","value":"@import url(\"https://'$HABIDAT_USER_SUBDOMAIN'.'$HABIDAT_DOMAIN'/css/appmenu.css\");","type_id":1},{"name":"header","target":"common","value":"<script> $(document).ready(function(){ $.get(\"https://'$HABIDAT_USER_SUBDOMAIN'.'$HABIDAT_DOMAIN'/appmenu/'$HABIDAT_DISCOURSE_SUBDOMAIN'.'$HABIDAT_DOMAIN'\", function( data ) { var update = function() { if (!$(\".habidat-dropdown\").length) $(\"span.header-buttons\").prepend( data );}; setInterval(update,1000);});})</script>","type_id":0}]}}' \
         --header "Api-Key: $HABIDAT_DISCOURSE_API_KEY" \
         --header "Api-Username: system" \
         "http://$DISCOURSE_IP/admin/themes/2"
 
 curl -k --header "Content-Type: application/json" --header "Accept: application/json" \
-        --request PUT --data '{"theme":{"color_scheme_id": "0", "theme_fields":[{"name":"scss","target":"common","value":"@import url(\"https://'$HABIDAT_USER_SUBDOMAIN'.'$HABIDAT_DOMAIN'/public/stylesheets/appmenu.css\");","type_id":1},{"name":"header","target":"common","value":"<script> $(document).ready(function(){ $.get(\"https://'$HABIDAT_USER_SUBDOMAIN'.'$HABIDAT_DOMAIN'/appmenu/'$HABIDAT_DISCOURSE_SUBDOMAIN'.'$HABIDAT_DOMAIN'\", function( data ) { var update = function() { if (!$(\".habidat-dropdown\").length) $(\"span.header-buttons\").prepend( data );}; setInterval(update,1000);});})</script>","type_id":0}]}}' \
+        --request PUT --data '{"theme":{"color_scheme_id": "0", "theme_fields":[{"name":"scss","target":"common","value":"@import url(\"https://'$HABIDAT_USER_SUBDOMAIN'.'$HABIDAT_DOMAIN'/css/appmenu.css\");","type_id":1},{"name":"header","target":"common","value":"<script> $(document).ready(function(){ $.get(\"https://'$HABIDAT_USER_SUBDOMAIN'.'$HABIDAT_DOMAIN'/appmenu/'$HABIDAT_DISCOURSE_SUBDOMAIN'.'$HABIDAT_DOMAIN'\", function( data ) { var update = function() { if (!$(\".habidat-dropdown\").length) $(\"span.header-buttons\").prepend( data );}; setInterval(update,1000);});})</script>","type_id":0}]}}' \
         --header "Api-Key: $HABIDAT_DISCOURSE_API_KEY" \
         --header "Api-Username: system" \
         "http://$DISCOURSE_IP/admin/themes/1"        
