@@ -8,8 +8,14 @@ echo "Extracting data..."
 tar -xzf $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/$1 -C $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth 
 
 echo "Restoring user module activation store..."
-docker cp $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/activationStore.json "$HABIDAT_DOCKER_PREFIX-user":/habidat-user/data/activationStore.json
-docker cp $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/emailTemplateStore.json "$HABIDAT_DOCKER_PREFIX-user":/habidat-user/data/emailTemplateStore.json
+
+if [ -f $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/activationStore.json ]
+then
+  docker cp $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/activationStore.json "$HABIDAT_DOCKER_PREFIX-user":/app/data/activationStore.json
+  docker cp $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/emailTemplateStore.json "$HABIDAT_DOCKER_PREFIX-user":/app/data/emailTemplateStore.json
+else
+  docker cp $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/data "$HABIDAT_DOCKER_PREFIX-user":/app
+fi
 
 echo "Import ldap data..."
 
@@ -17,11 +23,14 @@ cp $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/export.ldif ../store/auth/boo
 
 rm $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/activationStore.json
 rm $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/emailTemplateStore.json
+rm -rf $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/data
 rm $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/export.ldif 
 
 envsubst < config/bootstrap-update.ldif > ../store/auth/bootstrap/bootstrap.ldif
 
-docker-compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" down -v
+docker-compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" rm -s -v -f ldap
+docker volume rm "$HABIDAT_DOCKER_PREFIX-auth_ldap-data"
+docker volume rm "$HABIDAT_DOCKER_PREFIX-auth_ldap-config"
 docker-compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d
 
 echo "Finished, imported: $1"

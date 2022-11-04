@@ -10,7 +10,7 @@ mkdir -p ../store/auth/bootstrap
 if [ $HABIDAT_SSO == "true" ]
 then
 	mkdir -p ../store/auth/sso-config
-	mkdir -p ../store/auth/cert
+	mkdir -p ../store/auth/cert/saml
 fi
 
 echo "Generating passwords..."
@@ -35,43 +35,35 @@ then
 
 	# generalte SSO certificates
 	echo "Generating SSO key and certificate..."
-	openssl req -new -x509 -days 3652 -nodes -out ../store/auth/cert/server.cert -keyout ../store/auth/cert/server.pem -subj "/C=AT/ST=Upper Austria/L=Linz/O=habiDAT/OU=SSO/CN=$HABIDAT_DOMAIN"
+	openssl req -new -x509 -days 3652 -nodes -out ../store/auth/cert/saml/cert.cer -keyout ../store/auth/cert/saml/key.pem -subj "/C=AT/ST=Upper Austria/L=Linz/O=habiDAT/OU=SSO/CN=$HABIDAT_DOMAIN"
 	chown -R www-data:www-data ../store/auth/cert
 
-	export HABIDAT_SSO_CERTIFICATE=$(cat ../store/auth/cert/server.cert | sed --expression=':a;N;$!ba;s/\n/\\n/g')
+	export HABIDAT_SSO_CERTIFICATE=$(cat ../store/auth/cert/saml/cert.cer | sed --expression=':a;N;$!ba;s/\n/\\n/g')
 	echo "export HABIDAT_SSO_CERTIFICATE='$HABIDAT_SSO_CERTIFICATE'" >> ../store/auth/passwords.env
 
-	export HABIDAT_SSO_CERTIFICATE_SINGLE_LINE=$(cat ../store/auth/cert/server.cert | sed --expression=':a;N;$!ba;s/\n//g' | sed --expression='s/-----BEGIN CERTIFICATE-----//g' | sed --expression='s/-----END CERTIFICATE-----//g')
+	export HABIDAT_SSO_CERTIFICATE_SINGLE_LINE=$(cat ../store/auth/cert/saml/cert.cer| sed --expression=':a;N;$!ba;s/\n//g' | sed --expression='s/-----BEGIN CERTIFICATE-----//g' | sed --expression='s/-----END CERTIFICATE-----//g')
 	echo "export HABIDAT_SSO_CERTIFICATE_SINGLE_LINE='$HABIDAT_SSO_CERTIFICATE_SINGLE_LINE'" >> ../store/auth/passwords.env
 fi
 
 # set installed modules
 export HABIDAT_USER_INSTALLED_MODULES="nginx,auth,"
 
+
+# TODO ????
 echo "Create environment files..."
 if [ $HABIDAT_SSO == "true" ]
 then
 	envsubst < config/sso.env > ../store/auth/sso.env
 	envsubst < config/sso.yml > ../store/auth/sso.yml
-else
-	export HABIDAT_SSO_DISABLE='#'
 fi
 
 envsubst < config/ldap.env > ../store/auth/ldap.env
 envsubst < config/user.env > ../store/auth/user.env
-# envsubst < user-config.json > ../store/ldap/user-config.json
 envsubst < config/bootstrap.ldif > ../store/auth/bootstrap/bootstrap.ldif
 cp config/memberOf.ldif ../store/auth/memberOf.ldif
-#cp config/sso-config.js ../store/auth/sso-config/lmConf-1.js
-# envsubst '$HABIDAT_DOMAIN $HABIDAT_LDAP_BASE $HABIDAT_DOCKER_PREFIX $HABIDAT_LDAP_ADMIN_PASSWORD' < config/sso-config.js > ../store/auth/sso-config/lmConf-1.js
 
 if [ $HABIDAT_CREATE_SELFSIGNED == "true" ]
 then
-#	openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 \a
-#    -subj "/C=US/ST=Denial/L=Springfield/O=Dis/CN=$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN" \
-#    -keyout "../store/nginx/certificates/$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN.key"  -out "../store/nginx/certificates/$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN.crt"
-
-#    echo "CERT_NAME=$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN" >> ../store/auth/user.env
 	echo "CERT_NAME=$HABIDAT_DOMAIN" >> ../store/auth/user.env
 fi
 

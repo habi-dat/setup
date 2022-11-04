@@ -40,26 +40,8 @@ services:
       options:
         max-size: 50m  
 
-$HABIDAT_SSO_DISABLE  sso:
-$HABIDAT_SSO_DISABLE    image: habidat/sso
-#    build:
-#      context: ../../../habidat-sso
-$HABIDAT_SSO_DISABLE    restart: unless-stopped
-$HABIDAT_SSO_DISABLE    container_name: $HABIDAT_DOCKER_PREFIX-sso
-$HABIDAT_SSO_DISABLE    env_file:
-$HABIDAT_SSO_DISABLE      - ./sso.env
-$HABIDAT_SSO_DISABLE    volumes:
-$HABIDAT_SSO_DISABLE      - ./sso.yml:/params.yml
-$HABIDAT_SSO_DISABLE      - ./cert:/var/simplesaml/cert
-$HABIDAT_SSO_DISABLE    networks:
-$HABIDAT_SSO_DISABLE      - $HABIDAT_DOCKER_PREFIX-proxy
-$HABIDAT_SSO_DISABLE      - $HABIDAT_DOCKER_PREFIX-back
-$HABIDAT_SSO_DISABLE    logging:
-$HABIDAT_SSO_DISABLE      options:
-$HABIDAT_SSO_DISABLE        max-size: 50m        
-
   user:
-    image: habidat/user:0.0.9
+    image: habidat/auth:1.0.0
 #    build:
 #      context: ../../../habidat-user/habidat-user
     restart: unless-stopped
@@ -67,11 +49,10 @@ $HABIDAT_SSO_DISABLE        max-size: 50m
     env_file:
       - ./user.env
     volumes:
-      - user-data:/habidat-user/data
+      - user-data:/app/data
+      - ./cert/saml:/app/data/saml
     ports:
-      - 8090
-    #command: node app.js
-    #entrypoint: ""
+      - 3000
     networks:
       - $HABIDAT_DOCKER_PREFIX-proxy
       - $HABIDAT_DOCKER_PREFIX-back
