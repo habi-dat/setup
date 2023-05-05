@@ -27,6 +27,7 @@ userpassword: $HABIDAT_ADMIN_PASSWORD
 
 dn: cn=admin,ou=groups,$HABIDAT_LDAP_BASE
 cn: admin
+o: Administrator*innen
 member: cn=admin,ou=users,$HABIDAT_LDAP_BASE
 objectclass: groupOfNames
 objectclass: top

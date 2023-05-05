@@ -1,7 +1,7 @@
 #!/bin/bash
 set +x
 
-mkdir -p ../store/nginx
+mkdir -p ../store/nginx/certificates
 
 
 if [ -z $HABIDAT_EXISTING_NGINX_GENERATOR_NETWORK ]

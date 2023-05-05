@@ -59,7 +59,7 @@ $HABIDAT_SSO_DISABLE      options:
 $HABIDAT_SSO_DISABLE        max-size: 50m
 
   user:
-    image: habidat/auth:1.0.0
+    image: habidat/auth:1.1.0
 #    build:
 #      context: ../../../habidat-user/habidat-user
     restart: unless-stopped
