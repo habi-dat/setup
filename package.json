@@ -1,0 +1,9 @@
+{
+  "name": "habidat-setup",
+  "version": "25.0.9",
+  "description": "Setup scripts for habi*DAT platform",
+  "main": "habidat.sh",
+  "repository": "https://github.com/habi-dat/setup.git",
+  "author": "Florian Humer <florian.humer@gmail.com>",
+  "license": "MIT"
+}

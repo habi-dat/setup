@@ -1,6 +1,6 @@
-version: '3.5'
+version: "3.5"
 
-volumes: 
+volumes:
   db:
   data:
 
@@ -12,7 +12,7 @@ networks:
     external:
       name: $HABIDAT_BACKEND_NETWORK
 
-services:  
+services:
   db:
     image: mariadb:10.5
     container_name: $HABIDAT_DOCKER_PREFIX-nextcloud-db
@@ -20,7 +20,7 @@ services:
     volumes:
       - db:/var/lib/mysql
     env_file:
-      - ./db.env  
+      - ./db.env
     networks:
       - $HABIDAT_DOCKER_PREFIX-back
     logging:
@@ -40,48 +40,48 @@ services:
         max-size: 50m
 
   redis:
-    image: redis
+    image: redis:6
     container_name: $HABIDAT_DOCKER_PREFIX-nextcloud-redis
     restart: unless-stopped
     networks:
-      - $HABIDAT_DOCKER_PREFIX-back      
+      - $HABIDAT_DOCKER_PREFIX-back
     command: redis-server --requirepass "$HABIDAT_NEXTCLOUD_REDIS_PASSWORD"
     logging:
       options:
-        max-size: 50m        
+        max-size: 50m
 
   nextcloud:
-    image: habidat/nextcloud:24.0.5
-#    build:
-#      context: ../../../habidat-nextcloud   
+    image: habidat/nextcloud:25.0.9
+    #    build:
+    #      context: ../../../habidat-nextcloud
     restart: unless-stopped
     container_name: $HABIDAT_DOCKER_PREFIX-nextcloud
     volumes:
       - data:/var/www/html
     env_file:
-      - ./nextcloud.env   
+      - ./nextcloud.env
     ports:
-      - 80      
+      - 80
     networks:
       - $HABIDAT_DOCKER_PREFIX-proxy
-      - $HABIDAT_DOCKER_PREFIX-back      
+      - $HABIDAT_DOCKER_PREFIX-back
     logging:
       options:
-        max-size: 50m  
+        max-size: 50m
 
   cron:
-    image: habidat/nextcloud:24.0.5
-#    build:
-#      context: ../../../habidat-nextcloud  
+    image: habidat/nextcloud:25.0.9
+    #    build:
+    #      context: ../../../habidat-nextcloud
     restart: unless-stopped
     container_name: $HABIDAT_DOCKER_PREFIX-nextcloud-cron
     volumes:
       - data:/var/www/html
     env_file:
-      - ./nextcloud.env   
+      - ./nextcloud.env
     networks:
-      - $HABIDAT_DOCKER_PREFIX-back      
+      - $HABIDAT_DOCKER_PREFIX-back
     entrypoint: /cron.sh
     logging:
       options:
-        max-size: 50m          
+        max-size: 50m

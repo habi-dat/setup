@@ -104,7 +104,7 @@ update_installed_modules() {
 		fi
 		sed -i '/HABIDAT_USER_INSTALLED_MODULES/d' store/auth/user.env
 		echo "HABIDAT_USER_INSTALLED_MODULES=$HABIDAT_USER_INSTALLED_MODULES" >> store/auth/user.env		
-		docker-compose -f store/auth/docker-compose.yml -p $HABIDAT_DOCKER_PREFIX-auth up -d user
+		#docker-compose -f store/auth/docker-compose.yml -p $HABIDAT_DOCKER_PREFIX-auth up -d user
 	fi
 }
 
