@@ -40,7 +40,7 @@ services:
         max-size: 50m
 
   redis:
-    image: redis:6
+    image: redis
     container_name: $HABIDAT_DOCKER_PREFIX-nextcloud-redis
     restart: unless-stopped
     networks:
