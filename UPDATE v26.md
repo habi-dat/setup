@@ -7,7 +7,7 @@
 # export nexcloud
 
 ```
-./habidat.sh export auth nodata
+./habidat.sh export nextcloud nodata
 ```
 
 # export discourse
