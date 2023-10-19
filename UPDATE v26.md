@@ -1,3 +1,7 @@
+# pull previous version
+
+git checkout 25.0.9
+
 # export auth
 
 ```
