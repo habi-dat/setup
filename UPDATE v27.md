@@ -23,7 +23,6 @@ git checkout 26.0.7
 # pull new habidat-setup
 
 ```
-git pull
 git checkout 27.1.2
 ```
 
@@ -33,3 +32,7 @@ git checkout 27.1.2
 update all apps in admin panel
 ./habidat.sh update nextcloud
 ```
+
+# checkout master again
+
+git checkout master
