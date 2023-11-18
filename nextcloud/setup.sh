@@ -9,11 +9,11 @@ mkdir -p ../store/nextcloud
 echo "Generating passwords..."
 
 #export HABIDAT_LDAP_BASE="dc=habidat-staging"
-export HABIDAT_NEXTCLOUD_DB_PASSWORD="$(openssl rand -base64 32)"
-export HABIDAT_NEXTCLOUD_ADMIN_PASSWORD="$(openssl rand -base64 32)"
-export HABIDAT_NEXTCLOUD_DB_ROOT_PASSWORD="$(openssl rand -base64 32)"
-export HABIDAT_NEXTCLOUD_REDIS_PASSWORD="$(openssl rand -base64 32)"
-export HABIDAT_DISCOURSE_SSO_SECRET="$(openssl rand -base64 32)"
+export HABIDAT_NEXTCLOUD_DB_PASSWORD="$(< /dev/urandom tr -dc _A-Za-z0-9 | head -c32)"
+export HABIDAT_NEXTCLOUD_ADMIN_PASSWORD="$(< /dev/urandom tr -dc _A-Za-z0-9 | head -c32)"
+export HABIDAT_NEXTCLOUD_DB_ROOT_PASSWORD="$(< /dev/urandom tr -dc _A-Za-z0-9 | head -c32)"
+export HABIDAT_NEXTCLOUD_REDIS_PASSWORD="$(< /dev/urandom tr -dc _A-Za-z0-9 | head -c32)"
+export HABIDAT_DISCOURSE_SSO_SECRET="$(< /dev/urandom tr -dc _A-Za-z0-9 | head -c32)"
 
 # store passwords file
 echo "export HABIDAT_NEXTCLOUD_DB_PASSWORD=$HABIDAT_NEXTCLOUD_DB_PASSWORD" > ../store/nextcloud/passwords.env
