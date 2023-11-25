@@ -1,28 +1,28 @@
 ---
 default_locale: de
-title: '$HABIDAT_TITLE Discourse'
-site_description: '$HABIDAT_DESCRIPTION'
-contact_email: '$HABIDAT_EMAIL'
-contact_url: '$HABIDAT_DOMAIN'
-notification_email: '$HABIDAT_SMTP_EMAILFROM'
+title: "$HABIDAT_TITLE Discourse"
+site_description: "$HABIDAT_DESCRIPTION"
+contact_email: "$HABIDAT_EMAIL"
+contact_url: "$HABIDAT_DOMAIN"
+notification_email: "$HABIDAT_SMTP_EMAILFROM"
 top_menu: latest|categories|new|unread|top
 share_links: email
 desktop_category_page_style: categories_and_latest_topics
 category_colors: BF1E2E|F1592A|F7941D|9EB83B|3AB54A|12A89D|25AAE2|0E76BD|652D90|92278F|ED207B|8C6238|231F20|808281|B3B5B4|283890
 category_style: bullet
-push_notifications_prompt: 'true'
-invite_only: 'false'
-login_required: 'true'
-discourse_connect_allows_all_return_paths: 'true'
+push_notifications_prompt: "true"
+invite_only: "false"
+login_required: "true"
+#discourse_connect_allows_all_return_paths: 'true'
 discourse_connect_url: https://$HABIDAT_NEXTCLOUD_SUBDOMAIN.$HABIDAT_DOMAIN/index.php/apps/discoursesso
 discourse_connect_secret: $HABIDAT_DISCOURSE_SSO_SECRET
-enable_discourse_connect: 'true'
-discourse_connect_overrides_groups: 'true'
-email_editable: 'false'
-auth_overrides_email: 'true'
-auth_overrides_name: 'true'
-auth_overrides_username: 'true'
+enable_discourse_connect: "true"
+discourse_connect_overrides_groups: "true"
+email_editable: "false"
+auth_overrides_email: "true"
+auth_overrides_name: "true"
+auth_overrides_username: "true"
 logout_redirect: $HABIDAT_PROTOCOL://$HABIDAT_NEXTCLOUD_SUBDOMAIN.$HABIDAT_DOMAIN/index.php/apps/discoursesso/logout
-default_trust_level: '2'
-allow_flagging_staff: 'true'
-force_https: 'false'
+default_trust_level: "2"
+allow_flagging_staff: "true"
+force_https: "false"
