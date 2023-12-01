@@ -30,7 +30,6 @@ echo "export HABIDAT_LDAP_ADMIN_PASSWORD=$HABIDAT_LDAP_ADMIN_PASSWORD" > ../stor
 echo "export HABIDAT_LDAP_READ_PASSWORD=$HABIDAT_LDAP_READ_PASSWORD" >> ../store/auth/passwords.env
 echo "export HABIDAT_LDAP_CONFIG_PASSWORD=$HABIDAT_LDAP_CONFIG_PASSWORD" >> ../store/auth/passwords.env
 echo "export HABIDAT_ADMIN_PASSWORD=$HABIDAT_ADMIN_PASSWORD" >> ../store/auth/passwords.env
-echo "export HABIDAT_USER_SESSION_SECRET=$HABIDAT_USER_SESSION_SECRET" >> ../store/auth/passwords.env
 
 if [ $HABIDAT_SSO == "true" ]
 then
