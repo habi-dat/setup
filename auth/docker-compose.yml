@@ -27,7 +27,7 @@ services:
     env_file:
       - ./ldap.env    
     ports:
-      - 389
+      - '$HABIDAT_LDAP_PORT_MAPPING'
     volumes:
       - ldap-data:/var/lib/ldap/
       - ldap-config:/etc/ldap/slapd.d/
