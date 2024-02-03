@@ -7,6 +7,13 @@ source ../store/auth/passwords.env
 export HABIDAT_INTERNAL_NETWORK_DISABLE='#'
 export HABIDAT_EXTERNAL_NETWORK_DISABLE=
 
+if [ $HABIDAT_EXPOSE_LDAP == "true" ] 
+then
+  export HABIDAT_LDAP_PORT_MAPPING='389:389'
+else
+  export HABIDAT_LDAP_PORT_MAPPING='389'
+fi
+
 envsubst < docker-compose.yml > ../store/auth/docker-compose.yml
 envsubst < config/bootstrap-update.ldif > ../store/auth/bootstrap/bootstrap.ldif
 cp config/memberOf.ldif ../store/auth/memberOf.ldif

@@ -80,6 +80,12 @@ else
 fi
 echo "export HABIDAT_BACKEND_NETWORK=$HABIDAT_BACKEND_NETWORK" >> ../store/nginx/networks.env
 
+if [ $HABIDAT_EXPOSE_LDAP == "true" ] 
+then
+  export HABIDAT_LDAP_PORT_MAPPING='389:389'
+else
+  export HABIDAT_LDAP_PORT_MAPPING='389'
+fi
 
 envsubst < docker-compose.yml > ../store/auth/docker-compose.yml
 
