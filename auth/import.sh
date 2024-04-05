@@ -28,9 +28,9 @@ rm $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth/export.ldif
 
 envsubst < config/bootstrap-update.ldif > ../store/auth/bootstrap/bootstrap.ldif
 
-docker-compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" rm -s -v -f ldap
+docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" rm -s -v -f ldap
 docker volume rm "$HABIDAT_DOCKER_PREFIX-auth_ldap-data"
 docker volume rm "$HABIDAT_DOCKER_PREFIX-auth_ldap-config"
-docker-compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d
+docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d
 
 echo "Finished, imported: $1"

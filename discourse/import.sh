@@ -54,4 +54,4 @@ echo "HABIDAT_DISCOURSE_API_KEY=$HABIDAT_DISCOURSE_API_KEY" >> ../store/auth/use
 echo "HABIDAT_DISCOURSE_API_URL=http://$HABIDAT_DOCKER_PREFIX-discourse:80" >> ../store/auth/user.env
 echo "HABIDAT_DISCOURSE_API_USERNAME=system" >> ../store/auth/user.env
 
-docker-compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d user
+docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d user

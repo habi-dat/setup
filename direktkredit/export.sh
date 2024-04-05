@@ -12,7 +12,7 @@ echo "Automatischer Export von Direktkreditdaten wird (noch) nicht unterstützt.
 
 #source ../store/direktkredit/passwords.env
 
-#docker-compose -f ../store/direktkredit/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-direktkredit" exec db bash -c "mysqldump $HABIDAT_DOCKER_PREFIX -u root --password=$HABIDAT_DK_DB_ROOT_PASSWORD > /backup.sql"
+#docker compose -f ../store/direktkredit/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-direktkredit" exec db bash -c "mysqldump $HABIDAT_DOCKER_PREFIX -u root --password=$HABIDAT_DK_DB_ROOT_PASSWORD > /backup.sql"
 #slapadd -v -c -l backup.ldif
 #DATE=$(date +"%Y%m%d%H%M")
 #docker cp "$HABIDAT_DOCKER_PREFIX-direktkredit-db":/backup.sql $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/direktkredit/export-$DATE/export-$DATE.sql

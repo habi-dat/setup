@@ -6,7 +6,7 @@ if [[ $# -eq 1 ]]
 then
 	echo "Starting mediawiki $1 instance..."
 
-    docker-compose -f ../store/mediawiki/$1/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mediawiki-$1" start
+    docker compose -f ../store/mediawiki/$1/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mediawiki-$1" start
 
 else
 	echo "Starting all mediawiki instances..."
@@ -17,6 +17,6 @@ else
 	    id=${dir##*/}
 
 		echo "Updating mediawiki $id instance..."
-	    docker-compose -f ../store/mediawiki/$id/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mediawiki-$id" start
+	    docker compose -f ../store/mediawiki/$id/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mediawiki-$id" start
 	done
 fi

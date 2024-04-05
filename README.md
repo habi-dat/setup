@@ -12,25 +12,27 @@ habi\*DAT is a collaboration platform comprised of an ldap user backend, a nextc
 
 Make sure you have linux machine ready, are logged in as root and have the following software installed:
 
-* envsubst (debian package gettext-base, redhat/centos package gettext)
-* curl
-* docker
-* docker-compose
+- envsubst (debian package gettext-base, redhat/centos package gettext)
+- curl
+- docker
+- docker compose plugin
 
-If you use the docker version, you only need to have docker and docker-compose installed.
+Also make sure a user with the name www-data in a user group called www-data exists.
+
+If you use the docker version, you only need to have docker and docker compose installed.
 
 ### DNS
 
 Also you need to have a domain and subdomains for the different apps:
 
-* User app (e.g. user.example.com)
-* Single Sign On (sso.example.com)
-* Nextcloud app (e.g. cloud.example.com)
-* Discourse app (e.g. discourse.example.com)
-* Direct Loan app (e.g. direktkredit.example.com)
-* Semantic Mediawiki (e.g. mediawiki.example.com)
-* Dokuwiki (e.g. dokuwiki.example.com)
-* Mailtrain including public and sandbox subdomains (e.g. mailtrain.example.com, lists.example.com, sandbox.mailtrain.example.com)
+- User app (e.g. user.example.com)
+- Single Sign On (sso.example.com)
+- Nextcloud app (e.g. cloud.example.com)
+- Discourse app (e.g. discourse.example.com)
+- Direct Loan app (e.g. direktkredit.example.com)
+- Semantic Mediawiki (e.g. mediawiki.example.com)
+- Dokuwiki (e.g. dokuwiki.example.com)
+- Mailtrain including public and sandbox subdomains (e.g. mailtrain.example.com, lists.example.com, sandbox.mailtrain.example.com)
 
 If you just want to have a local test installation add the following lines to your /etc/hosts files:
 
@@ -55,11 +57,11 @@ In order for everything to function properly you need to have an SMTP server rea
 
 First you have to edit the file `setup.env` and fill in all necessary parameters. They should be pretty self-explainatory, except these three:
 
-* HABIDAT_DOCKER_PREFIX: Is used as a prefix for all the docker names (containers, volumes, networks, ...). Set to anything that prevents collisions with other containers on your system.
-* HABIDAT_CREATE_SELFSIGNED: If you want the setup to create a self-signed wildcard certificate, set this to "true" (only for testing/development purposes)
-* HABIDAT_ADMIN_PASSWORD: You can choose the password for your admin account or set it to "generate" to have the setup generate a secure password for you
-* HABIDAT_SSO: set to true if you want to add authenticaiton via SAML (Single-Sign-On) - experimental
-* HABIDAT_LDAP_BASE: the ldap base needs to be based on HABIDAT_DOMAIN, e.g. "example.com" becomes "dc=example,dc=com"
+- HABIDAT_DOCKER_PREFIX: Is used as a prefix for all the docker names (containers, volumes, networks, ...). Set to anything that prevents collisions with other containers on your system.
+- HABIDAT_CREATE_SELFSIGNED: If you want the setup to create a self-signed wildcard certificate, set this to "true" (only for testing/development purposes)
+- HABIDAT_ADMIN_PASSWORD: You can choose the password for your admin account or set it to "generate" to have the setup generate a secure password for you
+- HABIDAT_SSO: set to true if you want to add authenticaiton via SAML (Single-Sign-On) - experimental
+- HABIDAT_LDAP_BASE: the ldap base needs to be based on HABIDAT_DOMAIN, e.g. "example.com" becomes "dc=example,dc=com"
 
 Now you can use the script "habidat.sh" to install the platform.
 
@@ -77,11 +79,11 @@ Modules can only be installed after their dependencies. This makes the following
 
 then
 
-* direktkredit
-* discourse
-* mediawiki
-* dokuwiki
-* mailtrain
+- direktkredit
+- discourse
+- mediawiki
+- dokuwiki
+- mailtrain
 
 You can also install all modules at once:
 
@@ -93,7 +95,7 @@ To remove a module run
 
 `./habidat.sh rm <module>`
 
-IMPORTANT: Please note that all data will be lost, as this also removes all mounted volumes and named volumes of the docker containers. 
+IMPORTANT: Please note that all data will be lost, as this also removes all mounted volumes and named volumes of the docker containers.
 
 ### List modules
 
@@ -103,9 +105,9 @@ You can also list all available modules and their installation status with
 
 ### Start, stop, restart, down modules
 
-By 
+By
 
-`./habidat.sh start|stop|restart|down <module>|[all]` 
+`./habidat.sh start|stop|restart|down <module>|[all]`
 
 you can start, stop, restart and down a modules or all modules at once.
 
@@ -115,7 +117,7 @@ After installation you can logon to all the services with username `admin`. The 
 
 ## Docker in Docker
 
-You can also run habidat-setup with docker-compose. Here is an example for a docker-compose.yml including an environment file. In this case you do not need to clone the repository. 
+You can also run habidat-setup with docker-compose. Here is an example for a docker-compose.yml including an environment file. In this case you do not need to clone the repository.
 
 The `setup-docker.env` file:
 
@@ -146,29 +148,27 @@ HABIDAT_SSO=false
 The `docker-compose.yml`:
 
 ```yaml
-version: '3'
+version: "3"
 
 services:
-
   habidat:
     image: habidat/setup
     volumes:
-      - ./habidat:/habidat/store 
+      - ./habidat:/habidat/store
       - /var/run/docker.sock:/var/run/docker.sock
     env_file:
-      - ./setup-docker.env  
+      - ./setup-docker.env
 ```
 
 Running commands in this case looks like this:
 
-`docker-compose run habidat install nextcloud`
+`docker compose run habidat install nextcloud`
 
 ## Disclaimer
 
-This project is in an early development stage, please only use for testing purposes. 
+This project is in an early development stage, please only use for testing purposes.
 
 ## Known Issues
 
-* Mediawiki shows and error message after login, even though it actually logs in
-* Dokuwiki module does not support SAML SSO yet
-
+- Mediawiki shows and error message after login, even though it actually logs in
+- Dokuwiki module does not support SAML SSO yet

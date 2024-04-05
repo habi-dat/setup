@@ -5,14 +5,14 @@ templates:
   - "templates/web.template.yml"
 #  - "templates/web.ratelimited.template.yml"
 ## Uncomment these two lines if you wish to add Lets Encrypt (https)
-  #- "templates/web.ssl.template.yml"
-  #- "templates/web.letsencrypt.ssl.template.yml"
+#- "templates/web.ssl.template.yml"
+#- "templates/web.letsencrypt.ssl.template.yml"
 
 ## which TCP/IP ports should this container expose?
 ## If you want Discourse to share a port with another webserver like Apache or nginx,
 ## see https://meta.discourse.org/t/17247 for details
 expose:
-  - "80"   # http
+  - "80" # http
 
 # Use 'links' key to link containers together, aka use Docker --link flag.
 #links:
@@ -40,10 +40,10 @@ env:
   #UNICORN_WORKERS: 3
 
   ## TODO: The domain name this Discourse instance will respond to
-  DISCOURSE_HOSTNAME: '$HABIDAT_DISCOURSE_SUBDOMAIN.$HABIDAT_DOMAIN'
-  VIRTUAL_HOST: '$HABIDAT_DISCOURSE_SUBDOMAIN.$HABIDAT_DOMAIN'
-  LETSENCRYPT_HOST: '$LETSENCRYPT_HOST'
-  CERT_NAME: '$CERT_NAME'
+  DISCOURSE_HOSTNAME: "$HABIDAT_DISCOURSE_SUBDOMAIN.$HABIDAT_DOMAIN"
+  VIRTUAL_HOST: "$HABIDAT_DISCOURSE_SUBDOMAIN.$HABIDAT_DOMAIN"
+  LETSENCRYPT_HOST: "$LETSENCRYPT_HOST"
+  CERT_NAME: "$CERT_NAME"
 
   ## Uncomment if you want the container to be started with the same
   ## hostname (-h option) as specified above (default "$hostname-$config")
@@ -51,7 +51,7 @@ env:
 
   ## TODO: List of comma delimited emails that will be made admin and developer
   ## on initial signup example 'user1@example.com,user2@example.com'
-  DISCOURSE_DEVELOPER_EMAILS: '$HABIDAT_ADMIN_EMAIL'
+  DISCOURSE_DEVELOPER_EMAILS: "$HABIDAT_ADMIN_EMAIL"
 
   ## TODO: The SMTP mail server used to validate new accounts and send notifications
   # SMTP ADDRESS, username, and password are required
@@ -59,14 +59,14 @@ env:
   DISCOURSE_SMTP_ADDRESS: $HABIDAT_SMTP_HOST
   DISCOURSE_SMTP_PORT: $HABIDAT_SMTP_PORT
   DISCOURSE_SMTP_USER_NAME: $HABIDAT_SMTP_USER
-  DISCOURSE_SMTP_PASSWORD: '$HABIDAT_SMTP_PASSWORD'
+  DISCOURSE_SMTP_PASSWORD: "$HABIDAT_SMTP_PASSWORD"
   DISCOURSE_SMTP_ENABLE_START_TLS: $HABIDAT_SMTP_TLS
 
   ## If you added the Lets Encrypt template, uncomment below to get a free SSL certificate
   #LETSENCRYPT_ACCOUNT_EMAIL: me@example.com
 
   ## TODO: configure connectivity to the databases
-  DISCOURSE_DB_SOCKET: ''
+  DISCOURSE_DB_SOCKET: ""
   #DISCOURSE_DB_USERNAME: discourse
   DISCOURSE_DB_PASSWORD: $HABIDAT_DISCOURSE_DB_PASSWORD
   DISCOURSE_DB_HOST: $HABIDAT_DOCKER_PREFIX-discourse-data
@@ -82,7 +82,7 @@ volumes:
       guest: /shared
   - volume:
       host: $PWD/../store/discourse/bootstrap
-      guest: /bootstrap     
+      guest: /bootstrap
 #  - volume:
 #      host: /var/discourse/shared/web-only/log/var-log
 #      guest: /var/log
@@ -95,10 +95,9 @@ hooks:
         cd: $home/plugins
         cmd:
           - git clone https://github.com/discourse/docker_manager.git
-          - git clone https://github.com/jonmbake/discourse-ldap-auth.git
+          - git clone https://github.com/jonmbake/discourse-ldap-auth.git ldap
           - git clone https://github.com/gdpelican/retort.git
-          - git clone https://github.com/soudis/discourse-allow-same-origin.git
-
+          - git clone https://github.com/soudis/discourse-allow-same-origin.git allowsameorigin
 
 ## Remember, this is YAML syntax - you can only have one block with a name
 run:

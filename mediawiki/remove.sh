@@ -5,7 +5,7 @@ if [[ $# -eq 1 ]]
 then
 	echo "Destroying containers and volumes for $1 instance..."
 
-    docker-compose -f ../store/mediawiki/$1/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mediawiki-$1" down -v --remove-orphans
+    docker compose -f ../store/mediawiki/$1/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mediawiki-$1" down -v --remove-orphans
     rm -r ../store/mediawiki/$1
 
 else
@@ -16,7 +16,7 @@ else
 	    dir=${dir%*/}      # remove the trailing "/"    
 	    id=${dir##*/}
 
-	    docker-compose -f ../store/mediawiki/$id/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mediawiki-$id" down -v --remove-orphans
+	    docker compose -f ../store/mediawiki/$id/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mediawiki-$id" down -v --remove-orphans
 	    rm -r ../store/mediawiki/$id
 	done
 

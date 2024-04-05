@@ -60,12 +60,12 @@ fi
 
 echo "Spinning up containers..."
 
-docker-compose -f ../store/mediawiki/$1/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mediawiki-$1" pull
-docker-compose -f ../store/mediawiki/$1/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mediawiki-$1" build 
-docker-compose -f ../store/mediawiki/$1/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mediawiki-$1" up -d db
+docker compose -f ../store/mediawiki/$1/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mediawiki-$1" pull
+docker compose -f ../store/mediawiki/$1/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mediawiki-$1" build 
+docker compose -f ../store/mediawiki/$1/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mediawiki-$1" up -d db
 echo "Waiting for database to initialize..."
 sleep 20
-docker-compose -f ../store/mediawiki/$1/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mediawiki-$1" up -d web
+docker compose -f ../store/mediawiki/$1/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mediawiki-$1" up -d web
 
 echo "Waiting for mediawiki container to initialize (this can take several minutes)..."
 # wait until discourse bootstrap is done
@@ -81,7 +81,7 @@ if [ -f "../$HABIDAT_LOGO" ]
 then
 	docker cp "../$HABIDAT_LOGO" $HABIDAT_DOCKER_PREFIX-mediawiki-$1:/var/www/html/images
 fi
-docker-compose -f ../store/mediawiki/$1/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mediawiki-$1" exec --user www-data web php maintenance/importImages.php images
+docker compose -f ../store/mediawiki/$1/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-mediawiki-$1" exec --user www-data web php maintenance/importImages.php images
 
 echo "Mediawiki instance $1 successfully installed! Please add nextcloud link and entry in auth/sso.yml manually."
 
@@ -90,6 +90,6 @@ echo "Mediawiki instance $1 successfully installed! Please add nextcloud link an
 
 #sed -i '/HABIDAT_MEDIAWIKI_SUBDOMAIN/d' ../store/nextcloud/nextcloud.env
 #echo "HABIDAT_MEDIAWIKI_SUBDOMAIN=$HABIDAT_MEDIAWIKI_SUBDOMAIN" >> ../store/nextcloud/nextcloud.env
-#docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" up -d nextcloud
+#docker compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" up -d nextcloud
 #sleep 5
-#docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud /habidat-add-externalsite.sh mediawiki
+#docker compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud /habidat-add-externalsite.sh mediawiki

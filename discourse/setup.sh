@@ -88,7 +88,7 @@ docker network connect $HABIDAT_PROXY_NETWORK $HABIDAT_DOCKER_PREFIX-discourse
 
 #echo "Spinning up containers..."
 
-#docker-compose -f ../store/discourse/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-discourse" up -d
+#docker compose -f ../store/discourse/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-discourse" up -d
 
 echo "Waiting for discourse container to initialize (this can take several minutes)..."
 sleep 10	
@@ -103,10 +103,10 @@ done
 #echo "Configuring discourse..."
 
 #envsubst < config/discourse-settings.yml > ../store/discourse/bootstrap/discourse-settings.yml
-#docker cp ../store/discourse/discourse-settings.yml "$(docker-compose -f ../store/discourse/docker-compose.yml -p $HABIDAT_DOCKER_PREFIX-discourse ps -q discourse)":/
-#docker cp setup-discourse-container.sh "$(docker-compose -f ../store/discourse/docker-compose.yml -p $HABIDAT_DOCKER_PREFIX-discourse ps -q discourse)":/
-#docker-compose -f ../store/discourse/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-discourse" exec discourse chmod +x /setup-discourse-container.sh
-#docker-compose -f ../store/discourse/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-discourse" exec discourse bash -c "/setup-discourse-container.sh"
+#docker cp ../store/discourse/discourse-settings.yml "$(docker compose -f ../store/discourse/docker-compose.yml -p $HABIDAT_DOCKER_PREFIX-discourse ps -q discourse)":/
+#docker cp setup-discourse-container.sh "$(docker compose -f ../store/discourse/docker-compose.yml -p $HABIDAT_DOCKER_PREFIX-discourse ps -q discourse)":/
+#docker compose -f ../store/discourse/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-discourse" exec discourse chmod +x /setup-discourse-container.sh
+#docker compose -f ../store/discourse/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-discourse" exec discourse bash -c "/setup-discourse-container.sh"
 
 echo "Creating admin user..."
 
@@ -139,10 +139,10 @@ echo "HABIDAT_DISCOURSE_API_KEY=$HABIDAT_DISCOURSE_API_KEY" >> ../store/auth/use
 echo "HABIDAT_DISCOURSE_API_URL=http://$HABIDAT_DOCKER_PREFIX-discourse:80" >> ../store/auth/user.env
 echo "HABIDAT_DISCOURSE_API_USERNAME=system" >> ../store/auth/user.env
 
-docker-compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d user
+docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d user
 
 echo "Add link to nextcloud..."
-docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud /habidat-add-externalsite.sh discourse
+docker compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud /habidat-add-externalsite.sh discourse
 
 echo "Setting theme, app menu and colors..."
 
@@ -168,21 +168,21 @@ curl -k --header "Content-Type: application/json" --header "Accept: application/
 
 
 
-#docker-compose -f ../nextcloud/docker-compose.yml exec --user www-data nextcloud php occ config:app:set discoursesso clientsecret --value="$HABIDAT_DISCOURSE_SSO_SECRET"
-#docker-compose -f ../nextcloud/docker-compose.yml exec --user www-data nextcloud php occ config:app:set discoursesso clienturl --value="$HABIDAT_PROTOCOL://$HABIDAT_DISCOURSE_SUBDOMAIN.$HABIDAT_DOMAIN"
-#docker-compose -f ../nextcloud/docker-compose.yml exec --user www-data nextcloud php occ app:install discoursesso
-#docker-compose -f ../nextcloud/docker-compose.yml exec --user www-data nextcloud php occ app:enable discoursesso
+#docker compose -f ../nextcloud/docker-compose.yml exec --user www-data nextcloud php occ config:app:set discoursesso clientsecret --value="$HABIDAT_DISCOURSE_SSO_SECRET"
+#docker compose -f ../nextcloud/docker-compose.yml exec --user www-data nextcloud php occ config:app:set discoursesso clienturl --value="$HABIDAT_PROTOCOL://$HABIDAT_DISCOURSE_SUBDOMAIN.$HABIDAT_DOMAIN"
+#docker compose -f ../nextcloud/docker-compose.yml exec --user www-data nextcloud php occ app:install discoursesso
+#docker compose -f ../nextcloud/docker-compose.yml exec --user www-data nextcloud php occ app:enable discoursesso
 
-#export APPDATA_DIR=$(docker-compose -f ../nextcloud/docker-compose.yml exec nextcloud find /var/www/html/data/ -type d -regex "/var/www/html/data/appdata[^/]*" | tr -d "\r")
-#export CONTAINER_ID=$(docker-compose -f ../nextcloud/docker-compose.yml ps -q nextcloud)
+#export APPDATA_DIR=$(docker compose -f ../nextcloud/docker-compose.yml exec nextcloud find /var/www/html/data/ -type d -regex "/var/www/html/data/appdata[^/]*" | tr -d "\r")
+#export CONTAINER_ID=$(docker compose -f ../nextcloud/docker-compose.yml ps -q nextcloud)
 #docker cp discourse.ico "$CONTAINER_ID":"$APPDATA_DIR/external/icons"
 
-#docker-compose exec --user www-data nextcloud php occ config:app:set external sites --value "{\"1\":{\"icon\":\"discourse.ico\",\"lang\":\"\",\"type\":\"link\",\"device\":\"\",\"id\":1,\"name\":\"Discourse\",\"url\":\"$HABIDAT_PROTOCOL:\/\/$HABIDAT_DISCOURSE_SUBDOMAIN.$HABIDAT_DOMAIN\"},\"2\":{\"icon\":\"wiki.png\",\"lang\":\"\",\"type\":\"link\",\"device\":\"\",\"id\":2,\"name\":\"Wiki\",\"url\":\"$HABIDAT_PROTOCOL:\/\/$HABIDAT_WIKI_SUBDOMAIN.$HABIDAT_DOMAIN\"},\"3\":{\"icon\":\"user.png\",\"lang\":\"\",\"type\":\"link\",\"device\":\"\",\"id\":3,\"name\":\"User*innen\",\"url\":\"$HABIDAT_PROTOCOL:\/\/$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN\"}}"	
+#docker compose exec --user www-data nextcloud php occ config:app:set external sites --value "{\"1\":{\"icon\":\"discourse.ico\",\"lang\":\"\",\"type\":\"link\",\"device\":\"\",\"id\":1,\"name\":\"Discourse\",\"url\":\"$HABIDAT_PROTOCOL:\/\/$HABIDAT_DISCOURSE_SUBDOMAIN.$HABIDAT_DOMAIN\"},\"2\":{\"icon\":\"wiki.png\",\"lang\":\"\",\"type\":\"link\",\"device\":\"\",\"id\":2,\"name\":\"Wiki\",\"url\":\"$HABIDAT_PROTOCOL:\/\/$HABIDAT_WIKI_SUBDOMAIN.$HABIDAT_DOMAIN\"},\"3\":{\"icon\":\"user.png\",\"lang\":\"\",\"type\":\"link\",\"device\":\"\",\"id\":3,\"name\":\"User*innen\",\"url\":\"$HABIDAT_PROTOCOL:\/\/$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN\"}}"	
 
 
 #envsubst < discourse_site_settings.json.template > discourse-site-settings.json
 #git clone https://github.com/pfaffman/discourse-settings-uploader.git 
 #gem install rdoc rest-client
-#discourse-settings-uploader/discourse-settings-uploader discourse.habidat-staging "$(echo $(docker-compose exec -e RAILS_ENV=production -e BUNDLE_GEMFILE=/opt/bitnami/discourse/Gemfile discourse bundle exec rake fapi_key:get) | tr -d "\r" | awk '{print $NF}')" admin discourse-site-settings.json
+#discourse-settings-uploader/discourse-settings-uploader discourse.habidat-staging "$(echo $(docker compose exec -e RAILS_ENV=production -e BUNDLE_GEMFILE=/opt/bitnami/discourse/Gemfile discourse bundle exec rake fapi_key:get) | tr -d "\r" | awk '{print $NF}')" admin discourse-site-settings.json
 
 #settings-uploader/discourse-settings-uploader localhost "$(echo $(bundle exec rake api_key:get) | tr -d "\r" | awk '{print $NF}')" admin discourse-site-settings.json

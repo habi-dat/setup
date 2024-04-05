@@ -21,7 +21,7 @@ then
 
 	echo "Spinning up containers..."
 
-	docker-compose -f ../store/nginx/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nginx" up -d
+	docker compose -f ../store/nginx/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nginx" up -d
 
 	if [ $HABIDAT_CREATE_SELFSIGNED == "true" ]
 	then

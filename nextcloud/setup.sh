@@ -51,9 +51,9 @@ envsubst < docker-compose.yml > ../store/nextcloud/docker-compose.yml
 
 echo "Spinning up containers..."
 
-docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" pull
-docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" build
-docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" up -d
+docker compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" pull
+docker compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" build
+docker compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" up -d
 echo "Waiting for containers to start (2 minutes)..."
 sleep 120
 # wait until nextcloud bootstrap is done
@@ -61,16 +61,16 @@ sleep 120
 #do
 #	sleep .5	
 #done
-#docker-compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX" exec --user www-data nextcloud php occ maintenance:install --database "mysql" --database-host "db" --database-name "nextcloud"  --database-user "nextcloud" --database-pass "$HABIDAT_NEXTCLOUD_DB_PASSWORD" --admin-user "admin" --admin-pass "$HABIDAT_NEXTCLOUD_ADMIN_PASSWORD"
+#docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX" exec --user www-data nextcloud php occ maintenance:install --database "mysql" --database-host "db" --database-name "nextcloud"  --database-user "nextcloud" --database-pass "$HABIDAT_NEXTCLOUD_DB_PASSWORD" --admin-user "admin" --admin-pass "$HABIDAT_NEXTCLOUD_ADMIN_PASSWORD"
 
 echo "Configuring nextcloud..."
-docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud /habidat-bootstrap.sh
-docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud /habidat-fixes.sh
-docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud /habidat-add-externalsite.sh user
+docker compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud /habidat-bootstrap.sh
+docker compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud /habidat-fixes.sh
+docker compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud /habidat-add-externalsite.sh user
 
-docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec db mysql -u nextcloud --password="$HABIDAT_NEXTCLOUD_DB_PASSWORD" -e "insert into oc_ldap_group_mapping (ldap_dn, owncloud_name, directory_uuid) values ('cn=admins,ou=groups,$HABIDAT_LDAP_BASE', 'admin', 'admin')" nextcloud 
+docker compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec db mysql -u nextcloud --password="$HABIDAT_NEXTCLOUD_DB_PASSWORD" -e "insert into oc_ldap_group_mapping (ldap_dn, owncloud_name, directory_uuid) values ('cn=admins,ou=groups,$HABIDAT_LDAP_BASE', 'admin', 'admin')" nextcloud 
 
-docker-compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" restart nextcloud
+docker compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" restart nextcloud
 
 echo "Configuring user module..."
 
@@ -83,4 +83,4 @@ sed -i '/HABIDAT_DISCOURSE_SSO_SECRET=/d' ../store/auth/user.env
 echo "HABIDAT_USER_NEXTCLOUD_DB_PASSWORD=$HABIDAT_NEXTCLOUD_DB_PASSWORD" >> ../store/auth/user.env
 echo "HABIDAT_USER_NEXTCLOUD_API_URL=http://admin:$HABIDAT_ADMIN_PASSWORD@$HABIDAT_DOCKER_PREFIX-nextcloud/ocs/v1.php" >> ../store/auth/user.env
 echo "HABIDAT_DISCOURSE_SSO_SECRET=$HABIDAT_DISCOURSE_SSO_SECRET" >> ../store/auth/user.env
-docker-compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d user
+docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d user

@@ -104,7 +104,7 @@ update_installed_modules() {
 		fi
 		sed -i '/HABIDAT_USER_INSTALLED_MODULES/d' store/auth/user.env
 		echo "HABIDAT_USER_INSTALLED_MODULES=$HABIDAT_USER_INSTALLED_MODULES" >> store/auth/user.env		
-		#docker-compose -f store/auth/docker-compose.yml -p $HABIDAT_DOCKER_PREFIX-auth up -d user
+		#docker compose -f store/auth/docker-compose.yml -p $HABIDAT_DOCKER_PREFIX-auth up -d user
 	fi
 }
 
@@ -114,7 +114,7 @@ check_exists() {
 		if [ "$2" ==  "force" ]
 		then	
 			prefix "Force reinstall $1, removing old installation...." 
-			bash -c "docker-compose -f store/$1/docker-compose.yml -p $HABIDAT_DOCKER_PREFIX-$1  down -v --remove-orphans" | prefixm "$1"
+			bash -c "docker compose -f store/$1/docker-compose.yml -p $HABIDAT_DOCKER_PREFIX-$1  down -v --remove-orphans" | prefixm "$1"
 			rm -rf "store/$1"
 		else
 			return 1
@@ -136,7 +136,7 @@ remove_module() {
 		./remove.sh ${@:2} | prefixm $1
 		cd ..
 	else
-		docker-compose -f "store/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-$1"  down -v --remove-orphans | prefixm "$1"		
+		docker compose -f "store/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-$1"  down -v --remove-orphans | prefixm "$1"		
    		rm -rf "store/$1"	
 	fi
     update_installed_modules		
@@ -156,7 +156,7 @@ start_module() {
 		./start.sh | prefixm $1
 		cd ..
 	else
-		docker-compose -f "store/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-$1"  start | prefixm "$1"
+		docker compose -f "store/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-$1"  start | prefixm "$1"
 	fi
 }
 
@@ -174,7 +174,7 @@ restart_module() {
 		./restart.sh | prefixm $1
 		cd ..
 	else
-		docker-compose -f "store/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-$1"  restart | prefixm "$1"
+		docker compose -f "store/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-$1"  restart | prefixm "$1"
 	fi	
 }
 
@@ -192,7 +192,7 @@ stop_module() {
 		./stop.sh | prefixm $1
 		cd ..
 	else
-		docker-compose -f "store/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-$1"  stop | prefixm "$1"
+		docker compose -f "store/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-$1"  stop | prefixm "$1"
 	fi			
 }
 
@@ -210,7 +210,7 @@ down_module() {
 		./down.sh | prefixm $1
 		cd ..
 	else
-		docker-compose -f "store/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-$1"  down | prefixm "$1"
+		docker compose -f "store/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-$1"  down | prefixm "$1"
 	fi			
 }
 
@@ -228,7 +228,7 @@ up_module() {
 		./up.sh | prefixm $1		
 		cd ..
 	else
-		docker-compose -f "store/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-$1"  up -d | prefixm "$1"
+		docker compose -f "store/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-$1"  up -d | prefixm "$1"
     fi
 }
 
@@ -246,7 +246,7 @@ pull_module() {
 		./pull.sh | prefixm $1		
 		cd ..
 	else
-		docker-compose -f "store/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-$1"  pull | prefixm "$1"
+		docker compose -f "store/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-$1"  pull | prefixm "$1"
     fi	
 	
 }
@@ -265,7 +265,7 @@ build_module() {
 		./build.sh | prefixm $1		
 		cd ..
 	else
-		docker-compose -f "store/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-$1"  build | prefixm "$1"
+		docker compose -f "store/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-$1"  build | prefixm "$1"
     fi		
 	
 }
