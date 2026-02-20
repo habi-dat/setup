@@ -1,79 +1,137 @@
-version: '3.5'
-
-volumes: 
+volumes:
   ldap-data:
   ldap-config:
-  user-data:
+  db_data:
+  redis_data:
+  user-uploads:
 $HABIDAT_SSO_DISABLE  sso-config:
 
 networks:
+  $HABIDAT_DOCKER_PREFIX-auth:
+    name: $HABIDAT_DOCKER_PREFIX-auth
   $HABIDAT_DOCKER_PREFIX-proxy:
-    external:
-      name: $HABIDAT_PROXY_NETWORK
+    name: $HABIDAT_PROXY_NETWORK
+    external: true
 $HABIDAT_INTERNAL_NETWORK_DISABLE  $HABIDAT_DOCKER_PREFIX-back:
-$HABIDAT_INTERNAL_NETWORK_DISABLE    driver: bridge  
+$HABIDAT_INTERNAL_NETWORK_DISABLE    driver: bridge
 $HABIDAT_INTERNAL_NETWORK_DISABLE    name: $HABIDAT_BACKEND_NETWORK
 $HABIDAT_EXTERNAL_NETWORK_DISABLE  $HABIDAT_DOCKER_PREFIX-back:
-$HABIDAT_EXTERNAL_NETWORK_DISABLE    external: 
+$HABIDAT_EXTERNAL_NETWORK_DISABLE    external:
 $HABIDAT_EXTERNAL_NETWORK_DISABLE      name: $HABIDAT_BACKEND_NETWORK
 
-
-services:  
-
+services:
   ldap:
     image: osixia/openldap:1.3.0
     restart: unless-stopped
     container_name: $HABIDAT_DOCKER_PREFIX-ldap
     env_file:
-      - ./ldap.env    
+      - ./ldap.env
     ports:
-      - '$HABIDAT_LDAP_PORT_MAPPING'
+      - "$HABIDAT_LDAP_PORT_MAPPING"
     volumes:
       - ldap-data:/var/lib/ldap/
       - ldap-config:/etc/ldap/slapd.d/
       - ./bootstrap:/container/service/slapd/assets/config/bootstrap/ldif/custom
-      - ./memberOf.ldif:/container/service/slapd/assets/config/bootstrap/ldif/03-memberOf.ldif 
+      - ./memberOf.ldif:/container/service/slapd/assets/config/bootstrap/ldif/03-memberOf.ldif
     command: --copy-service --loglevel debug
     networks:
       - $HABIDAT_DOCKER_PREFIX-back
     logging:
       options:
-        max-size: 50m  
+        max-size: 50m
 
-$HABIDAT_SSO_DISABLE  sso:
-$HABIDAT_SSO_DISABLE    image: habidat/sso
-#    build:
-#      context: ../../../habidat-sso
-$HABIDAT_SSO_DISABLE    restart: unless-stopped
-$HABIDAT_SSO_DISABLE    container_name: $HABIDAT_DOCKER_PREFIX-sso
-$HABIDAT_SSO_DISABLE    env_file:
-$HABIDAT_SSO_DISABLE      - ./sso.env
-$HABIDAT_SSO_DISABLE    volumes:
-$HABIDAT_SSO_DISABLE      - ./sso.yml:/params.yml
-$HABIDAT_SSO_DISABLE      - ./cert:/var/simplesaml/cert
-$HABIDAT_SSO_DISABLE    networks:
-$HABIDAT_SSO_DISABLE      - $HABIDAT_DOCKER_PREFIX-proxy
-$HABIDAT_SSO_DISABLE      - $HABIDAT_DOCKER_PREFIX-back
-$HABIDAT_SSO_DISABLE    logging:
-$HABIDAT_SSO_DISABLE      options:
-$HABIDAT_SSO_DISABLE        max-size: 50m
+  user-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    container_name: $HABIDAT_DOCKER_PREFIX-user-db
+    env_file:
+      - ./auth.env
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: habidat_auth
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - $HABIDAT_DOCKER_PREFIX-auth
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  user-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    container_name: $HABIDAT_DOCKER_PREFIX-user-redis
+    volumes:
+      - redis_data:/data
+    networks:
+      - $HABIDAT_DOCKER_PREFIX-auth
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  user-init:
+    image: habidat/auth-worker:2.0.0
+    restart: "no"
+    env_file:
+      - ./auth.env
+    volumes:
+      - ./user-import:/app/import
+    networks:
+      - $HABIDAT_DOCKER_PREFIX-back
+      - $HABIDAT_DOCKER_PREFIX-auth
+    depends_on:
+      user-db:
+        condition: service_healthy
+      user-redis:
+        condition: service_healthy
+    command: sh -c "cd /app/packages/db && npx prisma migrate deploy && npx prisma db seed"
 
   user:
-    image: habidat/auth:1.1.9
-#    build:
-#      context: ../../../habidat-user/habidat-user
+    image: habidat/auth:2.0.0
     restart: unless-stopped
     container_name: $HABIDAT_DOCKER_PREFIX-user
     env_file:
-      - ./user.env
+      - ./auth.env
+    environment:
+      - VIRTUAL_HOST=$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN
+      - LETSENCRYPT_HOST=$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN
+      - CERT_NAME=$HABIDAT_DOMAIN
     volumes:
-      - user-data:/app/data
-      - ./cert/saml:/app/data/saml
+      - ./cert/saml:/app/saml
+      - user-uploads:/app/apps/web/public/uploads
     ports:
       - 3000
     networks:
       - $HABIDAT_DOCKER_PREFIX-proxy
       - $HABIDAT_DOCKER_PREFIX-back
+      - $HABIDAT_DOCKER_PREFIX-auth
+    depends_on:
+      user-db:
+        condition: service_healthy
+      user-redis:
+        condition: service_healthy
     logging:
       options:
-        max-size: 50m        
+        max-size: 50m
+
+  user-worker:
+    image: habidat/auth-worker:2.0.0
+    restart: unless-stopped
+    container_name: $HABIDAT_DOCKER_PREFIX-user-worker
+    env_file:
+      - ./auth.env
+    networks:
+      - $HABIDAT_DOCKER_PREFIX-back
+      - $HABIDAT_DOCKER_PREFIX-auth
+    depends_on:
+      user-db:
+        condition: service_healthy
+      user-redis:
+        condition: service_healthy
+    logging:
+      options:
+        max-size: 50m

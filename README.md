@@ -14,6 +14,7 @@ Make sure you have linux machine ready, are logged in as root and have the follo
 
 - envsubst (debian package gettext-base, redhat/centos package gettext)
 - curl
+- mkcert
 - docker
 - docker compose plugin
 
@@ -34,34 +35,18 @@ Also you need to have a domain and subdomains for the different apps:
 - Dokuwiki (e.g. dokuwiki.example.com)
 - Mailtrain including public and sandbox subdomains (e.g. mailtrain.example.com, lists.example.com, sandbox.mailtrain.example.com)
 
-If you just want to have a local test installation add the following lines to your /etc/hosts files:
-
-```
-127.0.0.1       cloud.habidat.local
-127.0.0.1       user.habidat.local
-127.0.0.1       sso.habidat.local
-127.0.0.1       discourse.habidat.local
-127.0.0.1       direktkredit.habidat.local
-127.0.0.1       mediawiki.habidat.local
-127.0.0.1       dokuwiki.habidat.local
-127.0.0.1       mailtrain.habidat.local
-127.0.0.1       sandbox.mailtrain.habidat.local
-127.0.0.1       lists.habidat.local
-```
-
-### Mail Server
-
-In order for everything to function properly you need to have an SMTP server ready that accepts plain requests without username and password. For testing purposes you can try without.
-
 ## Usage
 
 First you have to edit the file `setup.env` and fill in all necessary parameters. They should be pretty self-explainatory, except these three:
 
 - HABIDAT_DOCKER_PREFIX: Is used as a prefix for all the docker names (containers, volumes, networks, ...). Set to anything that prevents collisions with other containers on your system.
-- HABIDAT_CREATE_SELFSIGNED: If you want the setup to create a self-signed wildcard certificate, set this to "true" (only for testing/development purposes)
+- HABIDAT_CREATE_SELFSIGNED: If you want the setup to create a self-signed wildcard certificate with mkcert, set this to "true" (only for testing/development purposes)
+- HABIDAT_ADMIN_EMAIL: E-Mail address of admin account
 - HABIDAT_ADMIN_PASSWORD: You can choose the password for your admin account or set it to "generate" to have the setup generate a secure password for you
-- HABIDAT_SSO: set to true if you want to add authenticaiton via SAML (Single-Sign-On) - experimental
-- HABIDAT_LDAP_BASE: the ldap base needs to be based on HABIDAT_DOMAIN, e.g. "example.com" becomes "dc=example,dc=com"
+- HABIDAT_LDAP_DOMAIN: usually the same as HABIDAT_DOMAIN, except if you want to import ldap data from a production system, then use the one from the production system
+- HABIDAT_LDAP_BASE: the ldap base needs to be based on HABIDAT_DOMAIN, e.g. "example.com" becomes "dc=example,dc=com". If you want to import from a production system, use the one from the production system
+
+Make sure to have correct SMTP_* info setup or use a local mailhog instance for testing purposes. 
 
 Now you can use the script "habidat.sh" to install the platform.
 
@@ -114,55 +99,6 @@ you can start, stop, restart and down a modules or all modules at once.
 ### Admin account
 
 After installation you can logon to all the services with username `admin`. The password is printed at the end of the installation process and can be looked up in `store/auth/passwords.env`
-
-## Docker in Docker
-
-You can also run habidat-setup with docker-compose. Here is an example for a docker-compose.yml including an environment file. In this case you do not need to clone the repository.
-
-The `setup-docker.env` file:
-
-```
-HABIDAT_TITLE=habi*DAT
-HABIDAT_DESCRIPTION=habi*DAT Test Plattform fuer Hausprojekte
-HABIDAT_LOGO=habidat.png
-HABIDAT_ADMIN_EMAIL=admin@example.com
-HABIDAT_ADMIN_PASSWORD=generate
-HABIDAT_PROTOCOL=https
-HABIDAT_DOMAIN=habidat.local
-HABIDAT_NEXTCLOUD_SUBDOMAIN=cloud
-HABIDAT_DISCOURSE_SUBDOMAIN=discourse
-HABIDAT_DIREKTKREDIT_SUBDOMAIN=direktkredit
-HABIDAT_USER_SUBDOMAIN=user
-HABIDAT_MEDIAWIKI_SUBDOMAIN=wiki
-HABIDAT_MAILTRAIN_PUBLIC_SUBDOMAIN=lists
-HABIDAT_MAILTRAIN_SUBDOMAIN=mailtrain
-HABIDAT_MAILTRAIN_SANDBOX_SUBDOMAIN=sandbox.mailtrain
-HABIDAT_LDAP_BASE=dc=habidat,dc=local
-HABIDAT_SMTP_HOST=mail.xaok.org
-HABIDAT_SMTP_PORT=25
-HABIDAT_DOCKER_PREFIX=habidat
-HABIDAT_CREATE_SELFSIGNED=true
-HABIDAT_SSO=false
-```
-
-The `docker-compose.yml`:
-
-```yaml
-version: "3"
-
-services:
-  habidat:
-    image: habidat/setup
-    volumes:
-      - ./habidat:/habidat/store
-      - /var/run/docker.sock:/var/run/docker.sock
-    env_file:
-      - ./setup-docker.env
-```
-
-Running commands in this case looks like this:
-
-`docker compose run habidat install nextcloud`
 
 ## Disclaimer
 

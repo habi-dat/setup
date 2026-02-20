@@ -30,11 +30,12 @@ docker compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREF
 docker compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud php occ db:add-missing-columns
 docker compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud php occ db:add-missing-primary-keys
 
-echo "Configuring user module..."
+echo "Configuring auth module..."
 
-# remove nextcloud vars from user module env
-sed -i '/HABIDAT_USER_NEXTCLOUD_DB_PASSWORD=/d' ../store/auth/user.env
-sed -i '/HABIDAT_USER_NEXTCLOUD_API_URL=/d' ../store/auth/user.env
+# remove nextcloud vars from auth module env
+touch ../store/auth/auth.env
+sed -i '/NEXTCLOUD_DB_PASSWORD=/d' ../store/auth/auth.env
+sed -i '/NEXTCLOUD_API_URL=/d' ../store/auth/auth.env
 
 rawurlencode() {
   local string="${1}"
@@ -50,10 +51,10 @@ rawurlencode() {
      esac
      encoded+="${o}"
   done
-  echo "${encoded}"    # You can either set a return variable (FASTER) 
+  echo "${encoded}"
 }
 
-# rewrite API vars to user module env
-echo "HABIDAT_USER_NEXTCLOUD_DB_PASSWORD=$HABIDAT_NEXTCLOUD_DB_PASSWORD" >> ../store/auth/user.env
-echo "HABIDAT_USER_NEXTCLOUD_API_URL=http://admin:$(rawurlencode $HABIDAT_ADMIN_PASSWORD)@$HABIDAT_DOCKER_PREFIX-nextcloud/ocs/v1.php" >> ../store/auth/user.env
-docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d user
+# rewrite API vars to auth module env
+echo "NEXTCLOUD_DB_PASSWORD=$HABIDAT_NEXTCLOUD_DB_PASSWORD" >> ../store/auth/auth.env
+echo "NEXTCLOUD_API_URL=http://admin:$(rawurlencode $HABIDAT_ADMIN_PASSWORD)@$HABIDAT_DOCKER_PREFIX-nextcloud/ocs/v1.php" >> ../store/auth/auth.env
+docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d

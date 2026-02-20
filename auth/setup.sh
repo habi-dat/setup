@@ -7,6 +7,7 @@ source ../store/nginx/networks.env
 #export HABIDAT_LDAP_ADMIN_PASSWORD=A5AFsfDrsr4DYswQ
 
 mkdir -p ../store/auth/bootstrap
+mkdir -p ../store/auth/user-import
 if [ $HABIDAT_SSO == "true" ]
 then
 	mkdir -p ../store/auth/sso-config
@@ -31,13 +32,14 @@ echo "export HABIDAT_LDAP_READ_PASSWORD=$HABIDAT_LDAP_READ_PASSWORD" >> ../store
 echo "export HABIDAT_LDAP_CONFIG_PASSWORD=$HABIDAT_LDAP_CONFIG_PASSWORD" >> ../store/auth/passwords.env
 echo "export HABIDAT_ADMIN_PASSWORD=$HABIDAT_ADMIN_PASSWORD" >> ../store/auth/passwords.env
 
-if [ $HABIDAT_SSO == "true" ]
+if [ "${HABIDAT_SSO:-false}" == "true" ]
 then
 
 	# generalte SSO certificates
 	echo "Generating SSO key and certificate..."
 	openssl req -new -x509 -days 3652 -nodes -out ../store/auth/cert/saml/cert.cer -keyout ../store/auth/cert/saml/key.pem -subj "/C=AT/ST=Upper Austria/L=Linz/O=habiDAT/OU=SSO/CN=$HABIDAT_DOMAIN"
-	chown -R www-data:www-data ../store/auth/cert
+  chmod a+r ../store/auth/cert/saml/cert.cer
+  chmod a+r ../store/auth/cert/saml/key.pem
 
 	export HABIDAT_SSO_CERTIFICATE=$(cat ../store/auth/cert/saml/cert.cer | sed --expression=':a;N;$!ba;s/\n/\\n/g')
 	echo "export HABIDAT_SSO_CERTIFICATE='$HABIDAT_SSO_CERTIFICATE'" >> ../store/auth/passwords.env
@@ -52,7 +54,7 @@ export HABIDAT_USER_INSTALLED_MODULES="nginx,auth,"
 
 # TODO ????
 echo "Create environment files..."
-if [ $HABIDAT_SSO == "true" ]
+if [ "${HABIDAT_SSO:-false}" == "true" ]
 then
 	envsubst < config/sso.env > ../store/auth/sso.env
 	envsubst < config/sso.yml > ../store/auth/sso.yml
@@ -60,10 +62,43 @@ fi
 
 envsubst < config/ldap.env > ../store/auth/ldap.env
 envsubst < config/user.env > ../store/auth/user.env
+source ../store/auth/passwords.env
+source ../store/auth/user.env
+
+# Create auth.env for auth 2.0 (web, worker, db)
+AUTH_ENV="../store/auth/auth.env"
+# URL-safe password (hex only, no special chars that break DATABASE_URL)
+POSTGRES_PASSWORD=$(openssl rand -hex 24)
+echo "POSTGRES_PASSWORD=$POSTGRES_PASSWORD" > "$AUTH_ENV"
+echo "DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@user-db:5432/habidat_auth" >> "$AUTH_ENV"
+echo "REDIS_URL=redis://user-redis:6379" >> "$AUTH_ENV"
+HOST="${HABIDAT_USER_SUBDOMAIN:-user}.${HABIDAT_DOMAIN:-habidat.local}"
+PROTO="${HABIDAT_PROTOCOL:-https}"
+echo "APP_URL=${PROTO}://${HOST}" >> "$AUTH_ENV"
+echo "NEXT_PUBLIC_APP_URL=${PROTO}://${HOST}" >> "$AUTH_ENV"
+echo "TRUSTED_ORIGINS=${PROTO}://*.${HABIDAT_DOMAIN:-habidat.local}" >> "$AUTH_ENV"
+echo "SESSION_SECRET=$HABIDAT_USER_SESSION_SECRET" >> "$AUTH_ENV"
+echo "BETTER_AUTH_SECRET=$HABIDAT_USER_SESSION_SECRET" >> "$AUTH_ENV"
+echo "ADMIN_EMAIL=$HABIDAT_ADMIN_EMAIL" >> "$AUTH_ENV"
+echo "ADMIN_PASSWORD=$HABIDAT_ADMIN_PASSWORD" >> "$AUTH_ENV"
+echo "LDAP_URL=ldap://${HABIDAT_USER_LDAP_HOST:-ldap}:${HABIDAT_USER_LDAP_PORT:-389}" >> "$AUTH_ENV"
+echo "LDAP_BIND_DN=$HABIDAT_USER_LDAP_BINDDN" >> "$AUTH_ENV"
+echo "LDAP_BIND_PASSWORD=$HABIDAT_USER_LDAP_PASSWORD" >> "$AUTH_ENV"
+echo "LDAP_BASE_DN=$HABIDAT_USER_LDAP_BASE" >> "$AUTH_ENV"
+echo "LDAP_USERS_DN=ou=users,$HABIDAT_USER_LDAP_BASE" >> "$AUTH_ENV"
+echo "LDAP_GROUPS_DN=ou=groups,$HABIDAT_USER_LDAP_BASE" >> "$AUTH_ENV"
+echo "SMTP_HOST=$HABIDAT_USER_SMTP_HOST" >> "$AUTH_ENV"
+echo "SMTP_PORT=$HABIDAT_USER_SMTP_PORT" >> "$AUTH_ENV"
+echo "SMTP_SECURE=$HABIDAT_USER_SMTP_TLS" >> "$AUTH_ENV"
+echo "SMTP_USER=$HABIDAT_USER_SMTP_USER" >> "$AUTH_ENV"
+echo "SMTP_PASS=$HABIDAT_USER_SMTP_PASSWORD" >> "$AUTH_ENV"
+echo "SMTP_FROM=$HABIDAT_USER_SMTP_EMAILFROM" >> "$AUTH_ENV"
+echo "HABIDAT_USER_INSTALLED_MODULES=$HABIDAT_USER_INSTALLED_MODULES" >> "$AUTH_ENV"
+
 envsubst < config/bootstrap.ldif > ../store/auth/bootstrap/bootstrap.ldif
 cp config/memberOf.ldif ../store/auth/memberOf.ldif
 
-if [ $HABIDAT_CREATE_SELFSIGNED == "true" ]
+if [ "${HABIDAT_CREATE_SELFSIGNED:-false}" == "true" ]
 then
 	echo "CERT_NAME=$HABIDAT_DOMAIN" >> ../store/auth/user.env
 fi
@@ -80,7 +115,7 @@ else
 fi
 echo "export HABIDAT_BACKEND_NETWORK=$HABIDAT_BACKEND_NETWORK" >> ../store/nginx/networks.env
 
-if [ $HABIDAT_EXPOSE_LDAP == "true" ] 
+if [ "${HABIDAT_EXPOSE_LDAP:-false}" = "true" ] 
 then
   export HABIDAT_LDAP_PORT_MAPPING='127.0.0.1:389:389'
 else
@@ -92,7 +127,11 @@ envsubst < docker-compose.yml > ../store/auth/docker-compose.yml
 echo "Spinning up containers..."
 
 docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" pull
-docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" build
-docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d
+docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d user-db user-redis ldap
+
+echo "Running auth-init (migrate + seed)..."
+docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" run --rm user-init
+
+docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d user user-worker
 
 

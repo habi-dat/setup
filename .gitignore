@@ -1,6 +1,7 @@
 store
 import
 export
+backup
 MIGRATION.txt
 NOTIZEN.txt
 setup.env

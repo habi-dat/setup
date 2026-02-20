@@ -44,14 +44,15 @@ do
 done
 echo "export HABIDAT_DISCOURSE_API_KEY=$HABIDAT_DISCOURSE_API_KEY" >> ../store/discourse/passwords.env
 
-# remove API vars from user module env
-sed -i '/HABIDAT_DISCOURSE_API_KEY/d' ../store/auth/user.env
-sed -i '/HABIDAT_DISCOURSE_API_URL/d' ../store/auth/user.env
-sed -i '/HABIDAT_DISCOURSE_API_USERNAME/d' ../store/auth/user.env
+# remove API vars from auth module env
+touch ../store/auth/auth.env
+sed -i '/DISCOURSE_API_KEY=/d' ../store/auth/auth.env
+sed -i '/DISCOURSE_URL=/d' ../store/auth/auth.env
+sed -i '/DISCOURSE_API_USERNAME=/d' ../store/auth/auth.env
 
-# rewrite API vars to user module env
-echo "HABIDAT_DISCOURSE_API_KEY=$HABIDAT_DISCOURSE_API_KEY" >> ../store/auth/user.env
-echo "HABIDAT_DISCOURSE_API_URL=http://$HABIDAT_DOCKER_PREFIX-discourse:80" >> ../store/auth/user.env
-echo "HABIDAT_DISCOURSE_API_USERNAME=system" >> ../store/auth/user.env
+# rewrite API vars to auth module env
+echo "DISCOURSE_API_KEY=$HABIDAT_DISCOURSE_API_KEY" >> ../store/auth/auth.env
+echo "DISCOURSE_URL=http://$HABIDAT_DOCKER_PREFIX-discourse:80" >> ../store/auth/auth.env
+echo "DISCOURSE_API_USERNAME=system" >> ../store/auth/auth.env
 
-docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d user
+docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d 

@@ -26,9 +26,7 @@ then
 	if [ $HABIDAT_CREATE_SELFSIGNED == "true" ]
 	then
 		echo "Generating self signed certificate..."
-		openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 \
-	    -subj "/C=AT/ST=UA/L=Linz/O=habiDAT/CN=*.$HABIDAT_DOMAIN" \
-	    -keyout "../store/nginx/certificates/$HABIDAT_DOMAIN.key"  -out "../store/nginx/certificates/$HABIDAT_DOMAIN.crt"
+		mkcert -key-file "../store/nginx/certificates/$HABIDAT_DOMAIN.key" -cert-file "../store/nginx/certificates/$HABIDAT_DOMAIN.crt" "*.$HABIDAT_DOMAIN"
 	fi
 
 else
