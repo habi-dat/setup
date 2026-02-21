@@ -13,6 +13,10 @@ then
 
 	envsubst < docker-compose.yml > ../store/nginx/docker-compose.yml
 
+	cp user.conf ../store/nginx
+	cp cors_map.conf ../store/nginx
+	cp cookies.conf ../store/nginx
+
 	echo "Pulling images and recreate containers..."
 
 	docker compose -f ../store/nginx/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nginx" pull

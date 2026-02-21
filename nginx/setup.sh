@@ -18,6 +18,9 @@ then
 	envsubst < docker-compose.yml > ../store/nginx/docker-compose.yml
 
 	cp nginx.conf ../store/nginx
+	cp user.conf ../store/nginx
+	cp cors_map.conf ../store/nginx
+	cp cookies.conf ../store/nginx
 
 	echo "Spinning up containers..."
 
