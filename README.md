@@ -15,6 +15,8 @@ Make sure you have linux machine ready, are logged in as root and have the follo
 - envsubst (debian package gettext-base, redhat/centos package gettext)
 - curl
 - mkcert
+- libnss3-tools
+- j2cli
 - docker
 - docker compose plugin
 

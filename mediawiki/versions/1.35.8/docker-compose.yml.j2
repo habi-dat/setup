@@ -1,0 +1,44 @@
+volumes:
+  db:
+  images:
+  config:
+
+networks:
+  {{ HABIDAT_DOCKER_PREFIX }}-proxy:
+    external:
+      name: {{ HABIDAT_PROXY_NETWORK }}
+  {{ HABIDAT_DOCKER_PREFIX }}-back:
+    external:
+      name: {{ HABIDAT_BACKEND_NETWORK }}
+
+services:
+  db:
+    image: mariadb
+    container_name: {{ HABIDAT_DOCKER_PREFIX }}-mediawiki-{{ HABIDAT_MEDIAWIKI_PROJECTID }}-db
+    restart: unless-stopped
+    volumes:
+      - db:/var/lib/mysql
+    env_file:
+      - ./db.env
+    networks:
+      - {{ HABIDAT_DOCKER_PREFIX }}-back
+    logging:
+      options:
+        max-size: 50m
+
+  web:
+    image: habidat/mediawiki
+    container_name: {{ HABIDAT_DOCKER_PREFIX }}-mediawiki-{{ HABIDAT_MEDIAWIKI_PROJECTID }}
+    env_file:
+      - ./web.env
+    volumes:
+      - images:/var/www/html/images
+      - config:/var/www/html/config
+    depends_on:
+      - db
+    networks:
+      - {{ HABIDAT_DOCKER_PREFIX }}-proxy
+      - {{ HABIDAT_DOCKER_PREFIX }}-back
+    logging:
+      options:
+        max-size: 50m

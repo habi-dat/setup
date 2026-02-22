@@ -1,0 +1,81 @@
+volumes:
+  db:
+  data:
+
+networks:
+  {{ HABIDAT_DOCKER_PREFIX }}-proxy:
+    external:
+      name: {{ HABIDAT_PROXY_NETWORK }}
+  {{ HABIDAT_DOCKER_PREFIX }}-back:
+    external:
+      name: {{ HABIDAT_BACKEND_NETWORK }}
+
+services:
+  db:
+    image: mariadb:10.6
+    container_name: {{ HABIDAT_DOCKER_PREFIX }}-nextcloud-db
+    restart: unless-stopped
+    volumes:
+      - db:/var/lib/mysql
+    env_file:
+      - ./db.env
+    networks:
+      - {{ HABIDAT_DOCKER_PREFIX }}-back
+    logging:
+      options:
+        max-size: 50m
+
+  antivirus:
+    image: dinkel/clamavd
+    container_name: {{ HABIDAT_DOCKER_PREFIX }}-nextcloud-antivirus
+    restart: unless-stopped
+    ports:
+      - 3310
+    networks:
+      - {{ HABIDAT_DOCKER_PREFIX }}-back
+    logging:
+      options:
+        max-size: 50m
+
+  redis:
+    image: redis
+    container_name: {{ HABIDAT_DOCKER_PREFIX }}-nextcloud-redis
+    restart: unless-stopped
+    networks:
+      - {{ HABIDAT_DOCKER_PREFIX }}-back
+    command: redis-server --requirepass "{{ HABIDAT_NEXTCLOUD_REDIS_PASSWORD }}"
+    logging:
+      options:
+        max-size: 50m
+
+  nextcloud:
+    image: habidat/nextcloud:32.0.5
+    restart: unless-stopped
+    container_name: {{ HABIDAT_DOCKER_PREFIX }}-nextcloud
+    volumes:
+      - data:/var/www/html
+    env_file:
+      - ./nextcloud.env
+    ports:
+      - 80
+    networks:
+      - {{ HABIDAT_DOCKER_PREFIX }}-proxy
+      - {{ HABIDAT_DOCKER_PREFIX }}-back
+    logging:
+      options:
+        max-size: 50m
+
+  cron:
+    image: habidat/nextcloud:32.0.5
+    restart: unless-stopped
+    container_name: {{ HABIDAT_DOCKER_PREFIX }}-nextcloud-cron
+    volumes:
+      - data:/var/www/html
+    env_file:
+      - ./nextcloud.env
+    networks:
+      - {{ HABIDAT_DOCKER_PREFIX }}-back
+    entrypoint: /cron.sh
+    logging:
+      options:
+        max-size: 50m

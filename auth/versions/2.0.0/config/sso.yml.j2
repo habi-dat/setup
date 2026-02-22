@@ -1,0 +1,101 @@
+---
+secretsalt:     {{ HABIDAT_SSO_SALT }}
+adminpassword:  {{ HABIDAT_ADMIN_PASSWORD }}
+
+authsources_ldap:
+  - name:            ldap
+    host:            {{ HABIDAT_DOCKER_PREFIX }}-ldap
+    enable_tls:      FALSE
+    dn_pattern:      null
+    attributes:
+      - uid
+      - cn
+      - givenName
+      - sn
+      - mail
+      - title
+      - ou
+      - l
+      - description
+      - memberOf
+    search_enable:   TRUE
+    search_base:     ou=users,{{ HABIDAT_LDAP_BASE }}
+    search_scope:    onelevel
+    search_filter:   (objectClass=inetOrgPerson)
+    search_username: cn=admin,{{ HABIDAT_LDAP_BASE }}
+    search_password: {{ HABIDAT_LDAP_ADMIN_PASSWORD }}
+    search_attributes:
+      - uid
+      - cn
+      - mail
+
+idp_hosted:
+  - entityid:        https://sso.{{ HABIDAT_DOMAIN }}
+    host:            sso.{{ HABIDAT_DOMAIN }}
+    privatekey:      server.pem
+    certificate:     server.cert
+    authsource:      ldap
+
+sp_remote:
+  - entityid:                   https://{{ HABIDAT_NEXTCLOUD_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}/apps/user_saml/saml/metadata
+    assertionconsumerservice:   https://{{ HABIDAT_NEXTCLOUD_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}/apps/user_saml/saml/acs
+    nameidformat:               urn:oasis:names:tc:SAML:2.0:nameid-format:unspecified
+    ssnameidattribute:          uid
+    ssattributes:               true
+    singlelogoutservice:        https://{{ HABIDAT_NEXTCLOUD_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}/apps/user_saml/saml/sls
+    restricttoldapgroup:        all
+  - entityid:                   https://{{ HABIDAT_USER_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}
+    assertionconsumerservice:   https://{{ HABIDAT_USER_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}/saml/consume
+    nameidformat:               urn:oasis:names:tc:SAML:2.0:nameid-format:unspecified
+    ssnameidattribute:          uid
+    ssattributes:               true
+    singlelogoutservice:        https://{{ HABIDAT_USER_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}/saml/consume
+    restricttoldapgroup:        all
+
+baseurlpath:             https://sso.{{ HABIDAT_DOMAIN }}/simplesaml/
+certdir:                 cert/
+loggingdir:              log/
+datadir:                 data/
+tempdir:                 /tmp/simplesaml
+debug:                   true
+showerrors:              true
+errorreporting:          false
+debug_validatexml:       false
+auth_adminpassword:      {{ HABIDAT_ADMIN_PASSWORD }}
+admin_protectindexpage:  true
+admin_protectmetadata:   true
+technicalcontact_name:   Admin
+technicalcontact_email:  {{ HABIDAT_ADMIN_EMAIL }}
+timezone:                Europe/Vienna
+loggin_level:            NOTICE
+logging_handler:         syslog
+enable_saml20_idp:       true
+enable_shib13_idp:       false
+enable_adfs_idp:         false
+enable_wsfed_sp:         false
+enable_authmemcookie:    false
+
+session_durration:               28800
+session_datastore_timeout:       14400
+session_state_timeout:           3600
+cookie_name:                     SimpleSAMLSessionID
+session_cookie_lifetime:         0
+session_cookie_domain:           null
+session_cookie_secure:           false
+session_disable_fallback:        false
+enable_http_post:                false
+session_phpsession_cookiename:   null
+session_phpsession_savepath:     null
+session_phpsession_httponly:     false
+session_authtoken_cookiename:    SimpleSAMLAuthToken
+session_rememberme_enable:       true
+session_rememberme_checked:      true
+session_rememberme_lifetime:     1209600
+
+language_default:                de
+language_parameter_name:         language
+language_parameter_setcookie:    true
+language_cookie_name:            language
+language_cookie_domain:          null
+language_cookie_path:            /
+language_cookie_lifetime:        77760000

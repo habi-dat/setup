@@ -1,0 +1,49 @@
+title: mailtrain
+
+gdpr:
+  deleteDataAfterUnsubscribe:
+    enabled: true
+    secondsAfterUnsubscribe: 86400
+  deleteSubscriptionAfterUnsubscribe:
+    enabled: true
+    secondsAfterUnsubscribe: 2592000
+
+editors:
+- grapesjs
+- mosaico
+- mosaicoWithFsTemplate
+- ckeditor4
+- codeeditor
+
+defaultLanguage: en-US
+
+enabledLanguages:
+- en-US
+- es-ES
+
+mysql:
+  host: {{ HABIDAT_DOCKER_PREFIX }}-mailtrain-db
+  user: {{ HABIDAT_DOCKER_PREFIX }}
+  password: {{ HABIDAT_MAILTRAIN_DB_PASSWORD }}
+  database: {{ HABIDAT_DOCKER_PREFIX }}
+  port: 3306
+  charset: utf8mb4
+  timezone: local
+
+ldap:
+  enabled: true
+  host: {{ HABIDAT_DOCKER_PREFIX }}-ldap
+  port: 389
+  baseDN: ou=users,{{ HABIDAT_LDAP_BASE }}
+  filter: {% raw %}(|(cn={{username}})(mail={{username}})(uid={{username}})){% endraw %}
+
+  uidTag: cn
+  nameTag: cn
+  passwordresetlink: {{ HABIDAT_PROTOCOL }}://{{ HABIDAT_USER_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}/lostpasswd
+  newUserRole: Campaigns Admin
+  newUserNamespaceId: 1
+  bindUser: cn=admin,{{ HABIDAT_LDAP_BASE }}
+  bindPassword: {{ HABIDAT_LDAP_ADMIN_PASSWORD }}
+
+log:
+  level: warn

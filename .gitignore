@@ -1,7 +1,9 @@
 store
-import
-export
+./import
+./export
 backup
 MIGRATION.txt
 NOTIZEN.txt
 setup.env
+setup.env.*
+!setup.env.example

@@ -1,0 +1,67 @@
+templates:
+  - "templates/web.template.yml"
+
+expose:
+  - "80"
+
+docker_args:
+  - "--network={{ HABIDAT_BACKEND_NETWORK }}"
+
+params:
+  version: stable
+
+env:
+  LANG: en_US.UTF-8
+  DISCOURSE_DEFAULT_LOCALE: de
+  DISCOURSE_MAX_ADMIN_API_REQS_PER_MINUTE: 100000
+
+  DISCOURSE_HOSTNAME: "{{ HABIDAT_DISCOURSE_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}"
+  VIRTUAL_HOST: "{{ HABIDAT_DISCOURSE_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}"
+{% if HABIDAT_LETSENCRYPT | default("false") == "true" %}
+  LETSENCRYPT_HOST: "{{ HABIDAT_DISCOURSE_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}"
+{% endif %}
+{% if HABIDAT_CREATE_SELFSIGNED | default("false") == "true" %}
+  CERT_NAME: "{{ HABIDAT_DOMAIN }}"
+{% endif %}
+
+  DISCOURSE_DEVELOPER_EMAILS: "{{ HABIDAT_ADMIN_EMAIL }}"
+
+  DISCOURSE_SMTP_ADDRESS: {{ HABIDAT_SMTP_HOST }}
+  DISCOURSE_SMTP_PORT: {{ HABIDAT_SMTP_PORT }}
+  DISCOURSE_SMTP_USER_NAME: {{ HABIDAT_SMTP_USER }}
+  DISCOURSE_SMTP_PASSWORD: "{{ HABIDAT_SMTP_PASSWORD }}"
+  DISCOURSE_SMTP_ENABLE_START_TLS: {{ HABIDAT_SMTP_TLS }}
+
+  DISCOURSE_DB_SOCKET: ""
+  DISCOURSE_DB_PASSWORD: {{ HABIDAT_DISCOURSE_DB_PASSWORD }}
+  DISCOURSE_DB_HOST: {{ HABIDAT_DOCKER_PREFIX }}-discourse-data
+  DISCOURSE_REDIS_HOST: {{ HABIDAT_DOCKER_PREFIX }}-discourse-data
+
+volumes:
+  - volume:
+      host: {{ HABIDAT_DOCKER_PREFIX }}-discourse
+      guest: /shared
+  - volume:
+      host: {% raw %}$PWD{% endraw %}/../store/discourse/bootstrap
+      guest: /bootstrap
+
+hooks:
+  after_code:
+    - exec:
+        cd: {% raw %}$home{% endraw %}/plugins
+        cmd:
+          - git clone https://github.com/discourse/docker_manager.git
+          - git clone https://github.com/jonmbake/discourse-ldap-auth.git ldap
+          - git clone https://github.com/gdpelican/retort.git
+          - git clone https://github.com/soudis/discourse-allow-same-origin.git allowsameorigin
+
+run:
+  - exec: echo "Beginning of custom commands"
+
+  - exec:
+      cd: {% raw %}$home{% endraw %}
+      cmd:
+        - rake site_settings:import < /bootstrap/discourse-settings.yml
+
+  - exec: echo "End of custom commands"
+  - exec: awk -F\# '{print $1;}' ~/.ssh/authorized_keys | awk 'BEGIN { print "Authorized SSH keys for this container:"; } NF>=2 {print $NF;}'

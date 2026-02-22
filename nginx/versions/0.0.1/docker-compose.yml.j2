@@ -1,0 +1,52 @@
+networks:
+  {{ HABIDAT_DOCKER_PREFIX }}-proxy:
+    driver: bridge
+    name: {{ HABIDAT_DOCKER_PREFIX }}-proxy
+
+volumes:
+  vhost:
+  html:
+  dhparam:
+
+services:
+
+  nginx:
+    image: jwilder/nginx-proxy
+    container_name: {{ HABIDAT_DOCKER_PREFIX }}-nginx
+    restart: unless-stopped
+    volumes:
+      - vhost:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+      - dhparam:/etc/nginx/dhparam
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - ./config/nginx.conf:/etc/nginx/nginx.conf
+      - ./certificates:/etc/nginx/certs:ro
+      - ./config/user.conf:/etc/nginx/vhost.d/{{ HABIDAT_USER_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}
+      - ./config/cors_map.conf:/etc/nginx/conf.d/cors_map.conf
+      - ./config/cookies.conf:/etc/nginx/conf.d/cookies.conf
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - {{ HABIDAT_DOCKER_PREFIX }}-proxy
+    logging:
+      options:
+        max-size: 50m
+
+{% if HABIDAT_LETSENCRYPT == "true" %}
+  nginx-letsencrypt-companion:
+    restart: unless-stopped
+    image: jrcs/letsencrypt-nginx-proxy-companion
+    container_name: {{ HABIDAT_DOCKER_PREFIX }}-letsencrypt
+    volumes:
+      - vhost:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./certificates:/etc/nginx/certs:rw
+    environment:
+      - NGINX_PROXY_CONTAINER={{ HABIDAT_DOCKER_PREFIX }}-nginx
+      - DEFAULT_EMAIL={{ HABIDAT_ADMIN_EMAIL }}
+    logging:
+      options:
+        max-size: 50m
+{% endif %}

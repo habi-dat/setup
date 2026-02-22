@@ -1,0 +1,26 @@
+templates:
+  - "templates/postgres.template.yml"
+  - "templates/redis.template.yml"
+
+docker_args:
+  - "--network={{ HABIDAT_BACKEND_NETWORK }}"
+
+params:
+  db_default_text_search_config: "pg_catalog.german"
+
+env:
+  LANG: en_US.UTF-8
+
+volumes:
+  - volume:
+        host: {{ HABIDAT_DOCKER_PREFIX }}-discourse_data
+        guest: /shared
+
+hooks:
+  after_postgres:
+    - exec:
+        stdin: |
+          alter user discourse with password '{{ HABIDAT_DISCOURSE_DB_PASSWORD }}';
+        cmd: su - postgres -c 'psql discourse'
+
+        raise_on_fail: false

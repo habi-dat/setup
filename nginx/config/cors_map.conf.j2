@@ -1,0 +1,4 @@
+map {% raw %}$http_origin{% endraw %} {% raw %}$cors_header{% endraw %} {
+    default "";
+    "~^https?://.*\.{{ HABIDAT_DOMAIN | replace('.', '\\.') }}{% raw %}${% endraw %}" "{% raw %}$http_origin{% endraw %}";
+}

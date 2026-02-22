@@ -1,0 +1,31 @@
+networks:
+  {{ HABIDAT_DOCKER_PREFIX }}-direktkredit-proxy:
+    external:
+      name: {{ HABIDAT_DOCKER_PREFIX }}-direktkredit-proxy
+  {{ HABIDAT_DOCKER_PREFIX }}-proxy:
+    external:
+      name: {{ HABIDAT_PROXY_NETWORK }}
+
+services:
+
+  nginx:
+    image: habidat/direktkredit-nginx
+    container_name: {{ HABIDAT_DOCKER_PREFIX }}-direktkredit-nginx
+    restart: unless-stopped
+    volumes:
+      - ./projects.json:/habidat/projects.json
+      - ./domains.txt:/habidat/domains.txt
+    env_file:
+      - ./domains.env
+    environment:
+      - SSL_PROVIDER=proxy
+      - SELFSIGNED={{ HABIDAT_CREATE_SELFSIGNED | default("false") }}
+      - SELFSIGNED_CERT_NAME={{ HABIDAT_DOMAIN }}
+    ports:
+      - 80
+    networks:
+      - {{ HABIDAT_DOCKER_PREFIX }}-proxy
+      - {{ HABIDAT_DOCKER_PREFIX }}-direktkredit-proxy
+    logging:
+      options:
+        max-size: 50m
