@@ -1,0 +1,24 @@
+[
+   {
+      "id":"nextcloud",
+      "label":"Cloud",
+      "url":"https://{{ HABIDAT_NEXTCLOUD_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}",
+      "saml":{
+         "samlEnabled":true,
+         "entityId":"https://{{ HABIDAT_NEXTCLOUD_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}/apps/user_saml/saml/metadata",
+         "acs":"https://{{ HABIDAT_NEXTCLOUD_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}/apps/user_saml/saml/acs",
+         "slo":"https://{{ HABIDAT_NEXTCLOUD_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}/apps/user_saml/saml/sls"
+      },
+      "groups":[
+         
+      ]
+   },
+   {
+      "id":"user",
+      "label":"Profil",
+      "url":"https://{{ HABIDAT_USER_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}/profile",
+      "groups":[
+         
+      ]
+   }
+]

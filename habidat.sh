@@ -41,7 +41,7 @@ usage() {
   log_info "Commands:"
   log_info "  help                                           Show this help"
   log_info "  install <module>|all [force]                   Install module or all modules"
-  log_info "  remove  <module>                               Remove module (caution: all data is lost)"
+  log_info "  remove  <module> [force]                        Remove module (caution: all data is lost)"
   log_info "  start   <module>|all                           Start module or all modules"
   log_info "  restart <module>|all                           Restart module or all modules"
   log_info "  stop    <module>|all                           Stop module or all modules"

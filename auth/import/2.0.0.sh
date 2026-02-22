@@ -4,7 +4,8 @@ set -euo pipefail
 echo "NOTE: importing data only works for data with the same domain / LDAP base"
 
 BACKUP_DIR="$HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/auth"
-COMPOSE="docker compose -f ../store/auth/docker-compose.yml -p $HABIDAT_DOCKER_PREFIX-auth"
+COMPOSE_FILE="../store/auth/docker-compose.yml"
+COMPOSE_PROJECT="$HABIDAT_DOCKER_PREFIX-auth"
 
 if [[ -f "$BACKUP_DIR/$1" ]]; then
   echo "Importing data from $BACKUP_DIR/$1"
@@ -41,21 +42,21 @@ rm "$BACKUP_DIR/export.ldif"
 render_versioned_template auth "$(cat ../store/auth/version)" \
   config/bootstrap-update.ldif.j2 ../store/auth/bootstrap/bootstrap.ldif
 
-$COMPOSE down -v
-$COMPOSE up -d user-db user-redis ldap
+docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" down -v
+docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" up -d user-db user-redis ldap
 
-echo "Waiting for LDAP to be ready..."
+echo "Waiting for LDAP to be ready (1 minute)..."
 sleep 60
 
 # v2 format: restore PostgreSQL dump before running init
 if [[ -f "$BACKUP_DIR/db.sql" ]]; then
   echo "Restoring PostgreSQL database..."
-  $COMPOSE exec -T user-db psql -U postgres -d habidat_auth < "$BACKUP_DIR/db.sql"
+  docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" exec -T user-db psql -U postgres -d habidat_auth < "$BACKUP_DIR/db.sql"
   rm "$BACKUP_DIR/db.sql"
 fi
 
-$COMPOSE run --rm user-init
-$COMPOSE up -d user user-worker
+docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" run --rm user-init
+docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" up -d user user-worker
 
 # v2 format: restore uploaded images
 if [[ -d "$BACKUP_DIR/uploads" ]]; then

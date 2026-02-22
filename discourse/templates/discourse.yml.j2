@@ -42,7 +42,7 @@ volumes:
       host: {{ HABIDAT_DOCKER_PREFIX }}-discourse
       guest: /shared
   - volume:
-      host: {% raw %}$PWD{% endraw %}/../store/discourse/bootstrap
+      host: {{ PWD }}/../store/discourse/bootstrap
       guest: /bootstrap
 
 hooks:

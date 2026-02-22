@@ -21,6 +21,7 @@ echo "export HABIDAT_DISCOURSE_SSO_SECRET=$HABIDAT_DISCOURSE_SSO_SECRET" >> ../s
 
 j2 config/db.env.j2 -o ../store/nextcloud/db.env
 j2 config/nextcloud.env.j2 -o ../store/nextcloud/nextcloud.env
+j2 config/appStore.json.j2 -o ../store/nextcloud/appStore.json
 
 if [[ "${HABIDAT_CREATE_SELFSIGNED:-false}" == "true" ]]; then
   echo "CERT_NAME=$HABIDAT_DOMAIN" >> ../store/nextcloud/nextcloud.env
@@ -32,8 +33,10 @@ echo "Spinning up containers..."
 docker compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" pull
 docker compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" build
 docker compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" up -d
-echo "Waiting for containers to start (2 minutes)..."
-sleep 120
+
+
+echo "Waiting for containers to start (30 seconds)..."
+sleep 30
 
 echo "Configuring nextcloud..."
 docker compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud /habidat-bootstrap.sh

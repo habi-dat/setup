@@ -4,11 +4,11 @@ volumes:
 
 networks:
   {{ HABIDAT_DOCKER_PREFIX }}-proxy:
-    external:
-      name: {{ HABIDAT_PROXY_NETWORK }}
+    name: {{ HABIDAT_DOCKER_PREFIX }}-proxy
+    external: true
   {{ HABIDAT_DOCKER_PREFIX }}-back:
-    external:
-      name: {{ HABIDAT_BACKEND_NETWORK }}
+    name: {{ HABIDAT_DOCKER_PREFIX }}-backend
+    external: true
 
 services:
   db:

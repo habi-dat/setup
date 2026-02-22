@@ -22,18 +22,18 @@ validate_store() {
     mod=$(basename "$dir")
 
     if [[ ! -f "$dir/version" ]]; then
-      log_warn "Store warning: $mod has no version file in store/"
-      ((warnings++))
+      log_warn "Store warning: $mod has no version file in store/ (partially installed?). Run './habidat.sh remove $mod' to clean up."
+      warnings=$((warnings + 1))
     fi
 
     if [[ ! -f "$dir/docker-compose.yml" ]] && [[ "$mod" != "discourse" ]] && [[ "$mod" != "direktkredit" ]] && [[ "$mod" != "mediawiki" ]]; then
       log_warn "Store warning: $mod has no docker-compose.yml in store/"
-      ((warnings++))
+      warnings=$((warnings + 1))
     fi
 
     if ! is_valid_module "$mod"; then
       log_warn "Store warning: $mod is installed but not found as a module in the repo"
-      ((warnings++))
+      warnings=$((warnings + 1))
     fi
   done
 
@@ -266,31 +266,47 @@ setup_module() {
 
 remove_module() {
   local module="$1"; shift
+  local force="${1:-}"
 
-  if ! is_installed "$module"; then
+  local store_dir="$BASE_DIR/store/$module"
+  local partially_installed=false
+
+  if [[ ! -d "$store_dir" ]]; then
     log_error "Module $module not installed, cannot remove."
     return 1
   fi
 
-  check_child_dependencies "$module"
+  if [[ ! -f "$store_dir/version" ]]; then
+    log_warn "Module $module appears partially installed (no version file). Will clean up."
+    partially_installed=true
+  fi
 
-  read -p "Do you really want to remove module $module? All data will be lost. [y/n] " -n 1 -r
-  echo
-  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    return 1
+  if [[ "$partially_installed" != "true" ]]; then
+    check_child_dependencies "$module"
+  fi
+
+  if [[ "$force" != "force" ]]; then
+    read -p "Do you really want to remove module $module? All data will be lost. [y/n] " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      return 1
+    fi
   fi
 
   log_info "Removing $module module..."
 
-  if [[ -f "$BASE_DIR/$module/remove.sh" ]]; then
+  if [[ -f "$BASE_DIR/$module/remove.sh" ]] && [[ "$partially_installed" != "true" ]]; then
     (
       cd "$BASE_DIR/$module" || exit 1
       ./remove.sh "$@" 2>&1
     ) | log_module "$module"
+  elif [[ -f "$store_dir/docker-compose.yml" ]]; then
+    docker compose -f "$store_dir/docker-compose.yml" \
+      -p "${HABIDAT_DOCKER_PREFIX}-$module" down -v --remove-orphans 2>&1 | log_module "$module" || true
+    rm -rf "$store_dir"
   else
-    docker compose -f "$BASE_DIR/store/$module/docker-compose.yml" \
-      -p "${HABIDAT_DOCKER_PREFIX}-$module" down -v --remove-orphans 2>&1 | log_module "$module"
-    rm -rf "$BASE_DIR/store/$module"
+    log_warn "No compose file found, just removing store directory."
+    rm -rf "$store_dir"
   fi
 
   update_installed_modules_env
@@ -395,7 +411,7 @@ export_module() {
   (
     cd "$BASE_DIR/$module" || exit 1
     # shellcheck disable=SC1090
-    bash "$script" "$@" 2>&1
+    source "$script" "$@" 2>&1
   ) | log_module "$module"
 
   log_info "Export of $module complete."
@@ -445,7 +461,7 @@ import_module() {
   (
     cd "$BASE_DIR/$module" || exit 1
     # shellcheck disable=SC1090
-    bash "$script" "$filename" 2>&1
+    source "$script" "$filename" 2>&1
   ) | log_module "$module"
 
   log_info "Import of $module complete."
@@ -470,9 +486,16 @@ dispatch() {
       if [[ "$target" == "all" ]]; then
         local mod
         for mod in $(get_ordered_modules); do
-          if is_installed "$mod" && [[ "${1:-}" != "force" ]]; then
+          if is_installed "$mod" && [[ -f "$BASE_DIR/store/$mod/version" ]] && [[ "${1:-}" != "force" ]]; then
             log_info "Module $mod already installed, skipping."
             continue
+          fi
+          if is_installed "$mod" && [[ "${1:-}" == "force" ]]; then
+            if [[ -f "$BASE_DIR/store/$mod/docker-compose.yml" ]]; then
+              docker compose -f "$BASE_DIR/store/$mod/docker-compose.yml" \
+                -p "${HABIDAT_DOCKER_PREFIX}-$mod" down -v --remove-orphans 2>&1 | log_module "$mod" || true
+            fi
+            rm -rf "$BASE_DIR/store/$mod"
           fi
           setup_module "$mod" "$@"
         done
@@ -484,8 +507,10 @@ dispatch() {
         fi
         if [[ "${1:-}" == "force" ]]; then
           log_info "Force reinstall $target, removing old installation..."
-          docker compose -f "$BASE_DIR/store/$target/docker-compose.yml" \
-            -p "${HABIDAT_DOCKER_PREFIX}-$target" down -v --remove-orphans 2>&1 | log_module "$target" || true
+          if [[ -f "$BASE_DIR/store/$target/docker-compose.yml" ]]; then
+            docker compose -f "$BASE_DIR/store/$target/docker-compose.yml" \
+              -p "${HABIDAT_DOCKER_PREFIX}-$target" down -v --remove-orphans 2>&1 | log_module "$target" || true
+          fi
           rm -rf "$BASE_DIR/store/$target"
           shift
         fi
@@ -495,7 +520,9 @@ dispatch() {
       ;;
 
     remove)
-      is_valid_module "$target" || die "Unknown module: $target"
+      if ! is_valid_module "$target" && [[ ! -d "$BASE_DIR/store/$target" ]]; then
+        die "Unknown module: $target (not in repo and not in store/)"
+      fi
       remove_module "$target" "$@"
       ;;
 
