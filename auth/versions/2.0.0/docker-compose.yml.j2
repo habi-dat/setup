@@ -145,7 +145,7 @@ services:
     container_name: {{ HABIDAT_DOCKER_PREFIX }}-mailhog
     ports:
       - "1025:1025"
-      - "1080:1080"
+      - "8025:8025"
     networks:
       - {{ HABIDAT_DOCKER_PREFIX }}-auth
       - {{ HABIDAT_DOCKER_PREFIX }}-back
