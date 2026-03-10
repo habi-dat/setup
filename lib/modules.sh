@@ -158,14 +158,14 @@ check_dependencies() {
   log_info "Checking dependencies for module $module..."
 
   local missing=()
-  while IFS= read -r dep; do
-    dep=$(echo "$dep" | tr -d '[:space:]')
-    [[ -z "$dep" ]] && continue
-    if is_installed "$dep"; then
-      log_info "  $dep ${_GREEN}[INSTALLED]${_RESET}"
+  while IFS= read -r line; do
+    line=$(echo "$line" | tr -d '[:space:]')
+    [[ -z "$line" ]] && continue
+    if is_installed "$line"; then
+      log_info "  $line ${_GREEN}[INSTALLED]${_RESET}"
     else
-      log_info "  $dep ${_RED}[NOT INSTALLED]${_RESET}"
-      missing+=("$dep")
+      log_info "  $line ${_RED}[NOT INSTALLED]${_RESET}"
+      missing+=("$line")
     fi
   done < "$depfile"
 
@@ -239,29 +239,31 @@ update_installed_modules_env() {
 # ---------------------------------------------------------------------------
 
 setup_module() {
-  local module="$1"; shift
-  log_info "Setting up $module module..."
+  local module="${1:?setup_module: module name required}"; shift
+  # Capture module name for subshell and logging; recursive setup_module calls must not lose it
+  local _mod="$module"
+  log_info "Setting up $_mod module..."
 
-  check_dependencies "$module"
+  check_dependencies "$_mod"
 
   (
-    cd "$BASE_DIR/$module" || exit 1
+    cd "$BASE_DIR/$_mod" || exit 1
     ./setup.sh "$@" 2>&1
-  ) | log_module "$module"
+  ) | log_module "$_mod"
 
   local rc=${PIPESTATUS[0]}
   if [[ $rc -ne 0 ]]; then
-    log_error "Setup of $module failed (exit code $rc)."
+    log_error "Setup of $_mod failed (exit code $rc)."
     return 1
   fi
 
-  cp "$BASE_DIR/$module/version" "$BASE_DIR/store/$module/version"
-  if [[ -f "$BASE_DIR/$module/dependencies" ]]; then
-    cp "$BASE_DIR/$module/dependencies" "$BASE_DIR/store/$module/dependencies"
+  cp "$BASE_DIR/$_mod/version" "$BASE_DIR/store/$_mod/version"
+  if [[ -f "$BASE_DIR/$_mod/dependencies" ]]; then
+    cp "$BASE_DIR/$_mod/dependencies" "$BASE_DIR/store/$_mod/dependencies"
   fi
 
   update_installed_modules_env
-  log_info "Module $module setup complete."
+  log_info "Module $_mod setup complete."
 }
 
 remove_module() {

@@ -68,7 +68,7 @@ echo "DISCOURSE_API_USERNAME=system" >> ../store/auth/auth.env
 docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d
 
 echo "Add link to nextcloud..."
-docker compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud /habidat-add-externalsite.sh discourse
+docker compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud /habidat/habidat-add-externalsite.sh discourse
 
 echo "Setting theme, app menu and colors..."
 
