@@ -61,7 +61,8 @@ log_module() {
   label="$(echo "$mod" | tr '[:lower:]' '[:upper:]')"
   local prefix
   prefix="$(_log_prefix "$label" "$_MAGENTA")"
-  sed -u -l 1 "s/^/$prefix/"
+  # Suppress docker pull/extract progress spam (each update becomes a line when stdout is not a TTY)
+  ( grep -v -E 'Downloading \[|Extracting [0-9]+ s' || true ) | sed -u -l 1 "s/^/$prefix/"
 }
 
 log_verbose() {
