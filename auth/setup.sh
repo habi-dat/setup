@@ -104,6 +104,9 @@ echo "Spinning up containers..."
 docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" pull
 docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d user-db user-redis ldap
 
+echo "Waiting for containers to start (30 seconds)..."
+sleep 30
+
 echo "Running auth-init (migrate + seed)..."
 docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" run --rm user-init
 
