@@ -62,7 +62,10 @@ log_module() {
   local prefix
   prefix="$(_log_prefix "$label" "$_MAGENTA")"
   # Suppress docker pull/extract progress spam (each update becomes a line when stdout is not a TTY)
-  ( grep -v -E 'Downloading \[|Extracting [0-9]+ s' || true ) | sed -u -l 1 "s/^/$prefix/"
+  while IFS= read -r line; do
+    [[ "$line" =~ Downloading\ \[|Extracting\ [0-9]+\ s ]] && continue
+    printf '%s%s\n' "$prefix" "$line"
+  done
 }
 
 log_verbose() {

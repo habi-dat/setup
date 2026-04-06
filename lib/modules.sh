@@ -368,7 +368,8 @@ build_module()   { _run_lifecycle build "$@"; }
 
 update_module() {
   local module="$1"
-  local force="${2:-}"
+  shift
+  local force="${1:-}"
 
   if ! is_valid_module "$module"; then
     log_error "Module $module unknown. Available: $(get_available_modules | tr '\n' ' ')"
@@ -378,6 +379,28 @@ update_module() {
   if ! is_installed "$module"; then
     log_error "Module $module not installed, cannot update."
     return 0
+  fi
+
+  if [[ -f "$BASE_DIR/$module/update.sh" ]]; then
+    log_info "Updating $module module using custom update script..."
+
+    if [[ "$force" == "force" ]]; then
+      shift
+    fi
+
+    (
+      cd "$BASE_DIR/$module" || exit 1
+      ./update.sh "$@" 2>&1
+    ) | log_module "$module"
+
+    local rc=${PIPESTATUS[0]}
+    if [[ $rc -eq 0 ]]; then
+      cp "$BASE_DIR/$module/version" "$BASE_DIR/store/$module/version"
+      update_installed_modules_env
+    else
+      log_error "Custom update of $module failed (exit code $rc)."
+    fi
+    return $rc
   fi
 
   run_migrations "$module" "$force"
