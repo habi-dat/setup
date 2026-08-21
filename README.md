@@ -92,12 +92,20 @@ Modules are installed in dependency order: **nginx** -> **auth** -> **nextcloud*
 #### Update
 
 ```bash
-./habidat.sh update <module>        # Update a single module
-./habidat.sh update all             # Update all installed modules
-./habidat.sh update <module> force  # Force re-run migrations even if up to date
+./habidat.sh update <module>              # Update a single module to the latest repo version
+./habidat.sh update all                   # Update all installed modules
+./habidat.sh update <module> <version>    # Update up to a specific version (inclusive)
+./habidat.sh update <module> force        # Force re-run migrations even if up to date
 ```
 
-Updates run versioned migrations step by step from the installed version to the target version. Each migration uses the correct templates and scripts for that specific version transition.
+Updates run versioned migrations step by step from the installed version to the target version (or to `<version>` if given). Each migration uses the correct templates and scripts for that specific version transition.
+
+Example: production is on Nextcloud 32 and the repo already contains 33 and 34:
+
+```bash
+./habidat.sh update nextcloud 33.0.0   # stop after 33
+./habidat.sh update nextcloud          # continue to 34 (or whatever nextcloud/version says)
+```
 
 #### Start / Stop / Restart
 
@@ -191,12 +199,12 @@ habidat-setup/
 
 Each module has a `version` file with the target version. The `store/<module>/version` file tracks the currently installed version. When updating, the system:
 
-1. Compares installed vs. target version
+1. Compares installed vs. target version (`<module>/version`, or the version passed to `update`)
 2. Finds all migration directories between them (`versions/<ver>/migrate.sh`)
 3. Runs each migration step by step, using the correct templates for each version
 4. Updates `store/<module>/version` after each successful step
 
-This means a user 3 versions behind will run 3 sequential migrations, each using the correct configuration templates for that transition. If a migration fails, the user can fix the issue and retry -- it will resume from where it left off.
+This means a user 3 versions behind will run 3 sequential migrations, each using the correct configuration templates for that transition. Pass a version to `update` to stop after a given step instead of going all the way to the repo target. If a migration fails, the user can fix the issue and retry -- it will resume from where it left off.
 
 ### Template resolution
 

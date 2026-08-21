@@ -369,7 +369,24 @@ build_module()   { _run_lifecycle build "$@"; }
 update_module() {
   local module="$1"
   shift
-  local force="${1:-}"
+  local force=""
+  local requested_version=""
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      force)
+        force="force"
+        ;;
+      *)
+        if [[ -n "$requested_version" ]]; then
+          log_error "Unexpected argument: $1"
+          return 1
+        fi
+        requested_version="$1"
+        ;;
+    esac
+    shift
+  done
 
   if ! is_valid_module "$module"; then
     log_error "Module $module unknown. Available: $(get_available_modules | tr '\n' ' ')"
@@ -382,15 +399,16 @@ update_module() {
   fi
 
   if [[ -f "$BASE_DIR/$module/update.sh" ]]; then
-    log_info "Updating $module module using custom update script..."
-
-    if [[ "$force" == "force" ]]; then
-      shift
+    if [[ -n "$requested_version" ]]; then
+      log_error "Module $module uses a custom update script and does not support updating to a specific version."
+      return 1
     fi
+
+    log_info "Updating $module module using custom update script..."
 
     (
       cd "$BASE_DIR/$module" || exit 1
-      ./update.sh "$@" 2>&1
+      ./update.sh 2>&1
     ) | log_module "$module"
 
     local rc=${PIPESTATUS[0]}
@@ -403,7 +421,7 @@ update_module() {
     return $rc
   fi
 
-  run_migrations "$module" "$force"
+  run_migrations "$module" "$force" "$requested_version"
   local rc=$?
   if [[ $rc -eq 0 ]]; then
     update_installed_modules_env
@@ -553,6 +571,12 @@ dispatch() {
 
     update)
       if [[ "$target" == "all" ]]; then
+        local arg
+        for arg in "$@"; do
+          if [[ "$arg" != "force" ]]; then
+            die "A target version can only be specified for a single module, not 'all'."
+          fi
+        done
         local mod
         local had_error=false
         for mod in $(get_ordered_modules); do

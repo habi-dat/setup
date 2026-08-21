@@ -47,7 +47,7 @@ usage() {
   log_info "  stop    <module>|all                           Stop module or all modules"
   log_info "  up      <module>|all                           Up module or all modules (create + start)"
   log_info "  down    <module>|all                           Down module or all modules (stop + remove containers)"
-  log_info "  update  <module>|all [force]                   Update module or all modules"
+  log_info "  update  <module>|all [version] [force]         Update module or all modules"
   log_info "  pull    <module>|all                           Pull Docker images"
   log_info "  build   <module>|all                           Build Docker images"
   log_info "  export  <module>|all [options]                 Export module data"

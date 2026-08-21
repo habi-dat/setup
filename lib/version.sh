@@ -93,19 +93,57 @@ list_all_version_dirs() {
 }
 
 # ---------------------------------------------------------------------------
-# run_migrations <module> [force]
+# is_known_migration_version <module> <version>
+#   True if <module>/versions/<version>/migrate.sh exists.
+# ---------------------------------------------------------------------------
+is_known_migration_version() {
+  local module="$1"
+  local ver="$2"
+  [[ -f "$BASE_DIR/$module/versions/$ver/migrate.sh" ]]
+}
+
+# ---------------------------------------------------------------------------
+# run_migrations <module> [force] [requested_version]
 #
 # Runs all applicable migration scripts from installed version to target.
+# If requested_version is set, stop at that version (inclusive) instead of
+# the repo target in <module>/version.
 # Updates store/<module>/version after each successful step.
 # ---------------------------------------------------------------------------
 run_migrations() {
   local module="$1"
   local force="${2:-}"
+  local requested="${3:-}"
 
   local installed
   installed=$(get_installed_version "$module")
-  local target
-  target=$(get_target_version "$module")
+  local repo_target
+  repo_target=$(get_target_version "$module")
+  local target="$repo_target"
+
+  if [[ -n "$requested" ]]; then
+    local ver_re='^[0-9]+(\.[0-9A-Za-z_-]+)*$'
+    if [[ ! "$requested" =~ $ver_re ]]; then
+      log_error "Invalid version '$requested'. Expected a version like 33.0.0."
+      return 1
+    fi
+    if [[ -z "$repo_target" ]]; then
+      log_error "Module $module: repo target version not found, cannot validate requested version."
+      return 1
+    fi
+    if version_gt "$requested" "$repo_target"; then
+      log_error "Cannot update $module to $requested: repo target is $repo_target."
+      return 1
+    fi
+    if ! is_known_migration_version "$module" "$requested" && ! version_eq "$requested" "$repo_target"; then
+      local available
+      available=$(list_migration_versions "$module" | tr '\n' ' ')
+      log_error "No migration for $module version $requested."
+      log_info "Available migrations: ${available:-none} (repo target: $repo_target)"
+      return 1
+    fi
+    target="$requested"
+  fi
 
   if [[ -z "$target" ]] && [[ "$force" != "force" ]]; then
     log_error "Module $module: target version not found, cannot update. Use force to override."
@@ -123,7 +161,11 @@ run_migrations() {
   fi
 
   if version_eq "$installed" "$target" && [[ "$force" != "force" ]]; then
-    log_info "Module $module is up to date (version $installed). Use force to update anyway."
+    if [[ -n "$requested" ]] && version_lt "$installed" "$repo_target"; then
+      log_info "Module $module is already at $installed. Newer version $repo_target is available."
+    else
+      log_info "Module $module is up to date (version $installed). Use force to update anyway."
+    fi
     return 0
   fi
 
@@ -150,6 +192,9 @@ run_migrations() {
   fi
 
   log_info "Module $module: migrating $installed -> $target (${#migrations[@]} step(s): ${migrations[*]})"
+  if [[ -n "$requested" ]] && version_lt "$target" "$repo_target"; then
+    log_info "Stopping at $target (repo target is $repo_target). Re-run update to continue."
+  fi
 
   if [[ "$DRY_RUN" == "true" ]]; then
     for ver in "${migrations[@]}"; do
@@ -186,6 +231,10 @@ run_migrations() {
   # If target is beyond the last migration script, update the version marker
   if version_lt "$installed" "$target"; then
     echo "$target" > "$BASE_DIR/store/$module/version"
+  fi
+
+  if [[ -n "$requested" ]] && version_lt "$installed" "$repo_target"; then
+    log_info "Module $module stopped at $installed. Newer version $repo_target is available."
   fi
 
   return 0
