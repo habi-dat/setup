@@ -15,49 +15,82 @@ php occ config:app:set -n discoursesso clienturl --value="$HABIDAT_PROTOCOL://$H
 
 #setup ldap
 echo "[HABIDAT] Setting up LDAP..."
-php occ ldap:set-config -n s01 ldapHost "$HABIDAT_DOCKER_PREFIX-ldap"
-php occ ldap:set-config -n s01 ldapPort 389
-php occ ldap:set-config -n s01 ldapLoginFilter "(&(objectclass=inetOrgPerson)(|(uid=%uid)(|(cn=%uid)(mail=%uid))))"
-php occ ldap:set-config -n s01 ldapAttributesForUserSearch "uid;cn"
-php occ ldap:set-config -n s01 hasMemberOfFilterSupport 1
-php occ ldap:set-config -n s01 lastJpegPhotoLookup 0
-php occ ldap:set-config -n s01 ldapAgentName "cn=admin,$HABIDAT_LDAP_BASE"
-php occ ldap:set-config -n s01 ldapAgentPassword "$HABIDAT_LDAP_ADMIN_PASSWORD"
-php occ ldap:set-config -n s01 ldapBase "$HABIDAT_LDAP_BASE"
-php occ ldap:set-config -n s01 ldapBaseGroups "ou=groups,$HABIDAT_LDAP_BASE"
-php occ ldap:set-config -n s01 ldapBaseUsers "ou=users,$HABIDAT_LDAP_BASE"
-php occ ldap:set-config -n s01 ldapCacheTTL 120
-php occ ldap:set-config -n s01 ldapConfigurationActive 1
-php occ ldap:set-config -n s01 ldapEmailAttribute mail
-php occ ldap:set-config -n s01 ldapQuotaAttribute description
-php occ ldap:set-config -n s01 ldapExperiencedAdmin 0
-php occ ldap:set-config -n s01 ldapExpertUsernameAttr uid
-php occ ldap:set-config -n s01 ldapExpertUUIDGroupAttr cn
-php occ ldap:set-config -n s01 ldapExpertUUIDUserAttr uid
-php occ ldap:set-config -n s01 ldapGidNumber gidNumber
-php occ ldap:set-config -n s01 ldapGroupDisplayName cn
-php occ ldap:set-config -n s01 ldapGroupFilter "(&(|(objectclass=groupOfNames)))"
-php occ ldap:set-config -n s01 ldapGroupFilterMode 0
-php occ ldap:set-config -n s01 ldapGroupFilterObjectclass "groupOfNames"
-php occ ldap:set-config -n s01 ldapGroupMemberAssocAttr member
-php occ ldap:set-config -n s01 ldapLoginFilterAttributes cn
-php occ ldap:set-config -n s01 ldapLoginFilterEmail 1
-php occ ldap:set-config -n s01 ldapLoginFilterMode 0
-php occ ldap:set-config -n s01 ldapLoginFilterUsername 1
-php occ ldap:set-config -n s01 ldapNestedGroups 1
-php occ ldap:set-config -n s01 ldapPagingSize 1000
-php occ ldap:set-config -n s01 ldapQuotaDefault 10GB
-php occ ldap:set-config -n s01 ldapTLS 0
-php occ ldap:set-config -n s01 ldapUserDisplayName cn
-php occ ldap:set-config -n s01 ldapUserDisplayName2 title
-php occ ldap:set-config -n s01 ldapUserFilter "(objectclass=inetOrgPerson)"
-php occ ldap:set-config -n s01 ldapUserFilterMode 0
-php occ ldap:set-config -n s01 ldapUserFilterObjectclass inetOrgPerson
-php occ ldap:set-config -n s01 ldapUuidGroupAttribute auto
-php occ ldap:set-config -n s01 ldapUuidUserAttribute auto
-php occ ldap:set-config -n s01 turnOffCertCheck 0
-php occ ldap:set-config -n s01 turnOnPasswordChange 0
-php occ ldap:set-config -n s01 useMemberOfToDetectMembership 0
+
+ldap_config_id_from_show() {
+  php occ ldap:show-config -n 2>/dev/null | awk -F'|' '
+    function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
+    /Configuration/ && n == 0 {
+      for (i = 1; i <= NF; i++) {
+        v = trim($i)
+        if (v ~ /^s[0-9]+$/) { cols[++n] = i; ids[n] = v }
+      }
+      next
+    }
+    /ldapConfigurationActive/ {
+      for (j = 1; j <= n; j++) {
+        v = trim($cols[j])
+        if (v == "1") { print ids[j]; found = 1; exit }
+      }
+    }
+    END { if (!found && n >= 1) print ids[1] }
+  '
+}
+
+LDAP_ID=$(ldap_config_id_from_show)
+if [ -z "$LDAP_ID" ]; then
+  echo "[HABIDAT] No LDAP config found, creating one..."
+  php occ ldap:create-empty-config -n
+  LDAP_ID=$(ldap_config_id_from_show)
+fi
+if [ -z "$LDAP_ID" ]; then
+  echo "[HABIDAT] ERROR: Could not determine LDAP config ID" >&2
+  exit 1
+fi
+echo "[HABIDAT] Using LDAP config ID: $LDAP_ID"
+
+php occ ldap:set-config -n "$LDAP_ID" ldapHost "$HABIDAT_DOCKER_PREFIX-ldap"
+php occ ldap:set-config -n "$LDAP_ID" ldapPort 389
+php occ ldap:set-config -n "$LDAP_ID" ldapLoginFilter "(&(objectclass=inetOrgPerson)(|(uid=%uid)(|(cn=%uid)(mail=%uid))))"
+php occ ldap:set-config -n "$LDAP_ID" ldapAttributesForUserSearch "uid;cn"
+php occ ldap:set-config -n "$LDAP_ID" hasMemberOfFilterSupport 1
+php occ ldap:set-config -n "$LDAP_ID" lastJpegPhotoLookup 0
+php occ ldap:set-config -n "$LDAP_ID" ldapAgentName "cn=admin,$HABIDAT_LDAP_BASE"
+php occ ldap:set-config -n "$LDAP_ID" ldapAgentPassword "$HABIDAT_LDAP_ADMIN_PASSWORD"
+php occ ldap:set-config -n "$LDAP_ID" ldapBase "$HABIDAT_LDAP_BASE"
+php occ ldap:set-config -n "$LDAP_ID" ldapBaseGroups "ou=groups,$HABIDAT_LDAP_BASE"
+php occ ldap:set-config -n "$LDAP_ID" ldapBaseUsers "ou=users,$HABIDAT_LDAP_BASE"
+php occ ldap:set-config -n "$LDAP_ID" ldapCacheTTL 120
+php occ ldap:set-config -n "$LDAP_ID" ldapConfigurationActive 1
+php occ ldap:set-config -n "$LDAP_ID" ldapEmailAttribute mail
+php occ ldap:set-config -n "$LDAP_ID" ldapQuotaAttribute description
+php occ ldap:set-config -n "$LDAP_ID" ldapExperiencedAdmin 0
+php occ ldap:set-config -n "$LDAP_ID" ldapExpertUsernameAttr uid
+php occ ldap:set-config -n "$LDAP_ID" ldapExpertUUIDGroupAttr cn
+php occ ldap:set-config -n "$LDAP_ID" ldapExpertUUIDUserAttr uid
+php occ ldap:set-config -n "$LDAP_ID" ldapGidNumber gidNumber
+php occ ldap:set-config -n "$LDAP_ID" ldapGroupDisplayName cn
+php occ ldap:set-config -n "$LDAP_ID" ldapGroupFilter "(&(|(objectclass=groupOfNames)))"
+php occ ldap:set-config -n "$LDAP_ID" ldapGroupFilterMode 0
+php occ ldap:set-config -n "$LDAP_ID" ldapGroupFilterObjectclass "groupOfNames"
+php occ ldap:set-config -n "$LDAP_ID" ldapGroupMemberAssocAttr member
+php occ ldap:set-config -n "$LDAP_ID" ldapLoginFilterAttributes cn
+php occ ldap:set-config -n "$LDAP_ID" ldapLoginFilterEmail 1
+php occ ldap:set-config -n "$LDAP_ID" ldapLoginFilterMode 0
+php occ ldap:set-config -n "$LDAP_ID" ldapLoginFilterUsername 1
+php occ ldap:set-config -n "$LDAP_ID" ldapNestedGroups 1
+php occ ldap:set-config -n "$LDAP_ID" ldapPagingSize 1000
+php occ ldap:set-config -n "$LDAP_ID" ldapQuotaDefault 10GB
+php occ ldap:set-config -n "$LDAP_ID" ldapTLS 0
+php occ ldap:set-config -n "$LDAP_ID" ldapUserDisplayName cn
+php occ ldap:set-config -n "$LDAP_ID" ldapUserDisplayName2 title
+php occ ldap:set-config -n "$LDAP_ID" ldapUserFilter "(objectclass=inetOrgPerson)"
+php occ ldap:set-config -n "$LDAP_ID" ldapUserFilterMode 0
+php occ ldap:set-config -n "$LDAP_ID" ldapUserFilterObjectclass inetOrgPerson
+php occ ldap:set-config -n "$LDAP_ID" ldapUuidGroupAttribute auto
+php occ ldap:set-config -n "$LDAP_ID" ldapUuidUserAttribute auto
+php occ ldap:set-config -n "$LDAP_ID" turnOffCertCheck 0
+php occ ldap:set-config -n "$LDAP_ID" turnOnPasswordChange 0
+php occ ldap:set-config -n "$LDAP_ID" useMemberOfToDetectMembership 0
 
 if [ $HABIDAT_SSO == "true" ]
 then
