@@ -53,7 +53,7 @@ echo "Configuring nextcloud..."
 docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" exec --user www-data nextcloud /habidat/habidat-bootstrap.sh
 docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" exec --user www-data nextcloud /habidat/habidat-add-externalsite.sh user
 
-docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" exec db mysql -u nextcloud --password="$HABIDAT_NEXTCLOUD_DB_PASSWORD" -e "insert into oc_ldap_group_mapping (ldap_dn, owncloud_name, directory_uuid) values ('cn=admins,ou=groups,$HABIDAT_LDAP_BASE', 'admin', 'admin')" nextcloud
+docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" exec db mariadb -u nextcloud --password="$HABIDAT_NEXTCLOUD_DB_PASSWORD" -e "insert into oc_ldap_group_mapping (ldap_dn, owncloud_name, directory_uuid) values ('cn=admins,ou=groups,$HABIDAT_LDAP_BASE', 'admin', 'admin')" nextcloud
 
 docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" restart nextcloud
 

@@ -27,8 +27,8 @@ services:
       - --character-set-collations=utf8mb4=utf8mb4_general_ci
     environment:
       # runs mariadb-upgrade on start if the data directory was written by an
-      # older major version. Keeps a dump of the system tables as
-      # system_mysql_backup_*.sql.zst in the data directory.
+      # older major version (10.6 -> 11.8). Keeps a dump of the system tables
+      # as system_mysql_backup_*.sql.zst in the data directory.
       - MARIADB_AUTO_UPGRADE=1
     # give InnoDB enough time for a clean shutdown, a crashed data directory
     # must not be handed to a new major version
