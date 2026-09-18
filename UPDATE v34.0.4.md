@@ -59,6 +59,21 @@ git checkout master
 
 # notes
 
+- The migration sets the database default charset to
+  `utf8mb4`/`utf8mb4_general_ci`. Older installations still carry the default of
+  the image that created the database - the entrypoint issues a bare
+  `CREATE DATABASE`, so it inherited `latin1` from the server default of the
+  day. The tables themselves are unaffected (nextcloud always creates them as
+  `utf8mb4`/`utf8mb4_bin`), but a table created without an explicit charset
+  would inherit `latin1` and could neither hold emojis nor be joined against the
+  existing columns without a collation mix. If the update has already been run,
+  apply it by hand:
+
+  ```
+  docker exec <prefix>-nextcloud-db mariadb -u root -p -e \
+    "alter database nextcloud character set utf8mb4 collate utf8mb4_general_ci"
+  ```
+
 - Since MariaDB 11.4.2 a `SET NAMES utf8mb4` - which is what the nextcloud
   database connection does - resolves to `utf8mb4_uca1400_ai_ci` instead of
   `utf8mb4_general_ci`. The nextcloud tables are `utf8mb4_bin`, so the new

@@ -58,6 +58,16 @@ docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" exec -T db \
   mariadb -u root --password="$HABIDAT_NEXTCLOUD_DB_ROOT_PASSWORD" -N -B -e "select version()" \
   || echo "(could not query the database version)"
 
+# Older installations still have the database default of the image that created
+# it (bare "CREATE DATABASE", so it inherited latin1 from the server default of
+# the day). All nextcloud tables are utf8mb4/utf8mb4_bin because nextcloud sets
+# that explicitly, but a table created without an explicit charset would inherit
+# latin1. Metadata only, no table or row is touched.
+echo "Setting the database default charset to utf8mb4..."
+docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" exec -T db \
+  mariadb -u root --password="$HABIDAT_NEXTCLOUD_DB_ROOT_PASSWORD" \
+  -e "alter database nextcloud character set utf8mb4 collate utf8mb4_general_ci"
+
 echo "Waiting for nextcloud to finish its upgrade (2 minutes)..."
 sleep 120
 
