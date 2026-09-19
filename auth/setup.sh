@@ -17,6 +17,16 @@ if [[ "${HABIDAT_ADMIN_PASSWORD:-}" == "generate" ]]; then
   export HABIDAT_ADMIN_PASSWORD="$(openssl rand -base64 12)"
 fi
 
+ssha_hash_admin_password() {
+  local js='const {createHash,randomBytes}=require("crypto");const p=process.env.HABIDAT_ADMIN_PASSWORD||"";const salt=randomBytes(4);const h=createHash("sha1");h.update(p);h.update(salt);process.stdout.write("{SSHA}"+Buffer.concat([h.digest(),salt]).toString("base64"))'
+  if command -v node >/dev/null 2>&1; then
+    node -e "$js"
+  else
+    docker run --rm -e HABIDAT_ADMIN_PASSWORD="$HABIDAT_ADMIN_PASSWORD" node:22-alpine node -e "$js"
+  fi
+}
+export HABIDAT_ADMIN_PASSWORD_SSHA="$(ssha_hash_admin_password)"
+
 echo "export HABIDAT_LDAP_ADMIN_PASSWORD=$HABIDAT_LDAP_ADMIN_PASSWORD" > ../store/auth/passwords.env
 echo "export HABIDAT_LDAP_READ_PASSWORD=$HABIDAT_LDAP_READ_PASSWORD" >> ../store/auth/passwords.env
 echo "export HABIDAT_LDAP_CONFIG_PASSWORD=$HABIDAT_LDAP_CONFIG_PASSWORD" >> ../store/auth/passwords.env
