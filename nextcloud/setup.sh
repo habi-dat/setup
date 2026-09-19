@@ -28,6 +28,7 @@ chmod +x ../store/nextcloud/assets/habidat-add-externalsite.sh
 
 j2 config/db.env.j2 -o ../store/nextcloud/db.env
 j2 config/nextcloud.env.j2 -o ../store/nextcloud/nextcloud.env
+j2 config/mariadb.cnf.j2 -o ../store/nextcloud/mariadb.cnf
 
 if [[ "${HABIDAT_CREATE_SELFSIGNED:-false}" == "true" ]]; then
   echo "CERT_NAME=$HABIDAT_DOMAIN" >> ../store/nextcloud/nextcloud.env

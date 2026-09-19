@@ -19,6 +19,12 @@ chmod +x ../store/nextcloud/assets/habidat-add-externalsite.sh
 render_versioned_template nextcloud "$HABIDAT_MIGRATE_VERSION" \
   docker-compose.yml.j2 "$COMPOSE_FILE"
 
+# Database tuning, mounted into the db container by the compose file above.
+# Rendering it here means it is re-created on every update instead of being
+# lost when the compose file is overwritten.
+render_versioned_template nextcloud "$HABIDAT_MIGRATE_VERSION" \
+  config/mariadb.cnf.j2 ../store/nextcloud/mariadb.cnf
+
 # ---------------------------------------------------------------------------
 # MariaDB 10.6 -> 11.8
 #

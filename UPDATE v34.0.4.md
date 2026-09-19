@@ -59,6 +59,24 @@ git checkout master
 
 # notes
 
+- The database tuning now lives in `nextcloud/config/mariadb.cnf.j2`, is
+  rendered to `store/nextcloud/mariadb.cnf` by setup.sh and by every migration,
+  and is mounted into the db container at `/etc/mysql/conf.d/99-habidat.cnf`.
+  Host specific values (buffer pool, max connections, io capacity, temp table
+  size) come from `setup.env` and are therefore never overwritten by an update.
+
+  Do not hand-edit `store/nextcloud/docker-compose.yml` or
+  `store/nextcloud/mariadb.cnf`: both are regenerated on every migration. Any
+  previous hand-made tuning file (for example a `store/nextcloud/my.cnf` mounted
+  by an edited compose file) is now obsolete and should be removed - every
+  `.cnf` in the mounted directory is read, so a leftover file would silently
+  keep overriding the rendered one. Check the effective configuration with:
+
+  ```
+  docker run --rm -v <store>/nextcloud:/etc/mysql/conf.d:ro \
+    mariadb:11.8 my_print_defaults --mariadbd
+  ```
+
 - The migration sets the database default charset to
   `utf8mb4`/`utf8mb4_general_ci`. Older installations still carry the default of
   the image that created the database - the entrypoint issues a bare

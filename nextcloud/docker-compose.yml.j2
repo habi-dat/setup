@@ -35,6 +35,16 @@ services:
     stop_grace_period: 300s
     volumes:
       - db:/var/lib/mysql
+      # rendered from config/mariadb.cnf.j2, re-created on every update.
+      # create_host_path is off on purpose: if the file is missing, docker would
+      # otherwise silently create a DIRECTORY named mariadb.cnf, the tuning
+      # would be gone and the next render could no longer write the file.
+      - type: bind
+        source: ./mariadb.cnf
+        target: /etc/mysql/conf.d/99-habidat.cnf
+        read_only: true
+        bind:
+          create_host_path: false
     env_file:
       - ./db.env
     networks:

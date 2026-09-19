@@ -1,0 +1,64 @@
+# habidat tuning for the nextcloud database.
+#
+# Rendered to store/nextcloud/mariadb.cnf and mounted read only into the db
+# container at /etc/mysql/conf.d/99-habidat.cnf. It is re-rendered by setup.sh
+# and by every migrate.sh, so it survives updates - do not edit the file in the
+# store directory, it will be overwritten.
+#
+# The defaults are sized for a production host with ~28 GB RAM and spinning
+# disks, shared with the other habidat modules.
+#
+# Character set and collation are deliberately NOT set here: they are passed as
+# command line flags in the compose file, which take precedence over any config
+# file and therefore cannot be overridden by accident.
+[mariadb]
+
+# Connections and cache sizing (host dependent, see setup.env).
+# The nextcloud working set is around 4 GB, so the buffer pool below holds it
+# completely with room to grow.
+max_connections          = {{ HABIDAT_NEXTCLOUD_DB_MAX_CONNECTIONS | default(250, true) }}
+innodb_buffer_pool_size  = {{ HABIDAT_NEXTCLOUD_DB_BUFFER_POOL_SIZE | default('8G', true) }}
+
+# Storage throughput, sized for spinning disks. These are NOT SSD values: on a
+# single spindle a high io_capacity only makes InnoDB flush more aggressively
+# than the disk can sustain. Raise both (2000/4000) if the host ever moves to
+# SSD or NVMe.
+innodb_io_capacity       = {{ HABIDAT_NEXTCLOUD_DB_IO_CAPACITY | default(200, true) }}
+innodb_io_capacity_max   = {{ HABIDAT_NEXTCLOUD_DB_IO_CAPACITY_MAX | default(400, true) }}
+
+# Flush neighbouring pages in the same extent together. This is a win on
+# spinning disks because it turns random writes into sequential ones; set it to
+# 0 on SSD, where it just causes extra writes.
+innodb_flush_neighbors   = 1
+
+# Leave the I/O threads at the default of 4. More threads help parallel random
+# I/O on SSD/NVMe, a spindle cannot service them concurrently anyway.
+
+# Temporary tables. Keeping them in memory matters even more on spinning disks,
+# where a disk based temp table is expensive.
+tmp_table_size           = {{ HABIDAT_NEXTCLOUD_DB_TMP_TABLE_SIZE | default('256M', true) }}
+max_heap_table_size      = {{ HABIDAT_NEXTCLOUD_DB_TMP_TABLE_SIZE | default('256M', true) }}
+
+# InnoDB log, sized for the write heavy nextcloud workload. A large redo log
+# spreads checkpoint flushing out over time, which is what a spinning disk
+# wants. MariaDB resizes the redo log automatically on startup, so changing
+# this value needs no manual step.
+innodb_log_file_size     = 512M
+innodb_log_buffer_size   = 64M
+
+# Table and definition cache
+table_open_cache         = 4000
+table_definition_cache   = 2000
+
+# Per connection buffers for the more complex nextcloud queries. Allocated per
+# connection, so the worst case is roughly max_connections times the sum of the
+# three - keep that in mind together with the buffer pool when sizing the host.
+join_buffer_size         = 4M
+read_buffer_size         = 2M
+read_rnd_buffer_size     = 4M
+
+# Slow query log for diagnostics. Lives in the data volume, so it is included in
+# volume snapshots and grows unbounded - rotate or truncate it occasionally.
+slow_query_log           = 1
+slow_query_log_file      = /var/lib/mysql/slow.log
+long_query_time          = 1
