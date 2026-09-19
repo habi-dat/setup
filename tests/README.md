@@ -29,8 +29,14 @@ touches your real `store/` or `setup.env`.
 | `40_cli.bats` | The CLI end to end in a throwaway copy of the repository, with a recording `docker` stub |
 
 Integration testing against real containers lives in the `integration` job of
-`.github/workflows/ci.yml` and runs only on `workflow_dispatch`. Discourse is
-out of scope there: `launcher rebuild` takes tens of minutes and several GB.
+`.github/workflows/ci.yml`. It installs nginx, auth and nextcloud for real and
+round-trips an auth export, and runs nightly (03:17 UTC) or on demand rather than
+gating pull requests. Discourse is out of scope there: `launcher rebuild` takes
+tens of minutes and several GB.
+
+Both of its triggers only fire for a workflow on the default branch, so to
+exercise it from a feature branch add `|| github.ref_name == '<branch>'` to the
+job's `if:` temporarily.
 
 ## How the harness works
 

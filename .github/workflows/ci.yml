@@ -10,6 +10,11 @@ on:
   # Needed on top of the push trigger for pull requests from forks, whose
   # branches live in another repository and so never push here.
   pull_request:
+  # Nightly, for the integration job. Not on the hour: GitHub's scheduler is
+  # busiest then and delays runs. Scheduled runs only ever fire on the default
+  # branch, so this does nothing until the workflow is on main.
+  schedule:
+    - cron: '17 3 * * *'
   workflow_dispatch:
 
 concurrency:
@@ -80,20 +85,18 @@ jobs:
       - name: Run the test suite
         run: ./tests/run.sh
 
-  # Real installs against a live Docker daemon: slow, several GB of image pulls,
-  # and dependent on the fixed `sleep 30` / `sleep 120` waits in the module
-  # scripts, so it is not a per-PR merge gate.
+  # Real installs against a live Docker daemon: several GB of image pulls and a
+  # few minutes of container start-up, so it runs nightly and on demand rather
+  # than gating every pull request. A job this size will eventually go red for
+  # reasons unrelated to the change under review, and a gate that cries wolf
+  # gets ignored.
   #
-  # TEMPORARY: `tests` is in this condition so the job can run at all. Manual
-  # dispatch and `schedule:` both require the workflow to live on the default
-  # branch, and main carries no workflow yet -- so before this branch merges, a
-  # push is the only trigger available.
-  #
-  # At merge time: drop `github.ref_name == 'tests'` and add a nightly
-  # `schedule:` trigger, which starts working once the file is on main.
+  # Both triggers only fire for a workflow on the default branch, so this job is
+  # dormant until the branch merges. Run it before then by adding
+  # `|| github.ref_name == '<branch>'` here temporarily.
   integration:
     name: Integration (nginx + auth + nextcloud)
-    if: github.event_name == 'workflow_dispatch' || github.ref_name == 'tests'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:

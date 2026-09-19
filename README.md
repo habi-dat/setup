@@ -327,7 +327,8 @@ and the CLI end to end against a recording `docker` stub. Nothing in it contacts
 a Docker daemon or touches your `store/` or `setup.env`.
 
 Integration tests against real containers live in the `integration` job of
-`.github/workflows/ci.yml` and run on manual dispatch only.
+`.github/workflows/ci.yml`. They install nginx, auth and nextcloud against a real
+Docker daemon and run nightly or on demand, not on every pull request.
 
 See [tests/README.md](tests/README.md) for how the harness works and how to add
 cases.
