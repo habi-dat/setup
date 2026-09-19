@@ -51,6 +51,7 @@
           pkgs.gnutar
           pkgs.gzip
           pkgs.gettext # envsubst, used by lib/template.sh for non-.j2 templates
+          pkgs.yq-go # validates .github/workflows/*.yml in the static tier
           pkgs.ncurses # tput, for the colour code paths in lib/common.sh
         ];
 

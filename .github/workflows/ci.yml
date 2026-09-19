@@ -86,9 +86,18 @@ jobs:
           mkdir -p backup
 
       - name: Trust the mkcert CA
-        run: nix develop --command bash -c 'mkcert -install'
+        run: nix develop --command mkcert -install
 
-      - name: Install the core modules
+      # One module at a time and in dependency order on purpose: installing
+      # nextcloud directly would hit check_dependencies' interactive
+      # "Install them? [y/n]" prompt, which has no stdin on a runner.
+      - name: Install nginx
+        run: nix develop --command ./habidat.sh install nginx
+
+      - name: Install auth
+        run: nix develop --command ./habidat.sh install auth
+
+      - name: Install nextcloud
         run: nix develop --command ./habidat.sh install nextcloud
 
       - name: Show module status

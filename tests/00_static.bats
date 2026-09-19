@@ -150,3 +150,69 @@ load helpers/load
     assert_success
   done
 }
+
+# ---------------------------------------------------------------------------
+# GitHub Actions workflows
+# ---------------------------------------------------------------------------
+
+@test "every workflow file is valid YAML" {
+  # A broken workflow is only reported by GitHub after a push, and the error it
+  # gives is a bare line number. Catch it here instead.
+  #
+  # The trap that produced this test: a `run:` written as an unquoted multi-line
+  # scalar containing ": ", which YAML reads as a mapping key. Use a block
+  # scalar (`run: |`) for anything multi-line.
+  command -v yq >/dev/null || skip "yq not installed"
+
+  local workflow failures=()
+  while IFS= read -r workflow; do
+    run yq -e 'true' "$workflow"
+    [[ "$status" -eq 0 ]] || failures+=("$workflow: $(printf '%s' "$output" | head -2 | tr '\n' ' ')")
+  done < <(find "$REPO_ROOT/.github/workflows" -name '*.yml' -o -name '*.yaml' 2>/dev/null)
+
+  [[ ${#failures[@]} -eq 0 ]] || fail_with_list "invalid workflow YAML:" "${failures[@]}"
+}
+
+@test "the CI workflow runs the test suite the same way a developer does" {
+  # Guards against CI drifting from tests/run.sh, which would let the suite pass
+  # locally and be skipped or invoked differently in CI.
+  command -v yq >/dev/null || skip "yq not installed"
+
+  run yq -e '.jobs.test.steps[] | select(.name == "Run the test suite") | .run' \
+    "$REPO_ROOT/.github/workflows/ci.yml"
+  assert_success
+  assert_output --partial "./tests/run.sh"
+
+  run yq -e '.jobs["test-npm"].steps[] | select(.name == "Run the test suite") | .run' \
+    "$REPO_ROOT/.github/workflows/ci.yml"
+  assert_success
+  assert_output --partial "./tests/run.sh"
+}
+
+@test "no workflow step uses a multi-line plain scalar for run:" {
+  # The specific syntax error this suite was taught by: `run:` followed by more
+  # lines without a block scalar marker. Anything multi-line must use `run: |`.
+  local workflow failures=()
+  while IFS= read -r workflow; do
+    # A run: whose value starts on the same line and is not a block scalar,
+    # followed by a more-indented continuation line, is the broken shape.
+    local n=0 prev_run_indent=-1 line indent
+    while IFS= read -r line; do
+      n=$((n + 1))
+      if [[ "$line" =~ ^([[:space:]]*)run:[[:space:]]+[^|\>] ]]; then
+        prev_run_indent=${#BASH_REMATCH[1]}
+        continue
+      fi
+      if [[ "$prev_run_indent" -ge 0 ]]; then
+        if [[ "$line" =~ ^([[:space:]]*)[^[:space:]] ]]; then
+          indent=${#BASH_REMATCH[1]}
+          [[ "$indent" -gt "$prev_run_indent" ]] \
+            && failures+=("${workflow#"$REPO_ROOT/"} line $n: continuation of a plain 'run:' scalar")
+        fi
+        prev_run_indent=-1
+      fi
+    done < "$workflow"
+  done < <(find "$REPO_ROOT/.github/workflows" -name '*.yml' -o -name '*.yaml' 2>/dev/null)
+
+  [[ ${#failures[@]} -eq 0 ]] || fail_with_list "multi-line plain 'run:' scalars (use 'run: |'):" "${failures[@]}"
+}
