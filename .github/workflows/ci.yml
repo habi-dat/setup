@@ -2,13 +2,23 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # Every branch, so work in progress is tested before it reaches main. The
+    # release tags (32.0.5, 31.0.2, ...) are deliberately excluded: a bare
+    # `push:` would also fire on tag pushes, re-testing a commit its branch
+    # already covered.
+    branches: ['**']
+  # Needed on top of the push trigger for pull requests from forks, whose
+  # branches live in another repository and so never push here.
   pull_request:
   workflow_dispatch:
 
-# A push that supersedes an in-flight run cancels it.
 concurrency:
-  group: ci-${{ github.ref }}
+  # A push that supersedes an in-flight run cancels it.
+  #
+  # head_ref (the PR's source branch) and ref_name (the pushed branch) resolve
+  # to the same string, so a same-repo pull request collapses into one run
+  # instead of racing its own branch push.
+  group: ci-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
