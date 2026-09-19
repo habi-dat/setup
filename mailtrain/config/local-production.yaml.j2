@@ -37,7 +37,7 @@ ldap:
   baseDN: ou=users,{{ HABIDAT_LDAP_BASE }}
   filter: {% raw %}(|(cn={{username}})(mail={{username}})(uid={{username}})){% endraw %}
 
-  uidTag: cn
+  uidTag: uid
   nameTag: cn
   passwordresetlink: {{ HABIDAT_PROTOCOL }}://{{ HABIDAT_USER_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}/lostpasswd
   newUserRole: Campaigns Admin

@@ -25,7 +25,7 @@ $conf['plugin']['authldap']['groupfilter'] = '{% raw %}(&(member=%{dn})(objectCl
 $conf['plugin']['authldap']['version'] = 3;
 $conf['plugin']['authldap']['binddn'] = 'cn=admin,{{ HABIDAT_LDAP_BASE }}';
 $conf['plugin']['authldap']['bindpw'] = '{{ HABIDAT_LDAP_ADMIN_PASSWORD }}';
-$conf['plugin']['authldap']['userkey'] = 'cn';
-$conf['plugin']['authldap']['mapping']['name'] = 'displayname';
+$conf['plugin']['authldap']['userkey'] = 'uid';
+$conf['plugin']['authldap']['mapping']['name'] = 'cn';
 
 // end auto-generated content
