@@ -5,11 +5,18 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-readonly BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[1]}")" && pwd)"
+# Repository root. Defaults to the directory of the script that sourced us
+# (habidat.sh), but an already-set BASE_DIR wins so tests can point the
+# libraries at a fixture tree.
+if [[ -z "${BASE_DIR:-}" ]]; then
+  BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[1]}")" && pwd)"
+fi
+readonly BASE_DIR
 
 # ---------------------------------------------------------------------------
 # Colors & formatting (graceful fallback when tput is unavailable)
 # ---------------------------------------------------------------------------
+# shellcheck disable=SC2155  # tput failure is already gated by the condition
 if command -v tput >/dev/null 2>&1 && tput sgr0 >/dev/null 2>&1; then
   readonly _RED=$(tput setaf 1)
   readonly _GREEN=$(tput setaf 2)

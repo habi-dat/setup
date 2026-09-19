@@ -216,6 +216,40 @@ Configuration and compose files use [j2cli](https://github.com/kolypto/j2cli) fo
 
 ## Development
 
+### Development environment
+
+A Nix flake pins every tool the project and its tests need -- bats, shellcheck,
+j2cli, the Docker CLI, mkcert, openssl:
+
+```bash
+nix develop        # everything, including the runtime tools for a real install
+nix develop .#ci   # test tooling only
+```
+
+Without Nix, install the prerequisites from the list above yourself and run
+`npm install` to get bats.
+
+### Tests
+
+```bash
+./tests/run.sh              # whole suite, ~100 seconds
+./tests/run.sh 20_version   # one tier
+./tests/run.sh --list       # show the tiers
+npm test                    # same thing
+```
+
+The suite covers static analysis, the filesystem conventions the CLI infers
+modules and versions from, the version-comparison and template-resolution
+libraries, rendering every Jinja2 template under three configuration profiles,
+and the CLI end to end against a recording `docker` stub. Nothing in it contacts
+a Docker daemon or touches your `store/` or `setup.env`.
+
+Integration tests against real containers live in the `integration` job of
+`.github/workflows/ci.yml` and run on manual dispatch only.
+
+See [tests/README.md](tests/README.md) for how the harness works and how to add
+cases.
+
 ### Adding a new module
 
 1. Create a directory with the module name

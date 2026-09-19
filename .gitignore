@@ -7,3 +7,5 @@ NOTIZEN.txt
 setup.env
 setup.env.*
 !setup.env.example
+node_modules
+result

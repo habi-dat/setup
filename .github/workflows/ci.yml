@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A push that supersedes an in-flight run cancels it.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The flake pins bats, shellcheck, j2cli and the docker CLI, so CI and a
+      # developer's `nix develop` run the same versions. j2cli in particular
+      # matters: its StrictUndefined default is what makes the render tier a
+      # real check.
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            accept-flake-config = true
+
+      - name: Cache the Nix store
+        uses: DeterminateSystems/magic-nix-cache-action@v7
+
+      - name: Show the environment
+        run: nix develop .#ci --command bash -c '
+            bats --version;
+            shellcheck --version | sed -n "s/^version: /shellcheck /p";
+            j2 --version 2>&1 | tail -n1;
+            docker --version'
+
+      - name: Run the test suite
+        run: nix develop .#ci --command ./tests/run.sh
+
+  # Verifies the npm path still works, so a contributor without Nix can run the
+  # suite. The static tier skips here (no shellcheck).
+  test-npm:
+    name: Test suite (npm, no Nix)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install j2cli
+        run: pipx install j2cli
+
+      - name: Install test dependencies
+        run: npm ci
+
+      - name: Run the test suite
+        run: ./tests/run.sh
+
+  # Real installs against a live Docker daemon. Not a merge gate: image pulls
+  # and the hardcoded sleep 30 / sleep 120 waits in the module scripts make this
+  # slow and occasionally flaky.
+  #
+  # Enable the schedule once the suite has proven stable.
+  integration:
+    name: Integration (nginx + auth + nextcloud)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+
+      - name: Prepare a development configuration
+        run: |
+          cp tests/helpers/profiles/dev.env setup.env
+          sed -i 's|^HABIDAT_BACKUP_DIR=.*|HABIDAT_BACKUP_DIR='"$PWD"'/backup|' setup.env
+          mkdir -p backup
+
+      - name: Trust the mkcert CA
+        run: nix develop --command bash -c 'mkcert -install'
+
+      - name: Install the core modules
+        run: nix develop --command ./habidat.sh install nextcloud
+
+      - name: Show module status
+        run: nix develop --command ./habidat.sh modules
+
+      - name: Export and re-import auth
+        run: |
+          nix develop --command ./habidat.sh export auth
+          nix develop --command ./habidat.sh import auth list
+
+      - name: Collect container logs on failure
+        if: failure()
+        run: docker ps -a && docker compose ls || true
