@@ -33,8 +33,9 @@ php occ config:system:set -n trusted_domains 3 --value="$HABIDAT_DOCKER_PREFIX-n
 php occ config:system:set -n lost_password_link --value="$HABIDAT_PROTOCOL://$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN/lostpasswd"
 
 
-php occ config:app:set -n discoursesso clientsecret --value="$HABIDAT_DISCOURSE_SSO_SECRET"
-php occ config:app:set -n discoursesso clienturl --value="$HABIDAT_PROTOCOL://$HABIDAT_DISCOURSE_SUBDOMAIN.$HABIDAT_DOMAIN"
+# DiscourseConnect is served by habidat-auth (/sso/discourse), not the Nextcloud plugin.
+php occ app:disable -n discoursesso 2>/dev/null || true
+php occ app:remove -n discoursesso 2>/dev/null || true
 
 #setup ldap
 echo "[HABIDAT] Setting up LDAP..."
@@ -131,9 +132,10 @@ then
   php occ saml:config:set -n 1 --idp-singleLogoutService.url="https://user.$HABIDAT_DOMAIN/sso/logout/nextcloud"
   php occ saml:config:set -n 1 --idp-singleSignOnService.url="https://user.$HABIDAT_DOMAIN/sso/login/nextcloud"
   php occ saml:config:set -n 1 --idp-x509cert="$(echo $HABIDAT_SSO_CERTIFICATE | sed --expression='s/\\n/\n/g')"
-  php occ saml:config:set -n 1 --saml-attribute-mapping-displayName_mapping=cn
-  php occ saml:config:set -n 1 --saml-attribute-mapping-email_mapping=mail
-  php occ saml:config:set -n 1 --saml-attribute-mapping-quota_mapping=description
+  # Display name, email and quota come from LDAP, not from the SAML assertion.
+  php occ saml:config:set -n 1 --saml-attribute-mapping-displayName_mapping=""
+  php occ saml:config:set -n 1 --saml-attribute-mapping-email_mapping=""
+  php occ saml:config:set -n 1 --saml-attribute-mapping-quota_mapping=""
 fi
 
 php occ maintenance:mode -n --on

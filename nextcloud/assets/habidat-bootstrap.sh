@@ -53,12 +53,6 @@ php occ config:app:set -n files_antivirus av_infected_action --value="only_log"
 php occ config:app:set -n files_antivirus av_port --value="3310"
 
 
-php occ app:install -n discoursesso
-php occ app:enable -n discoursesso
-php occ config:app:set -n discoursesso clientsecret --value="$HABIDAT_DISCOURSE_SSO_SECRET"
-php occ config:app:set -n discoursesso clienturl --value="$HABIDAT_PROTOCOL://$HABIDAT_DISCOURSE_SUBDOMAIN.$HABIDAT_DOMAIN"
-
-
 #setup ldap
 echo "[HABIDAT] Setting up LDAP..."
 php occ app:enable -n user_ldap
@@ -128,9 +122,10 @@ then
   php occ saml:config:set -n 1 --idp-singleLogoutService.url="https://user.$HABIDAT_DOMAIN/sso/logout/nextcloud"
   php occ saml:config:set -n 1 --idp-singleSignOnService.url="https://user.$HABIDAT_DOMAIN/sso/login/nextcloud"
   php occ saml:config:set -n 1 --idp-x509cert="$(echo $HABIDAT_SSO_CERTIFICATE | sed --expression='s/\\n/\n/g')"
-  php occ saml:config:set -n 1 --saml-attribute-mapping-displayName_mapping=cn
-  php occ saml:config:set -n 1 --saml-attribute-mapping-email_mapping=mail
-  php occ saml:config:set -n 1 --saml-attribute-mapping-quota_mapping=description
+  # Display name, email and quota come from LDAP, not from the SAML assertion.
+  php occ saml:config:set -n 1 --saml-attribute-mapping-displayName_mapping=""
+  php occ saml:config:set -n 1 --saml-attribute-mapping-email_mapping=""
+  php occ saml:config:set -n 1 --saml-attribute-mapping-quota_mapping=""
 fi
 
 php occ maintenance:mode -n --on
