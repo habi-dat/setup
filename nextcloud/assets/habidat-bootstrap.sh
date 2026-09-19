@@ -13,7 +13,7 @@ php occ config:system:set -n trusted_domains 2 --value="$HABIDAT_NEXTCLOUD_SUBDO
 php occ config:system:set -n trusted_domains 3 --value="$HABIDAT_DOCKER_PREFIX-nextcloud"
 php occ config:system:set -n default_language --value=de
 php occ config:system:set -n force_language --value=de
-php occ config:system:set -n lost_password_link --value="$HABIDAT_PROTOCOL://$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN/lostpasswd"
+php occ config:system:set -n lost_password_link --value="$HABIDAT_PROTOCOL://$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN/forgot-password"
 
 #install calendar
 echo "[HABIDAT] Installing Calendar..."
