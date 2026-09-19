@@ -246,6 +246,7 @@ run_migrations() {
 # Finds the correct export or import script for the installed version.
 # <kind> is "export" or "import".
 # Uses "latest applicable" strategy: highest version <= installed.
+# Missing store versions are treated as 0.0.1 (pre-version-aware installs).
 #
 # Prints the path to the script, or empty string if none found.
 # ---------------------------------------------------------------------------
@@ -259,9 +260,10 @@ resolve_versioned_script() {
     version=$(get_installed_version "$module")
   fi
 
+  # Pre-version-aware installs have no store/<module>/version. Treat them as
+  # 0.0.1 so the oldest export/import script can still match.
   if [[ -z "$version" ]]; then
-    echo ""
-    return 1
+    version="0.0.1"
   fi
 
   if [[ ! -d "$scripts_dir" ]]; then
