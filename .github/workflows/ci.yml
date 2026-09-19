@@ -32,11 +32,11 @@ jobs:
         uses: DeterminateSystems/magic-nix-cache-action@v7
 
       - name: Show the environment
-        run: nix develop .#ci --command bash -c '
-            bats --version;
-            shellcheck --version | sed -n "s/^version: /shellcheck /p";
-            j2 --version 2>&1 | tail -n1;
-            docker --version'
+        run: |
+          nix develop .#ci --command bats --version
+          nix develop .#ci --command shellcheck --version
+          nix develop .#ci --command j2 --version
+          nix develop .#ci --command docker --version
 
       - name: Run the test suite
         run: nix develop .#ci --command ./tests/run.sh
