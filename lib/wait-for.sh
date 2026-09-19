@@ -45,8 +45,11 @@ while true; do
   if [[ "$elapsed" -ge "$timeout" ]]; then
     printf 'Timed out after %ss waiting for %s.\n' "$elapsed" "$description" >&2
     printf 'Condition: %s\n' "$condition" >&2
-    printf -- '--- last attempt ---\n' >&2
-    bash -c "$condition" 2>&1 | tail -n 25 >&2 || true
+    # Traced, so a condition built from several clauses shows *which* one failed.
+    # Without this a condition ending in `grep -q` prints nothing at all and the
+    # timeout says only that it never succeeded.
+    printf -- '--- last attempt (traced) ---\n' >&2
+    bash -xc "$condition" 2>&1 | tail -n 40 >&2 || true
     exit 1
   fi
 

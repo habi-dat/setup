@@ -47,11 +47,12 @@ WAIT_FOR="$BATS_TEST_DIRNAME/../lib/wait-for.sh"
 @test "a condition's own output is not repeated once per poll attempt" {
   # Otherwise a service that takes two minutes to start floods the log with
   # identical failures. With a 1s interval and a 2s timeout the loop runs the
-  # condition ~3 times, so the only NOISE allowed is the echoed `Condition:`
-  # line plus the single diagnostic re-run.
+  # condition ~3 times, yet NOISE may appear exactly three times: once in the
+  # echoed `Condition:` line, once in the `bash -x` trace of the final attempt,
+  # and once as that attempt's actual output. Per-attempt output would be more.
   HABIDAT_WAIT_INTERVAL=1 run "$WAIT_FOR" "a noisy check" 2 'echo NOISE; false'
   assert_failure
-  assert_equal "$(printf '%s\n' "$output" | grep -c NOISE)" "2"
+  assert_equal "$(printf '%s\n' "$output" | grep -c NOISE)" "3"
 }
 
 @test "rejects a malformed invocation" {
@@ -97,4 +98,19 @@ WAIT_FOR="$BATS_TEST_DIRNAME/../lib/wait-for.sh"
 
   run grep -q 'sleep 120' "$REPO_ROOT/nextcloud/versions/$version/migrate.sh"
   assert_failure
+}
+
+@test "the timeout trace shows which clause of a multi-part condition failed" {
+  # Regression test. The integration job twice reported only "timed out" because
+  # the condition ended in `grep -q`, which is silent, so the log never said
+  # which clause was false. Tracing the final attempt makes that visible.
+  HABIDAT_WAIT_INTERVAL=1 run "$WAIT_FOR" "a multi-clause check" 1 \
+    '[ -e /definitely/absent ] && echo reached-second-clause'
+  assert_failure
+  assert_output --partial "traced"
+  assert_output --partial "/definitely/absent"
+  # Short-circuited: the trace shows the first clause and nothing after it. The
+  # string itself still appears in the echoed `Condition:` line, so assert on the
+  # absence of its *trace* line rather than on the whole output.
+  refute_line --partial "+ echo reached-second-clause"
 }

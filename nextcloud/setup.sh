@@ -54,14 +54,18 @@ docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" up -d
 # (`occ maintenance:install`), so waiting for "installed: true" here would block
 # forever on something this script has not done yet.
 #
-# The official image copies the application into /var/www/html on first start and
-# holds nextcloud-init-sync.lock while it does; on a cold host that copy is what
-# the old fixed 30s wait was gambling on.
-../lib/wait-for.sh "Nextcloud container (code unpacked, occ usable)" 600 \
-  "docker compose -f '$COMPOSE_FILE' -p '$COMPOSE_PROJECT' exec -T --user www-data nextcloud \
-     bash -c '[ ! -e /var/www/html/nextcloud-init-sync.lock ] &&
-              [ -f /var/www/html/occ ] &&
-              php occ status 2>&1 | grep -qi installed'"
+# The official image copies the application into /var/www/html on first start,
+# which is what the old fixed 30s wait was really gambling on.
+#
+# `occ status` answering at all is the signal: it requires PHP to load
+# Nextcloud's autoloader, config and version.php, so it cannot respond until the
+# copy is done. Match "installed" case-insensitively -- before installation occ
+# prints "Nextcloud is not installed ..." plus "installed: false", afterwards
+# "installed: true". Either proves occ is usable, without depending on its exit
+# code in limited mode.
+../lib/wait-for.sh "Nextcloud container (occ usable)" 600 \
+  "docker compose -f '$COMPOSE_FILE' -p '$COMPOSE_PROJECT' exec -T --user www-data \
+     nextcloud php occ status 2>&1 | grep -qi installed"
 
 echo "Installing dependencies in container..."
 docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" exec nextcloud bash -c \
