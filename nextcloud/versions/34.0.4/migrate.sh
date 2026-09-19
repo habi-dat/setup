@@ -74,8 +74,15 @@ docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" exec -T db \
   mariadb -u root --password="$HABIDAT_NEXTCLOUD_DB_ROOT_PASSWORD" \
   -e "alter database nextcloud character set utf8mb4 collate utf8mb4_general_ci"
 
-echo "Waiting for nextcloud to finish its upgrade (2 minutes)..."
-sleep 120
+# The entrypoint runs `occ upgrade` when the image version changes and holds the
+# instance in maintenance mode while it does. Everything below needs maintenance
+# off, so wait for that rather than guessing at two minutes. The database loop
+# above already polls, so only this wait was blind.
+../lib/wait-for.sh "Nextcloud upgrade" 900 \
+  "docker compose -f '$COMPOSE_FILE' -p '$COMPOSE_PROJECT' exec -T --user www-data \
+     nextcloud php occ status | grep -q 'installed: true' &&
+   docker compose -f '$COMPOSE_FILE' -p '$COMPOSE_PROJECT' exec -T --user www-data \
+     nextcloud php occ status | grep -q 'maintenance: false'"
 
 echo "Installing dependencies in container..."
 docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" exec nextcloud bash -c \

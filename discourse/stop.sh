@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set +x
 
 ../store/discourse/launcher stop $HABIDAT_DOCKER_PREFIX-discourse-data

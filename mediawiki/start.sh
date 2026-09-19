@@ -1,8 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-#!/bin/bash
-
-if [[ $# -eq 1 ]] 
+if [[ $# -eq 1 ]]
 then
 	echo "Starting mediawiki $1 instance..."
 

@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Recording docker stub.
+#
+# Logs every invocation to $HABIDAT_TEST_DOCKER_LOG so tests can assert on the
+# exact commands the CLI emits, and answers the handful of probes the CLI makes
+# during start-up. Never contacts a Docker daemon.
+
+printf 'docker %s\n' "$*" >> "${HABIDAT_TEST_DOCKER_LOG:-/dev/null}"
+
+case "$1${2:+ $2}" in
+  "compose version")
+    # check_prerequisites() in lib/common.sh requires the compose plugin.
+    echo "Docker Compose version v2.0.0-stub"
+    ;;
+  "compose config")
+    echo "name: stub"
+    ;;
+  "inspect")
+    # e.g. the container-IP lookups in discourse/setup.sh.
+    echo '[{"NetworkSettings":{"IPAddress":"172.28.0.2"}}]'
+    ;;
+  "volume inspect")
+    echo "/var/lib/docker/volumes/stub/_data"
+    ;;
+  *) ;;
+esac
+
+exit 0

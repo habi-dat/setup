@@ -9,11 +9,11 @@ if [[ -z "${HABIDAT_EXISTING_NGINX_GENERATOR_NETWORK:-}" ]]; then
   echo "export HABIDAT_PROXY_NETWORK=$HABIDAT_DOCKER_PREFIX-proxy" > ../store/nginx/networks.env
 
   echo "Creating configuration files..."
-  j2 docker-compose.yml.j2 -o ../store/nginx/docker-compose.yml
-  j2 config/nginx.conf.j2 -o ../store/nginx/config/nginx.conf
-  j2 config/user.conf.j2 -o ../store/nginx/config/user.conf
-  j2 config/cors_map.conf.j2 -o ../store/nginx/config/cors_map.conf
-  j2 config/cookies.conf.j2 -o ../store/nginx/config/cookies.conf
+  ../lib/render.py docker-compose.yml.j2 ../store/nginx/docker-compose.yml
+  ../lib/render.py config/nginx.conf.j2 ../store/nginx/config/nginx.conf
+  ../lib/render.py config/user.conf.j2 ../store/nginx/config/user.conf
+  ../lib/render.py config/cors_map.conf.j2 ../store/nginx/config/cors_map.conf
+  ../lib/render.py config/cookies.conf.j2 ../store/nginx/config/cookies.conf
 
   echo "Spinning up containers..."
   docker compose -f ../store/nginx/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nginx" up -d

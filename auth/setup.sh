@@ -38,9 +38,9 @@ echo "export HABIDAT_SSO_CERTIFICATE_SINGLE_LINE='$HABIDAT_SSO_CERTIFICATE_SINGL
 
 export HABIDAT_USER_INSTALLED_MODULES="nginx,auth,"
 
-j2 config/ldap.env.j2 -o ../store/auth/ldap.env
-j2 config/user.env.j2 -o ../store/auth/user.env
-j2 config/appStore.json.j2 -o ../store/auth/user-import/appStore.json
+../lib/render.py config/ldap.env.j2 ../store/auth/ldap.env
+../lib/render.py config/user.env.j2 ../store/auth/user.env
+../lib/render.py config/appStore.json.j2 ../store/auth/user-import/appStore.json
 set -a
 source ../store/auth/passwords.env
 source ../store/auth/user.env
@@ -74,8 +74,8 @@ echo "SMTP_PASS=$HABIDAT_USER_SMTP_PASSWORD" >> "$AUTH_ENV"
 echo "SMTP_FROM=$HABIDAT_USER_SMTP_EMAILFROM" >> "$AUTH_ENV"
 echo "HABIDAT_USER_INSTALLED_MODULES=$HABIDAT_USER_INSTALLED_MODULES" >> "$AUTH_ENV"
 
-j2 config/bootstrap.ldif.j2 -o ../store/auth/bootstrap/bootstrap.ldif
-j2 config/memberOf.ldif.j2 -o ../store/auth/memberOf.ldif
+../lib/render.py config/bootstrap.ldif.j2 ../store/auth/bootstrap/bootstrap.ldif
+../lib/render.py config/memberOf.ldif.j2 ../store/auth/memberOf.ldif
 
 if [[ "${HABIDAT_CREATE_SELFSIGNED:-false}" == "true" ]]; then
   echo "CERT_NAME=$HABIDAT_DOMAIN" >> ../store/auth/user.env
@@ -98,20 +98,30 @@ else
   export HABIDAT_LDAP_PORT_MAPPING='389'
 fi
 
-j2 docker-compose.yml.j2 -o ../store/auth/docker-compose.yml
+../lib/render.py docker-compose.yml.j2 ../store/auth/docker-compose.yml
+
+COMPOSE_FILE="../store/auth/docker-compose.yml"
+COMPOSE_PROJECT="$HABIDAT_DOCKER_PREFIX-auth"
+COMPOSE=(docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT")
 
 echo "Spinning up containers..."
-docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" pull
-docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d user-db user-redis ldap
+"${COMPOSE[@]}" pull
 
-echo "Waiting for containers to start (30 seconds)..."
-sleep 30
+# user-db and user-redis declare healthchecks, so `--wait` blocks until they are
+# actually accepting connections. ldap has no healthcheck, so it is polled below.
+"${COMPOSE[@]}" up -d --wait user-db user-redis
+"${COMPOSE[@]}" up -d ldap
+
+../lib/wait-for.sh "LDAP directory" 180 \
+  "docker compose -f '$COMPOSE_FILE' -p '$COMPOSE_PROJECT' exec -T ldap \
+     ldapsearch -x -H ldap://localhost -D 'cn=admin,$HABIDAT_LDAP_BASE' \
+     -w '$HABIDAT_LDAP_ADMIN_PASSWORD' -b '$HABIDAT_LDAP_BASE' -s base dn"
 
 echo "Running auth-init (migrate + seed)..."
-docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" run --rm user-init
+"${COMPOSE[@]}" run --rm user-init
 
 if [[ "${HABIDAT_MAILHOG:-false}" == "true" ]]; then
-  docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d mailhog
+  "${COMPOSE[@]}" up -d mailhog
 fi
 
-docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d user user-worker
+"${COMPOSE[@]}" up -d user user-worker

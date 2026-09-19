@@ -37,10 +37,10 @@ if [[ "${HABIDAT_SSO:-false}" == "true" ]]; then
   echo "export HABIDAT_SSO_CERTIFICATE_SINGLE_LINE='$HABIDAT_SSO_CERTIFICATE_SINGLE_LINE'" >> ../store/auth/passwords.env
 fi
 
-j2 config/db.env.j2 -o "../store/mediawiki/$1/db.env"
-j2 config/web.env.j2 -o "../store/mediawiki/$1/web.env"
+../lib/render.py config/db.env.j2 "../store/mediawiki/$1/db.env"
+../lib/render.py config/web.env.j2 "../store/mediawiki/$1/web.env"
 
-j2 docker-compose.yml.j2 -o "../store/mediawiki/$1/docker-compose.yml"
+../lib/render.py docker-compose.yml.j2 "../store/mediawiki/$1/docker-compose.yml"
 
 if [[ "${HABIDAT_CREATE_SELFSIGNED:-false}" == "true" ]]; then
   echo "CERT_NAME=$HABIDAT_DOMAIN" >> "../store/mediawiki/$1/web.env"
@@ -51,8 +51,10 @@ echo "Spinning up containers..."
 docker compose -f "../store/mediawiki/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-mediawiki-$1" pull
 docker compose -f "../store/mediawiki/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-mediawiki-$1" build
 docker compose -f "../store/mediawiki/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-mediawiki-$1" up -d db
-echo "Waiting for database to initialize..."
-sleep 20
+../lib/wait-for.sh "mediawiki $1 database" 300 \
+  "docker compose -f '../store/mediawiki/$1/docker-compose.yml' \
+     -p '$HABIDAT_DOCKER_PREFIX-mediawiki-$1' exec -T db \
+     mysql -u root --password='$HABIDAT_MEDIAWIKI_DB_ROOT_PASSWORD' -e 'select 1'"
 docker compose -f "../store/mediawiki/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-mediawiki-$1" up -d web
 
 echo "Waiting for mediawiki container to initialize (this can take several minutes)..."

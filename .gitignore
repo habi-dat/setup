@@ -1,9 +1,18 @@
-store
+# Runtime state, anchored to the repository root on purpose. An unanchored
+# `store` would also match any nested directory of that name -- including the
+# test fixture at tests/fixtures/modules/store/, which then silently never gets
+# committed and fails only in CI.
+/store
+/backup
+
 ./import
 ./export
-backup
 MIGRATION.txt
 NOTIZEN.txt
-setup.env
-setup.env.*
-!setup.env.example
+
+/setup.env
+/setup.env.*
+!/setup.env.example
+
+node_modules
+result
