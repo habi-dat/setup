@@ -39,57 +39,61 @@ EOF
   [[ ${#failures[@]} -eq 0 ]] || fail_with_list "setup.sh problems:" "${failures[@]}"
 }
 
-@test "lifecycle scripts missing the executable bit are exactly the known ones" {
+@test "every lifecycle script is executable" {
   # _run_lifecycle, remove_module and update_module invoke these as ./<action>.sh
-  # from the module directory, so mode 644 means "Permission denied" -- and
-  # _run_lifecycle never checks the exit status, so the verb reports success.
+  # from the module directory, so mode 644 means "Permission denied".
   #
   # Migration, export and import scripts are `source`d and do not need +x.
-  #
-  # RATCHET, and a consequential one: every non-setup lifecycle script for
-  # discourse and mediawiki is committed as mode 644. Today that means
-  # `update discourse`, `remove discourse`, `remove mediawiki` and every
-  # start/stop/restart/up/down/pull/build on either module cannot run.
-  # `git update-index --chmod=+x <files>` empties this list.
-  local known=(
-    discourse/build.sh
-    discourse/down.sh
-    discourse/pull.sh
-    discourse/remove.sh
-    discourse/restart.sh
-    discourse/start.sh
-    discourse/stop.sh
-    discourse/up.sh
-    discourse/update.sh
-    mediawiki/build.sh
-    mediawiki/down.sh
-    mediawiki/pull.sh
-    mediawiki/remove.sh
-    mediawiki/restart.sh
-    mediawiki/start.sh
-    mediawiki/stop.sh
-    mediawiki/up.sh
-  )
-
-  local mod action found=()
+  local mod action failures=()
   while IFS= read -r mod; do
     for action in setup remove start stop restart up down pull build update; do
       [[ -f "$REPO_ROOT/$mod/$action.sh" ]] || continue
-      [[ -x "$REPO_ROOT/$mod/$action.sh" ]] || found+=("$mod/$action.sh")
+      [[ -x "$REPO_ROOT/$mod/$action.sh" ]] || failures+=("$mod/$action.sh")
     done
   done < <(repo_modules)
 
-  assert_equal "$(printf '%s\n' "${found[@]}" | sort)" "$(printf '%s\n' "${known[@]}" | sort)"
+  [[ ${#failures[@]} -eq 0 ]] \
+    || fail_with_list "lifecycle scripts missing the executable bit (git update-index --chmod=+x):" "${failures[@]}"
 }
 
-@test "every shell script has a bash shebang" {
+@test "git records the executable bit, not just the working tree" {
+  # A chmod that never made it into the index looks fine locally and ships
+  # broken. Check the mode git actually has.
+  local mod action mode failures=()
+  while IFS= read -r mod; do
+    for action in setup remove start stop restart up down pull build update; do
+      [[ -f "$REPO_ROOT/$mod/$action.sh" ]] || continue
+      mode="$(git -C "$REPO_ROOT" ls-files -s "$mod/$action.sh" | awk '{print $1}')"
+      # Untracked files have no recorded mode yet; the test above covers those.
+      [[ -z "$mode" || "$mode" == "100755" ]] || failures+=("$mod/$action.sh is $mode in the index")
+    done
+  done < <(repo_modules)
+
+  [[ ${#failures[@]} -eq 0 ]] || fail_with_list "wrong mode recorded in git:" "${failures[@]}"
+}
+
+@test "every shell script uses the portable env shebang" {
+  # `#!/bin/bash` fails on any host without bash at that path -- NixOS, and some
+  # minimal images. `#!/usr/bin/env bash` resolves bash through PATH.
   local script failures=() first
   while IFS= read -r script; do
     first="$(head -n1 "$REPO_ROOT/$script")"
-    [[ "$first" =~ ^\#\!.*(bash|sh)$ ]] || failures+=("$script: $first")
+    [[ "$first" == "#!/usr/bin/env bash" ]] || failures+=("$script: $first")
   done < <(repo_scripts)
 
-  [[ ${#failures[@]} -eq 0 ]] || fail_with_list "scripts without a shell shebang:" "${failures[@]}"
+  [[ ${#failures[@]} -eq 0 ]] || fail_with_list "scripts without '#!/usr/bin/env bash':" "${failures[@]}"
+}
+
+@test "no script carries a second shebang line" {
+  # A stray '#!/bin/bash' further down a file is dead but misleading, and hides
+  # the real interpreter from a reader.
+  local script failures=() extra
+  while IFS= read -r script; do
+    extra="$(tail -n +2 "$REPO_ROOT/$script" | grep -n '^#!' || true)"
+    [[ -z "$extra" ]] || failures+=("$script: line $((${extra%%:*} + 1)): ${extra#*:}")
+  done < <(repo_scripts)
+
+  [[ ${#failures[@]} -eq 0 ]] || fail_with_list "duplicate shebang lines:" "${failures[@]}"
 }
 
 @test "every module version is a valid version string" {

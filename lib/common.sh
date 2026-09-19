@@ -131,3 +131,99 @@ load_setup_env() {
 upper() {
   printf "%s" "$1" | tr '[:lower:]' '[:upper:]'
 }
+
+# ---------------------------------------------------------------------------
+# run_module_script <module> <script> [args...]
+#
+# Runs a script that needs the lib/ helpers (a migration, export or import
+# script) in its own bash process, with the module directory as cwd.
+#
+# It must be a separate process, not a subshell. Callers that test our return
+# value -- `update_module ... || { ... }` in dispatch() -- put us in a context
+# where bash ignores errexit, and the manual is explicit that a compound command
+# running in such a context cannot restore it:
+#
+#   "If a compound command or shell function executes in a context where -e is
+#    being ignored, none of the commands executed within [it] will be affected by
+#    the -e setting [...] If a compound command or shell function sets -e while
+#    executing in a context where -e is ignored, that setting will not have any
+#    effect until the compound command [...] completes."
+#
+# So a `( source migrate.sh )` subshell would run straight past a failed command
+# despite migrate.sh's own `set -euo pipefail`, and then exit with the status of
+# its *last* command -- reporting success for a half-applied migration. A fresh
+# process starts with its own shell options and cannot inherit that suppression.
+# ---------------------------------------------------------------------------
+run_module_script() {
+  local module="$1"
+  local script="$2"
+  shift 2
+
+  # `env` rather than a prefix assignment: BASE_DIR is readonly in this shell,
+  # and bash rejects an assignment prefix naming a readonly variable.
+  env BASE_DIR="$BASE_DIR" DRY_RUN="$DRY_RUN" VERBOSE="$VERBOSE" \
+    bash -c '
+      set -euo pipefail
+      # shellcheck source=/dev/null
+      source "$BASE_DIR/lib/common.sh"
+      source "$BASE_DIR/lib/template.sh"
+      source "$BASE_DIR/lib/version.sh"
+      source "$BASE_DIR/lib/modules.sh"
+
+      module="$1"
+      script="$2"
+      shift 2
+
+      cd "$BASE_DIR/$module" || exit 1
+      # shellcheck source=/dev/null
+      source "$script" "$@"
+    ' habidat-module-script "$module" "$script" "$@"
+}
+
+# ---------------------------------------------------------------------------
+# run_logged <module> <command...>
+#
+# Runs a command with its output prefixed by the module label, and returns the
+# command's own exit status.
+#
+# The `|| true` is what keeps the caller alive long enough to report the failure:
+# without it the failing pipeline trips this script's `set -e` and the shell
+# exits before the diagnostic is printed. Correctness does not depend on errexit
+# here, because the status comes from PIPESTATUS.
+# ---------------------------------------------------------------------------
+run_logged() {
+  local module="$1"; shift
+  local rc=0
+
+  { "$@" 2>&1 | log_module "$module"; rc=${PIPESTATUS[0]}; } || true
+
+  return "$rc"
+}
+
+# ---------------------------------------------------------------------------
+# run_module_executable <module> <script-name> [args...]
+#
+# Runs ./<script-name> from the module directory with its output labelled, and
+# returns the script's exit status.
+#
+# Unlike run_module_script this uses a subshell: these scripts are executed, not
+# sourced, so the subshell's exit status is the script's own and does not depend
+# on errexit being active. Uses `cd` in a subshell rather than `env -C` to stay
+# portable to older coreutils.
+# ---------------------------------------------------------------------------
+run_module_executable() {
+  local module="$1"
+  local script="$2"
+  shift 2
+  local rc=0
+
+  {
+    (
+      cd "$BASE_DIR/$module" || exit 1
+      "./$script" "$@" 2>&1
+    ) | log_module "$module"
+    rc=${PIPESTATUS[0]}
+  } || true
+
+  return "$rc"
+}

@@ -301,51 +301,84 @@ echo "MIGRATION STEP 2"
 EOF
 }
 
-@test "update <module>: a failing migration aborts and preserves the version marker" {
+@test "update <module>: a failing migration aborts, reports, and preserves the marker" {
   seed_module nginx 0.0.0
   install_failing_migration nginx "$(repo_module_version nginx)"
 
   habidat update nginx
   assert_failure
+
+  # The migration stopped at its own failure.
   assert_output --partial "MIGRATION STEP 1"
   refute_output --partial "MIGRATION STEP 2"
 
+  # And run_migrations reported which step failed and that a retry resumes.
+  assert_output --partial "FAILED"
+  assert_output --partial "Fix the issue and retry"
+
   run cat "$SANDBOX/store/nginx/version"
   assert_output "0.0.0"
-
-  # DEFECT, pinned deliberately: run_migrations' own diagnostic never appears.
-  # The `( ... ) | log_module` pipeline fails under the script's `set -e`, so
-  # the shell exits before reaching `log_error "Migration ... FAILED"`. The user
-  # sees the migration's own stderr and a non-zero exit, but not which step
-  # failed or that a retry resumes from here.
-  refute_output --partial "FAILED"
-  refute_output --partial "Fix the issue and retry"
 }
 
-@test "update all: a failing migration is recorded as a SUCCESS (defect)" {
-  # DEFECT, pinned deliberately. `dispatch` calls `update_module ... || { ... }`,
-  # and putting the call in a `||` list makes bash suspend errexit for the whole
-  # dynamic extent -- including the subshell that sources migrate.sh, whose own
-  # `set -euo pipefail` cannot restore it. So the migration runs past its
-  # failure, the subshell returns the status of its *last* command, and
-  # run_migrations advances store/<module>/version.
+@test "update all: a failing migration is reported and does not advance the marker" {
+  # Regression test for the errexit-suppression bug. dispatch calls
+  # `update_module ... || { ... }`, which makes bash ignore errexit for the whole
+  # dynamic extent -- and bash documents that `set -e` inside such a context
+  # cannot restore it. Sourcing migrate.sh into a subshell therefore ran straight
+  # past its failure and returned the status of its *last* command, so a
+  # half-applied migration was recorded as complete.
   #
-  # Consequence: `update all` can mark a half-applied migration complete,
-  # defeating the documented "fix the issue and retry -- it will resume from
-  # where it left off".
-  #
-  # When this is fixed, invert the three assertions below.
+  # run_module_script now runs each migration in its own process, which gets its
+  # own shell options and cannot inherit the suppression.
   seed_module nginx 0.0.0
   install_failing_migration nginx "$(repo_module_version nginx)"
 
   habidat update all
+  assert_failure
 
   assert_output --partial "MIGRATION STEP 1"
-  assert_output --partial "MIGRATION STEP 2"
-  assert_output --partial "Module nginx migrated to $(repo_module_version nginx)"
+  refute_output --partial "MIGRATION STEP 2"
+  refute_output --partial "Module nginx migrated to"
+
+  assert_output --partial "Update of nginx failed. Continuing with remaining modules"
+  assert_output --partial "Some modules failed to update"
 
   run cat "$SANDBOX/store/nginx/version"
-  assert_output "$(repo_module_version nginx)"
+  assert_output "0.0.0"
+}
+
+@test "update all: keeps going after a failed module and still reports failure" {
+  # nginx fails; dokuwiki sorts after it and must still be updated.
+  seed_module nginx 0.0.0
+  seed_module dokuwiki 0.0.0
+  install_failing_migration nginx "$(repo_module_version nginx)"
+
+  habidat update all
+  assert_failure
+
+  assert_output --partial "no migration scripts between 0.0.0 and $(repo_module_version dokuwiki)"
+
+  run cat "$SANDBOX/store/dokuwiki/version"
+  assert_output "$(repo_module_version dokuwiki)"
+}
+
+@test "update: a migration runs with the lib helpers available" {
+  # run_module_script sources lib/ into the child process; a migration that calls
+  # render_versioned_template must still work.
+  seed_module nginx 0.0.0
+  seed_networks_env
+  cat > "$SANDBOX/nginx/versions/$(repo_module_version nginx)/migrate.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+render_versioned_template nginx "$HABIDAT_MIGRATE_VERSION" \
+  docker-compose.yml.j2 ../store/nginx/docker-compose.yml
+echo "MIGRATE_MODULE=$HABIDAT_MIGRATE_MODULE FROM=$HABIDAT_MIGRATE_FROM TO=$HABIDAT_MIGRATE_VERSION"
+EOF
+
+  habidat update nginx
+  assert_success
+  assert_output --partial "MIGRATE_MODULE=nginx FROM=0.0.0 TO=$(repo_module_version nginx)"
+  assert [ -s "$SANDBOX/store/nginx/docker-compose.yml" ]
 }
 
 @test "update all: rejects a target version, which only makes sense per module" {
@@ -500,52 +533,85 @@ EOF
 @test "lifecycle: a module's own script takes precedence over generic compose" {
   # discourse ships start.sh, which drives its launcher rather than compose.
   seed_module discourse "$(repo_module_version discourse)"
-  chmod +x "$SANDBOX/discourse/start.sh"
 
   habidat start discourse
   refute_docker_called "compose -f $SANDBOX/store/discourse/docker-compose.yml"
 }
 
-@test "lifecycle: a non-executable module script aborts the command with no diagnostic" {
-  # DEFECT, pinned deliberately. discourse and mediawiki ship every lifecycle
-  # script except setup.sh as mode 644 in git, so `./start.sh` is "Permission
-  # denied" (exit 126).
-  #
-  # _run_lifecycle never inspects the pipeline's status, so the abort comes from
-  # lib/common.sh's `set -e` instead: the user sees a raw "Permission denied"
-  # naming lib/modules.sh, with no indication of which module or verb failed.
-  #
-  # `git update-index --chmod=+x` on those files is the fix.
+@test "lifecycle: a non-executable module script is reported by name" {
+  # Regression test. discourse and mediawiki used to ship every lifecycle script
+  # except setup.sh as mode 644, and _run_lifecycle never checked the exit
+  # status, so the abort came from lib/common.sh's `set -e` and the user saw a
+  # raw "Permission denied" naming lib/modules.sh.
   seed_module discourse "$(repo_module_version discourse)"
-  assert [ ! -x "$REPO_ROOT/discourse/start.sh" ]
+  chmod -x "$SANDBOX/discourse/start.sh"
 
   habidat start discourse
-  assert_equal "$status" 126
-  assert_output --partial "start.sh"
-  # No habidat-level error explaining the failure.
-  refute_output --partial "failed"
+  assert_failure
+  assert_output --partial "discourse/start.sh is not executable"
+  assert_output --partial "chmod +x discourse/start.sh"
   refute_docker_called "compose -f"
 }
 
-@test "lifecycle all: one broken module script truncates the run (defect)" {
-  # DEFECT, pinned deliberately. Because the abort above comes from `set -e`
-  # rather than a checked return code, `start all` stops at the first module with
-  # a non-executable script and never reaches the ones after it in dependency
-  # order -- silently, apart from the permission error.
-  #
-  # Contrast with `update all`, which deliberately continues past a failed module
-  # and reports at the end. Applying the same treatment to _run_lifecycle, plus
-  # fixing the file modes, is the fix. Then invert this test.
+@test "lifecycle: a failing module script is reported with its exit code" {
+  seed_module discourse "$(repo_module_version discourse)"
+  cat > "$SANDBOX/discourse/start.sh" <<'EOF'
+#!/usr/bin/env bash
+echo "about to fail"
+exit 3
+EOF
+  chmod +x "$SANDBOX/discourse/start.sh"
+
+  habidat start discourse
+  assert_equal "$status" 3
+  assert_output --partial "about to fail"
+  assert_output --partial "START of discourse failed (exit code 3)"
+}
+
+@test "lifecycle all: one broken module does not stop the others" {
+  # Regression test. Because the abort used to come from `set -e` rather than a
+  # checked return code, `start all` stopped at the first module whose script
+  # failed and silently skipped every module after it in dependency order.
   seed_module nginx "$(repo_module_version nginx)"
   seed_module discourse "$(repo_module_version discourse)"
   seed_module dokuwiki "$(repo_module_version dokuwiki)"
+  chmod -x "$SANDBOX/discourse/start.sh"
 
   habidat start all
-  assert_equal "$status" 126
+  assert_failure
 
-  # nginx sorts before discourse and was started; dokuwiki sorts after and was not.
+  # nginx sorts before discourse, dokuwiki after: both must have been started.
   assert_docker_called "-p habidattest-nginx start"
-  refute_docker_called "-p habidattest-dokuwiki start"
+  assert_docker_called "-p habidattest-dokuwiki start"
+
+  assert_output --partial "START of discourse failed. Continuing with remaining modules"
+  assert_output --partial "Some modules failed to start"
+}
+
+@test "lifecycle: a module with no compose file in store/ is reported" {
+  mkdir -p "$SANDBOX/store/dokuwiki"
+  echo "$(repo_module_version dokuwiki)" > "$SANDBOX/store/dokuwiki/version"
+  # No docker-compose.yml, and dokuwiki ships no start.sh.
+
+  habidat start dokuwiki
+  assert_failure
+  assert_output --partial "has no docker-compose.yml in store/, cannot start"
+}
+
+@test "remove: a failing remove.sh leaves the store directory in place" {
+  seed_module discourse "$(repo_module_version discourse)"
+  cat > "$SANDBOX/discourse/remove.sh" <<'EOF'
+#!/usr/bin/env bash
+echo "removal exploded"
+exit 4
+EOF
+  chmod +x "$SANDBOX/discourse/remove.sh"
+
+  habidat remove discourse force
+  assert_equal "$status" 4
+  assert_output --partial "Removal of discourse failed (exit code 4)"
+  assert_output --partial "was left in place"
+  assert [ -d "$SANDBOX/store/discourse" ]
 }
 
 @test "lifecycle all: walks every installed module in dependency order" {

@@ -298,10 +298,17 @@ remove_module() {
   log_info "Removing $module module..."
 
   if [[ -f "$BASE_DIR/$module/remove.sh" ]] && [[ "$partially_installed" != "true" ]]; then
-    (
-      cd "$BASE_DIR/$module" || exit 1
-      ./remove.sh "$@" 2>&1
-    ) | log_module "$module"
+    if [[ ! -x "$BASE_DIR/$module/remove.sh" ]]; then
+      log_error "$module/remove.sh is not executable. Fix with: chmod +x $module/remove.sh"
+      return 1
+    fi
+
+    local rc=0
+    run_module_executable "$module" remove.sh "$@" || rc=$?
+    if [[ $rc -ne 0 ]]; then
+      log_error "Removal of $module failed (exit code $rc). store/$module was left in place."
+      return "$rc"
+    fi
   elif [[ -f "$store_dir/docker-compose.yml" ]]; then
     docker compose -f "$store_dir/docker-compose.yml" \
       -p "${HABIDAT_DOCKER_PREFIX}-$module" down -v --remove-orphans 2>&1 | log_module "$module" || true
@@ -327,34 +334,47 @@ _run_lifecycle() {
 
   log_info "$(upper "$action") $module module..."
 
+  local rc=0
+
   if [[ -f "$BASE_DIR/$module/${action}.sh" ]]; then
-    (
-      cd "$BASE_DIR/$module" || exit 1
-      ./"${action}.sh" "$@" 2>&1
-    ) | log_module "$module"
-  else
-    case "$action" in
-      start|stop|restart)
-        docker compose -f "$BASE_DIR/store/$module/docker-compose.yml" \
-          -p "${HABIDAT_DOCKER_PREFIX}-$module" "$action" 2>&1 | log_module "$module"
-        ;;
-      up)
-        docker compose -f "$BASE_DIR/store/$module/docker-compose.yml" \
-          -p "${HABIDAT_DOCKER_PREFIX}-$module" up -d 2>&1 | log_module "$module"
-        ;;
-      down)
-        docker compose -f "$BASE_DIR/store/$module/docker-compose.yml" \
-          -p "${HABIDAT_DOCKER_PREFIX}-$module" down 2>&1 | log_module "$module"
-        ;;
-      pull)
-        docker compose -f "$BASE_DIR/store/$module/docker-compose.yml" \
-          -p "${HABIDAT_DOCKER_PREFIX}-$module" pull 2>&1 | log_module "$module"
-        ;;
-      build)
-        docker compose -f "$BASE_DIR/store/$module/docker-compose.yml" \
-          -p "${HABIDAT_DOCKER_PREFIX}-$module" build 2>&1 | log_module "$module"
-        ;;
-    esac
+    if [[ ! -x "$BASE_DIR/$module/${action}.sh" ]]; then
+      log_error "$module/${action}.sh is not executable. Fix with: chmod +x $module/${action}.sh"
+      return 1
+    fi
+    run_module_executable "$module" "${action}.sh" "$@" || rc=$?
+    if [[ $rc -ne 0 ]]; then
+      log_error "$(upper "$action") of $module failed (exit code $rc)."
+      return "$rc"
+    fi
+    return 0
+  fi
+
+  local compose_file="$BASE_DIR/store/$module/docker-compose.yml"
+  if [[ ! -f "$compose_file" ]]; then
+    log_error "Module $module has no docker-compose.yml in store/, cannot $action."
+    return 1
+  fi
+
+  local -a compose_args=()
+  case "$action" in
+    start | stop | restart) compose_args=("$action") ;;
+    up) compose_args=(up -d) ;;
+    down) compose_args=(down) ;;
+    pull) compose_args=(pull) ;;
+    build) compose_args=(build) ;;
+    *)
+      log_error "Unknown lifecycle action: $action"
+      return 1
+      ;;
+  esac
+
+  run_logged "$module" \
+    docker compose -f "$compose_file" -p "${HABIDAT_DOCKER_PREFIX}-$module" \
+    "${compose_args[@]}" || rc=$?
+
+  if [[ $rc -ne 0 ]]; then
+    log_error "$(upper "$action") of $module failed (exit code $rc)."
+    return "$rc"
   fi
 }
 
@@ -618,10 +638,21 @@ dispatch() {
 
     start|stop|restart|up|down|pull|build)
       if [[ "$target" == "all" ]]; then
+        # One failing module must not stop the others: without collecting the
+        # error here, this script's `set -e` would abort the loop at the first
+        # failure and silently skip every module after it in dependency order.
         local mod
+        local had_error=false
         for mod in $(get_ordered_modules); do
-          "${action}_module" "$mod" "$@"
+          "${action}_module" "$mod" "$@" || {
+            log_error "$(upper "$action") of $mod failed. Continuing with remaining modules..."
+            had_error=true
+          }
         done
+        if [[ "$had_error" == "true" ]]; then
+          log_error "Some modules failed to $action. Check the output above."
+          return 1
+        fi
       else
         is_valid_module "$target" || die "Unknown module: $target"
         "${action}_module" "$target" "$@"

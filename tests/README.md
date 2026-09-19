@@ -87,16 +87,26 @@ Current ratchets:
 - `00_static.bats` — warning-level shellcheck findings in module scripts, held
   at `baseline/shellcheck-warnings.txt`. Regenerate with
   `./tests/run.sh --update-baseline`.
-- `10_invariants.bats` — lifecycle scripts committed without the executable bit;
-  config templates that only a fresh install renders; modules whose newest
-  version has no `migrate.sh`; `discourse/version` having no matching snapshot;
-  template variables nothing ever sets; the mediawiki SSO certificate path.
+- `10_invariants.bats` — config templates that only a fresh install renders;
+  modules whose newest version has no `migrate.sh`; `discourse/version` having no
+  matching snapshot; template variables nothing ever sets; the mediawiki SSO
+  certificate path.
 - `30_render.bats` — compose templates still using `external: {name: …}`; env
   values rendering as the literal string `None`.
-- `40_cli.bats` — two pinned defects, each with a comment saying which
-  assertions to invert once fixed: a failing migration reported as a success by
-  `update all`, and a non-executable module script failing silently while the
-  command still exits 0.
+
+Two ratchets have since been retired, and the tests that replaced them are
+regression tests for the fixes. Keep them:
+
+- A failing migration used to be reported as a success by `update all`, which
+  advanced `store/<module>/version` over a half-applied migration. Fixed by
+  `run_module_script`, which runs each migration in its own process so its
+  `set -euo pipefail` cannot be suppressed by the caller's errexit-ignored
+  context. Covered in `40_cli.bats`.
+- Lifecycle scripts for discourse and mediawiki were committed mode 644 and
+  `_run_lifecycle` never checked the exit status, so `start all` truncated at the
+  first broken module. Fixed by the file modes, an executability guard, an exit
+  code check, and continue-on-error in `dispatch`. Covered in `10_invariants.bats`
+  and `40_cli.bats`.
 
 ## Adding tests
 
