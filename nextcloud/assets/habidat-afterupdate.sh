@@ -1,7 +1,30 @@
 #!/bin/bash
 set +x
 
-php occ upgrade
+# After the container has updated the code, the instance can still be flagged as
+# "needs upgrade" - occ then only exposes a limited set of commands and every
+# config/ldap command below would silently do nothing. One "occ upgrade" run is
+# not always enough (apps can need a second pass), so upgrade until occ reports
+# a usable instance and abort if it never gets there.
+#
+# Note: "occ upgrade" exits with 3 when there is nothing to upgrade, so it is
+# only called when an upgrade is actually pending.
+upgrade_needed() {
+  php occ status --output=json 2>/dev/null | grep -qE '"needsDbUpgrade" *: *true'
+}
+
+for attempt in 1 2 3; do
+  upgrade_needed || break
+  echo "[HABIDAT] Instance requires an upgrade, running occ upgrade (attempt $attempt)..."
+  php occ upgrade
+done
+
+if upgrade_needed; then
+  echo "[HABIDAT] ERROR: nextcloud still requires an upgrade after 3 attempts," >&2
+  echo "[HABIDAT] occ is in limited mode, aborting before the configuration steps." >&2
+  php occ status
+  exit 1
+fi
 
 #install and configure nextcloud
 echo "[HABIDAT] Configuring Nextcloud..."
