@@ -38,6 +38,12 @@ services:
     command: --copy-service --loglevel debug
     networks:
       - {{ HABIDAT_DOCKER_PREFIX }}-back
+    healthcheck:
+      test: ["CMD-SHELL", "ldapsearch -x -H ldap://127.0.0.1:389 -b '{{ HABIDAT_LDAP_BASE }}' -s base >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
     logging:
       options:
         max-size: 50m
@@ -89,6 +95,8 @@ services:
       user-db:
         condition: service_healthy
       user-redis:
+        condition: service_healthy
+      ldap:
         condition: service_healthy
     command: sh -c "cd /app/packages/db && npx prisma migrate deploy && npx prisma db seed"
 

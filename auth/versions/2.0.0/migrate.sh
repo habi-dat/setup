@@ -184,7 +184,7 @@ render_versioned_template auth "$HABIDAT_MIGRATE_VERSION" \
 
 echo "Pulling images and recreating containers..."
 docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" pull
-docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d user-db user-redis ldap
+docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d --remove-orphans user-db user-redis ldap
 
 echo "Running auth-init (migrate + seed)..."
 docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" run --rm user-init
@@ -193,4 +193,4 @@ if [[ "${HABIDAT_MAILHOG:-false}" == "true" ]]; then
   docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d mailhog
 fi
 
-docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d user user-worker 
+docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d --remove-orphans user user-worker 
