@@ -25,7 +25,7 @@ rm -rf ../store/auth/user-import/*
 if [[ -d "$BACKUP_DIR/data" ]]; then
   echo "Detected legacy export format (v1)..."
 
-  for store_file in activationStore.json appStore.json settingsStore.json; do
+  for store_file in activationStore.json appStore.json settingsStore.json emailTemplateStore.json; do
     if [[ -f "$BACKUP_DIR/data/$store_file" ]]; then
       echo "Restoring $store_file..."
       cp "$BACKUP_DIR/data/$store_file" ../store/auth/user-import/

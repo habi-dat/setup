@@ -18,6 +18,103 @@ fi
 
 mkdir -p ../store/auth/user-import
 
+# Copy Vue/Express JSON stores into user-import BEFORE compose replaces {prefix}-user.
+# 1.x kept settings/apps/invites under /app/data (volume user-data). Seed reads /app/import.
+LEGACY_STORE_FILES=(
+  appStore.json
+  settingsStore.json
+  activationStore.json
+  emailTemplateStore.json
+)
+IMPORT_DIR="../store/auth/user-import"
+USER_CONTAINER="${HABIDAT_DOCKER_PREFIX}-user"
+COMPOSE_PROJECT="${HABIDAT_DOCKER_PREFIX}-auth"
+
+legacy_store_present() {
+  local dir="$1"
+  local f
+  for f in "${LEGACY_STORE_FILES[@]}"; do
+    [[ -f "$dir/$f" ]] && return 0
+  done
+  return 1
+}
+
+copy_legacy_stores_from_dir() {
+  local src="$1"
+  local f
+  for f in "${LEGACY_STORE_FILES[@]}"; do
+    if [[ -f "$src/$f" ]]; then
+      cp -f "$src/$f" "$IMPORT_DIR/$f"
+      echo "Copied legacy $f into store/auth/user-import"
+    fi
+  done
+}
+
+copy_legacy_json_from_user_container() {
+  if ! docker inspect "$USER_CONTAINER" &>/dev/null; then
+    return 1
+  fi
+  local tmp
+  tmp=$(mktemp -d)
+  if ! docker cp "$USER_CONTAINER:/app/data/." "$tmp/" 2>/dev/null; then
+    rm -rf "$tmp"
+    return 1
+  fi
+  if ! legacy_store_present "$tmp"; then
+    rm -rf "$tmp"
+    return 1
+  fi
+  echo "Found legacy /app/data on $USER_CONTAINER; overwriting user-import stores from 1.x..."
+  copy_legacy_stores_from_dir "$tmp"
+  rm -rf "$tmp"
+}
+
+copy_legacy_json_from_volume() {
+  local vol=""
+  if docker inspect "$USER_CONTAINER" &>/dev/null; then
+    vol=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/app/data"}}{{.Name}}{{end}}{{end}}' "$USER_CONTAINER" 2>/dev/null || true)
+  fi
+  if [[ -z "$vol" ]]; then
+    for candidate in "${COMPOSE_PROJECT}_user-data" "${COMPOSE_PROJECT}-user-data"; do
+      if docker volume inspect "$candidate" &>/dev/null; then
+        vol="$candidate"
+        break
+      fi
+    done
+  fi
+  if [[ -z "$vol" ]] || ! docker volume inspect "$vol" &>/dev/null; then
+    return 1
+  fi
+
+  local tmp
+  tmp=$(mktemp -d)
+  if ! docker run --rm \
+    -v "$vol":/legacy-data:ro \
+    -v "$tmp":/out \
+    alpine:3.20 \
+    sh -c 'cp -a /legacy-data/. /out/ 2>/dev/null || true'; then
+    rm -rf "$tmp"
+    return 1
+  fi
+  if ! legacy_store_present "$tmp"; then
+    rm -rf "$tmp"
+    return 1
+  fi
+  echo "Found legacy JSON on volume $vol; overwriting user-import stores from 1.x..."
+  copy_legacy_stores_from_dir "$tmp"
+  rm -rf "$tmp"
+}
+
+if copy_legacy_json_from_user_container; then
+  :
+elif [[ -f "$IMPORT_DIR/appStore.json" ]]; then
+  echo "No live 1.x /app/data; keeping existing store/auth/user-import files."
+elif copy_legacy_json_from_volume; then
+  :
+else
+  echo "No legacy JSON stores found on $USER_CONTAINER:/app/data or user-data volume."
+fi
+
 AUTH_ENV="../store/auth/auth.env"
 touch "$AUTH_ENV"
 
