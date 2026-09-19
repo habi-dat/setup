@@ -256,3 +256,17 @@ load helpers/load
 
   [[ ${#failures[@]} -eq 0 ]] || fail_with_list "unanchored .gitignore rules:" "${failures[@]}"
 }
+
+@test "every workflow action is pinned to a version, not a moving branch" {
+  # `uses: owner/action@main` runs whatever that branch holds at the time, which
+  # is both unreproducible and a supply-chain risk. Require a tag or a SHA.
+  local workflow failures=() ref
+  while IFS= read -r workflow; do
+    while IFS= read -r ref; do
+      [[ "$ref" =~ @(v[0-9]+([.0-9]*)?|[0-9a-f]{40})$ ]] \
+        || failures+=("${workflow#"$REPO_ROOT/"}: $ref")
+    done < <(grep -oE 'uses:[[:space:]]*[^[:space:]]+' "$workflow" | sed 's/uses:[[:space:]]*//')
+  done < <(find "$REPO_ROOT/.github/workflows" -name '*.yml' -o -name '*.yaml' 2>/dev/null)
+
+  [[ ${#failures[@]} -eq 0 ]] || fail_with_list "unpinned workflow actions:" "${failures[@]}"
+}

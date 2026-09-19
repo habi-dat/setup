@@ -26,18 +26,21 @@ jobs:
     name: Test suite
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # The flake pins bats, shellcheck, Python with Jinja2 and the docker CLI,
       # so CI and a developer's `nix develop` run the same versions.
       - name: Install Nix
-        uses: cachix/install-nix-action@v27
+        uses: cachix/install-nix-action@v31
         with:
           extra_nix_config: |
             accept-flake-config = true
 
+      # Keep this reasonably current: older majors used GitHub's cache v1 API,
+      # which has been switched off, and the action then fails with
+      # "Cache service responded with 400" while still reporting success.
       - name: Cache the Nix store
-        uses: DeterminateSystems/magic-nix-cache-action@v7
+        uses: DeterminateSystems/magic-nix-cache-action@v15
 
       - name: Show the environment
         run: |
@@ -55,11 +58,11 @@ jobs:
     name: Test suite (npm, no Nix)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       # lib/render.py needs only Jinja2 and works on any current Python, so this
@@ -94,10 +97,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Nix
-        uses: cachix/install-nix-action@v27
+        uses: cachix/install-nix-action@v31
 
       - name: Prepare a development configuration
         run: |
