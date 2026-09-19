@@ -49,12 +49,19 @@ docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" up -d
   "docker compose -f '$COMPOSE_FILE' -p '$COMPOSE_PROJECT' exec -T db \
      mariadb -u nextcloud --password='$HABIDAT_NEXTCLOUD_DB_PASSWORD' -e 'select 1' nextcloud"
 
-# Then the application. `occ status` reports "installed: false" and still exits 0
-# while the entrypoint unpacks and installs, so match the text. On a cold host
-# that can take several minutes, which is why a fixed 30s wait was unreliable.
-../lib/wait-for.sh "Nextcloud installation" 600 \
-  "docker compose -f '$COMPOSE_FILE' -p '$COMPOSE_PROJECT' exec -T --user www-data \
-     nextcloud php occ status | grep -q 'installed: true'"
+# Then the application -- but only until `occ` is *usable*, not until Nextcloud is
+# installed. habidat installs it itself, further down in habidat-bootstrap.sh
+# (`occ maintenance:install`), so waiting for "installed: true" here would block
+# forever on something this script has not done yet.
+#
+# The official image copies the application into /var/www/html on first start and
+# holds nextcloud-init-sync.lock while it does; on a cold host that copy is what
+# the old fixed 30s wait was gambling on.
+../lib/wait-for.sh "Nextcloud container (code unpacked, occ usable)" 600 \
+  "docker compose -f '$COMPOSE_FILE' -p '$COMPOSE_PROJECT' exec -T --user www-data nextcloud \
+     bash -c '[ ! -e /var/www/html/nextcloud-init-sync.lock ] &&
+              [ -f /var/www/html/occ ] &&
+              php occ status 2>&1 | grep -qi installed'"
 
 echo "Installing dependencies in container..."
 docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" exec nextcloud bash -c \
