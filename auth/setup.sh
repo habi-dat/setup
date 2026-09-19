@@ -30,6 +30,17 @@ openssl req -new -x509 -days 3652 -nodes \
 chmod a+r ../store/auth/cert/saml/cert.cer
 chmod a+r ../store/auth/cert/saml/key.pem
 
+if [[ ! -f ../store/auth/cert/saml/oidc-jwks.json ]]; then
+  echo "Generating OIDC signing keys..."
+  OIDC_JWKS_JS='const {generateKeyPairSync}=require("crypto");const {privateKey}=generateKeyPairSync("rsa",{modulusLength:2048});const jwk=privateKey.export({format:"jwk"});process.stdout.write(JSON.stringify({keys:[{...jwk,kid:"habidat-oidc-1",use:"sig",alg:"RS256"}]}))'
+  if command -v node >/dev/null 2>&1; then
+    node -e "$OIDC_JWKS_JS" > ../store/auth/cert/saml/oidc-jwks.json
+  else
+    docker run --rm node:22-alpine node -e "$OIDC_JWKS_JS" > ../store/auth/cert/saml/oidc-jwks.json
+  fi
+  chmod 600 ../store/auth/cert/saml/oidc-jwks.json
+fi
+
 export HABIDAT_SSO_CERTIFICATE=$(cat ../store/auth/cert/saml/cert.cer | sed --expression=':a;N;$!ba;s/\n/\\n/g')
 echo "export HABIDAT_SSO_CERTIFICATE='$HABIDAT_SSO_CERTIFICATE'" >> ../store/auth/passwords.env
 
@@ -58,6 +69,7 @@ echo "NEXT_PUBLIC_APP_URL=${PROTO}://${HOST}" >> "$AUTH_ENV"
 echo "TRUSTED_ORIGINS=${PROTO}://*.${HABIDAT_DOMAIN:-habidat.local}" >> "$AUTH_ENV"
 echo "SESSION_SECRET=$HABIDAT_USER_SESSION_SECRET" >> "$AUTH_ENV"
 echo "BETTER_AUTH_SECRET=$HABIDAT_USER_SESSION_SECRET" >> "$AUTH_ENV"
+echo "OIDC_COOKIE_KEYS=$(openssl rand -hex 32)" >> "$AUTH_ENV"
 echo "ADMIN_EMAIL=$HABIDAT_ADMIN_EMAIL" >> "$AUTH_ENV"
 echo "ADMIN_PASSWORD=$HABIDAT_ADMIN_PASSWORD" >> "$AUTH_ENV"
 echo "LDAP_URL=ldap://${HABIDAT_USER_LDAP_HOST:-ldap}:${HABIDAT_USER_LDAP_PORT:-389}" >> "$AUTH_ENV"

@@ -145,6 +145,19 @@ SECRET="${HABIDAT_USER_SESSION_SECRET:-}"
 [[ -z "$SECRET" ]] && SECRET=$(openssl rand -base64 32 | tr -d '\n')
 ensure_key "SESSION_SECRET" "$SECRET"
 ensure_key "BETTER_AUTH_SECRET" "$SECRET"
+ensure_key "OIDC_COOKIE_KEYS" "$(openssl rand -hex 32)"
+
+if [[ ! -f ../store/auth/cert/saml/oidc-jwks.json ]]; then
+  echo "Generating OIDC signing keys..."
+  mkdir -p ../store/auth/cert/saml
+  OIDC_JWKS_JS='const {generateKeyPairSync}=require("crypto");const {privateKey}=generateKeyPairSync("rsa",{modulusLength:2048});const jwk=privateKey.export({format:"jwk"});process.stdout.write(JSON.stringify({keys:[{...jwk,kid:"habidat-oidc-1",use:"sig",alg:"RS256"}]}))'
+  if command -v node >/dev/null 2>&1; then
+    node -e "$OIDC_JWKS_JS" > ../store/auth/cert/saml/oidc-jwks.json
+  else
+    docker run --rm node:22-alpine node -e "$OIDC_JWKS_JS" > ../store/auth/cert/saml/oidc-jwks.json
+  fi
+  chmod 600 ../store/auth/cert/saml/oidc-jwks.json
+fi
 
 ensure_key "ADMIN_EMAIL" "${HABIDAT_ADMIN_EMAIL:-admin@example.com}"
 ensure_key "ADMIN_PASSWORD" "${HABIDAT_ADMIN_PASSWORD:-}"
