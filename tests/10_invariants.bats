@@ -237,6 +237,16 @@ PY
   [[ ${#failures[@]} -eq 0 ]] || fail_with_list "unreachable version snapshots:" "${failures[@]}"
 }
 
+# Comments and blank lines are ignored when comparing a root template with its
+# snapshot. The invariant is about what gets *rendered into a container*, and the
+# two legitimately differ in commentary: a snapshot documents the upgrade it
+# belongs to ("mariadb 10.6 -> 11.8"), while the root is copied forward to the
+# next version and so stays general. Any difference that changes behaviour still
+# fails.
+_strip_comments() {
+  sed -E 's/[[:space:]]+$//; /^[[:space:]]*#/d; /^[[:space:]]*$/d' "$1"
+}
+
 @test "each module's root templates match its newest versioned snapshot" {
   # <module>/*.j2 is what a fresh install renders; versions/<newest>/*.j2 is what
   # an upgrade to the current version renders. If they drift, a fresh install and
@@ -254,7 +264,7 @@ PY
 
       if [[ ! -f "$root_tpl" ]]; then
         failures+=("$mod: versions/$newest/$rel has no counterpart at $mod/$rel")
-      elif ! cmp -s "$root_tpl" "$snap_tpl"; then
+      elif ! diff -q <(_strip_comments "$root_tpl") <(_strip_comments "$snap_tpl") >/dev/null; then
         failures+=("$mod: $mod/$rel differs from versions/$newest/$rel")
       fi
     done < <(find "$REPO_ROOT/$mod/versions/$newest" -name '*.j2' -type f | sort)
