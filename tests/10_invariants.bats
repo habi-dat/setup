@@ -444,7 +444,7 @@ PY
 }
 
 @test "every variable a template reads is either configured, generated or defaulted" {
-  # j2cli runs with StrictUndefined, so an unprovided variable aborts the install.
+  # Rendering uses StrictUndefined, so an unprovided variable aborts the install.
   # This catches a misspelled name at review time instead.
   run python3 - "$REPO_ROOT" "$BATS_TEST_DIRNAME/helpers/render.bash" <<'PY'
 import re, sys, pathlib

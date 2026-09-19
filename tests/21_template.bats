@@ -90,7 +90,7 @@ FIXTURE="$BATS_TEST_DIRNAME/fixtures/modules"
 # render_template / render_versioned_template / copy_versioned_file
 # ---------------------------------------------------------------------------
 
-@test "render_template: renders a .j2 file through j2cli" {
+@test "render_template: renders a .j2 file through lib/render.py" {
   printf 'prefix=%s\n' '{{ HABIDAT_DOCKER_PREFIX }}' > "$BATS_TEST_TMPDIR/in.j2"
 
   lib_eval "

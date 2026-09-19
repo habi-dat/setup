@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Render every repository template under one configuration profile.
 #
-# Called once per .bats file from setup_file(). j2cli costs ~350ms per
-# invocation, so rendering 65 templates x 3 profiles per test would dominate the
+# Called once per .bats file from setup_file(). Each render is a Python process,
+# so rendering 65 templates x 3 profiles inside every test would dominate the
 # suite; this renders each combination once, in parallel, into a cache the
 # individual tests read.
 #
@@ -10,7 +10,7 @@
 #
 # Output:
 #   <out-dir>/<template-path>   rendered result, for templates that succeeded
-#   <fail-file>                 TAB-separated "<template-path>\t<j2 error>" per failure
+#   <fail-file>                 TAB-separated "<template-path>\t<error>" per failure
 
 set -uo pipefail
 
@@ -30,7 +30,7 @@ set +a
 mkdir -p "$out_dir"
 : > "$fail_file"
 
-export OUT_DIR="$out_dir" FAIL_FILE="$fail_file"
+export OUT_DIR="$out_dir" FAIL_FILE="$fail_file" REPO_ROOT="$repo_root"
 
 cd "$repo_root" || exit 1
 
@@ -43,13 +43,10 @@ find . -name '*.j2' -type f \
     template="{}"
     out="$OUT_DIR/$template"
     mkdir -p "$(dirname "$out")"
-    if ! err=$(j2 "$template" -o "$out" 2>&1); then
+    if ! err=$("$REPO_ROOT/lib/render.py" "$template" "$out" 2>&1); then
       rm -f "$out"
-      # j2cli emits a pkg_resources deprecation warning on every run; drop it so
-      # the recorded message is the actual Jinja error.
       printf "%s\t%s\n" "$template" \
-        "$(printf "%s" "$err" | grep -v "pkg_resources" | tr "\n" " " | tail -c 300)" \
-        >> "$FAIL_FILE"
+        "$(printf "%s" "$err" | tr "\n" " " | tail -c 300)" >> "$FAIL_FILE"
     fi
   '
 

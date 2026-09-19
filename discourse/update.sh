@@ -8,7 +8,7 @@ source ../store/discourse/passwords.env
 
 echo "Rebuilding and starting containers..."
 
-j2 config/discourse-settings-update.yml.j2 -o ../store/discourse/bootstrap/discourse-settings.yml
+../lib/render.py config/discourse-settings-update.yml.j2 ../store/discourse/bootstrap/discourse-settings.yml
 
 cd ../store/discourse
 git pull

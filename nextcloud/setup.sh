@@ -26,15 +26,15 @@ chmod +x ../store/nextcloud/assets/habidat-bootstrap.sh
 chmod +x ../store/nextcloud/assets/habidat-afterupdate.sh
 chmod +x ../store/nextcloud/assets/habidat-add-externalsite.sh
 
-j2 config/db.env.j2 -o ../store/nextcloud/db.env
-j2 config/nextcloud.env.j2 -o ../store/nextcloud/nextcloud.env
-j2 config/mariadb.cnf.j2 -o ../store/nextcloud/mariadb.cnf
+../lib/render.py config/db.env.j2 ../store/nextcloud/db.env
+../lib/render.py config/nextcloud.env.j2 ../store/nextcloud/nextcloud.env
+../lib/render.py config/mariadb.cnf.j2 ../store/nextcloud/mariadb.cnf
 
 if [[ "${HABIDAT_CREATE_SELFSIGNED:-false}" == "true" ]]; then
   echo "CERT_NAME=$HABIDAT_DOMAIN" >> ../store/nextcloud/nextcloud.env
 fi
 
-j2 docker-compose.yml.j2 -o ../store/nextcloud/docker-compose.yml
+../lib/render.py docker-compose.yml.j2 ../store/nextcloud/docker-compose.yml
 
 COMPOSE_FILE="../store/nextcloud/docker-compose.yml"
 COMPOSE_PROJECT="$HABIDAT_DOCKER_PREFIX-nextcloud"
@@ -43,8 +43,18 @@ echo "Spinning up containers..."
 docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" pull
 docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" up -d
 
-echo "Waiting for containers to start (30 seconds)..."
-sleep 30
+# The database first: the nextcloud entrypoint will not begin installing until
+# it can connect. mariadb 11.8 renamed the client, hence `mariadb` not `mysql`.
+../lib/wait-for.sh "Nextcloud database" 300 \
+  "docker compose -f '$COMPOSE_FILE' -p '$COMPOSE_PROJECT' exec -T db \
+     mariadb -u nextcloud --password='$HABIDAT_NEXTCLOUD_DB_PASSWORD' -e 'select 1' nextcloud"
+
+# Then the application. `occ status` reports "installed: false" and still exits 0
+# while the entrypoint unpacks and installs, so match the text. On a cold host
+# that can take several minutes, which is why a fixed 30s wait was unreliable.
+../lib/wait-for.sh "Nextcloud installation" 600 \
+  "docker compose -f '$COMPOSE_FILE' -p '$COMPOSE_PROJECT' exec -T --user www-data \
+     nextcloud php occ status | grep -q 'installed: true'"
 
 echo "Installing dependencies in container..."
 docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" exec nextcloud bash -c \

@@ -1,7 +1,7 @@
 # Template rendering helpers.
 #
-# j2cli runs Jinja2 with StrictUndefined, so a template that reads a variable
-# nobody provides is a hard failure at install time, not a silent empty string.
+# lib/render.py runs Jinja2 with StrictUndefined, so a template that reads a
+# variable nobody provides is a hard failure at install time, not an empty string.
 # That makes "render everything under every profile" a cheap, high-value check
 # -- as long as the test supplies exactly the variables a real run would.
 #
@@ -123,7 +123,7 @@ render_template() {
       source '$profile_file'
       $(printf 'export %q\n' "${RUNTIME_VARS[@]}")
       set +a
-      cd '$REPO_ROOT' && exec j2 '$template'
+      cd '$REPO_ROOT' && exec ./lib/render.py '$template'
     "
 }
 
@@ -136,7 +136,7 @@ assert_renders() {
       echo "template failed to render: $template (profile: $profile)"
       echo "--- j2 error ---"
       # shellcheck disable=SC2154  # `stderr` comes from run --separate-stderr
-      printf '%s\n' "$stderr" | grep -v 'pkg_resources' | tail -n 6
+      printf '%s\n' "$stderr" | tail -n 6
     } | fail
   fi
 }

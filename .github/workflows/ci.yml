@@ -28,10 +28,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # The flake pins bats, shellcheck, j2cli and the docker CLI, so CI and a
-      # developer's `nix develop` run the same versions. j2cli in particular
-      # matters: its StrictUndefined default is what makes the render tier a
-      # real check.
+      # The flake pins bats, shellcheck, Python with Jinja2 and the docker CLI,
+      # so CI and a developer's `nix develop` run the same versions.
       - name: Install Nix
         uses: cachix/install-nix-action@v27
         with:
@@ -45,7 +43,7 @@ jobs:
         run: |
           nix develop .#ci --command bats --version
           nix develop .#ci --command shellcheck --version
-          nix develop .#ci --command j2 --version
+          nix develop .#ci --command python3 -c "import jinja2; print(f'jinja2 {jinja2.__version__}')"
           nix develop .#ci --command docker --version
 
       - name: Run the test suite
@@ -64,16 +62,14 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Install j2cli
+      # lib/render.py needs only Jinja2 and works on any current Python, so this
+      # is the whole template-rendering dependency. Installed from apt rather
+      # than pip to match how a server would get it.
+      - name: Install Jinja2
         run: |
-          pipx install j2cli
-          # j2cli 0.3.10 does `import pkg_resources` at module load. Python 3.12
-          # stopped installing setuptools into new venvs, so a fresh pipx venv
-          # has no pkg_resources and `j2` dies before doing any work. Pin below
-          # 81, where pkg_resources is still shipped rather than only deprecated.
-          # flake.nix solves the same problem by patching the import out.
-          pipx inject j2cli 'setuptools<81'
-          j2 --version
+          sudo apt-get update
+          sudo apt-get install -y python3-jinja2
+          ./lib/render.py --help >/dev/null
 
       - name: Install test dependencies
         run: npm ci

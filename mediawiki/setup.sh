@@ -37,10 +37,10 @@ if [[ "${HABIDAT_SSO:-false}" == "true" ]]; then
   echo "export HABIDAT_SSO_CERTIFICATE_SINGLE_LINE='$HABIDAT_SSO_CERTIFICATE_SINGLE_LINE'" >> ../store/auth/passwords.env
 fi
 
-j2 config/db.env.j2 -o "../store/mediawiki/$1/db.env"
-j2 config/web.env.j2 -o "../store/mediawiki/$1/web.env"
+../lib/render.py config/db.env.j2 "../store/mediawiki/$1/db.env"
+../lib/render.py config/web.env.j2 "../store/mediawiki/$1/web.env"
 
-j2 docker-compose.yml.j2 -o "../store/mediawiki/$1/docker-compose.yml"
+../lib/render.py docker-compose.yml.j2 "../store/mediawiki/$1/docker-compose.yml"
 
 if [[ "${HABIDAT_CREATE_SELFSIGNED:-false}" == "true" ]]; then
   echo "CERT_NAME=$HABIDAT_DOMAIN" >> "../store/mediawiki/$1/web.env"

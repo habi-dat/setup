@@ -109,7 +109,12 @@ trap _run_cleanup EXIT ERR INT TERM
 check_prerequisites() {
   command -v docker >/dev/null 2>&1 || die "docker is not installed or not in PATH"
   docker compose version >/dev/null 2>&1 || die "docker compose plugin is not installed"
-  command -v j2 >/dev/null 2>&1 || die "j2cli is not installed (pip install j2cli)"
+  # Templates are rendered by lib/render.py, which needs Python and Jinja2.
+  # Checked by running it rather than by testing for the interpreter, so a
+  # missing Jinja2 is reported here instead of partway through an install.
+  local renderer="${BASH_SOURCE[0]%/*}/render.py"
+  [[ -x "$renderer" ]] || die "lib/render.py is missing or not executable"
+  "$renderer" --help >/dev/null 2>&1 || die "$("$renderer" --help 2>&1 | tail -n3)"
   [[ -f "$BASE_DIR/setup.env" ]] || die "setup.env not found in $BASE_DIR"
 }
 

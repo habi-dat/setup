@@ -8,11 +8,11 @@ mkdir -p ../store/dokuwiki
 
 echo "Creating configuration files..."
 
-j2 config/web.env.j2 -o ../store/dokuwiki/web.env
-j2 config/local.php.j2 -o ../store/dokuwiki/local.php
-j2 config/acl.auth.php.j2 -o ../store/dokuwiki/acl.auth.php
+../lib/render.py config/web.env.j2 ../store/dokuwiki/web.env
+../lib/render.py config/local.php.j2 ../store/dokuwiki/local.php
+../lib/render.py config/acl.auth.php.j2 ../store/dokuwiki/acl.auth.php
 
-j2 docker-compose.yml.j2 -o ../store/dokuwiki/docker-compose.yml
+../lib/render.py docker-compose.yml.j2 ../store/dokuwiki/docker-compose.yml
 
 if [[ "${HABIDAT_CREATE_SELFSIGNED:-false}" == "true" ]]; then
   echo "CERT_NAME=$HABIDAT_DOMAIN" >> ../store/dokuwiki/web.env

@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # Template rendering across configuration profiles.
 #
-# j2cli runs Jinja2 with StrictUndefined: a template that reads a variable
+# lib/render.py runs Jinja2 with StrictUndefined: a template that reads a variable
 # nobody supplies aborts the install at the point it is rendered, which for a
 # migration means halfway through an upgrade. Rendering everything up front,
 # under each supported configuration, moves that failure into CI.

@@ -13,17 +13,33 @@ This repository provides a CLI tool (`habidat.sh`) for installing, updating, exp
 ### Software
 
 - **Docker** with the **Compose plugin** (`docker compose`)
-- **j2cli** for Jinja2 templating: `pip install j2cli`
+- **Python 3** with **Jinja2** (`apt install python3-jinja2`) for templating
 - **git** (discourse and direktkredit clone their upstream repositories)
 - **openssl** (password and SSO certificate generation)
 - **curl** and **netcat** (`nc`) -- discourse installation only
 - **tar** and **gzip** (export and import)
 - **mkcert** + **libnss3-tools** (only for local development with self-signed certs)
 
-`habidat.sh` only verifies Docker, the Compose plugin and j2cli on startup; the
+`habidat.sh` only verifies Docker, the Compose plugin and the renderer on startup; the
 rest fail at the point they are first used. If you have Nix, `nix develop`
 provides all of them at pinned versions -- see
 [Development environment](#development-environment).
+
+#### A note on templating
+
+Configuration files are rendered by `lib/render.py`, which ships with this
+repository and needs nothing but Jinja2:
+
+```bash
+apt install python3-jinja2     # Debian / Ubuntu
+./lib/render.py --help         # must print usage, not an import error
+```
+
+Earlier versions required [j2cli](https://github.com/kolypto/j2cli). That project
+is unmaintained and no longer runs on a current Python -- it imports `imp`
+(removed in Python 3.12) and `pkg_resources` (dropped from setuptools 81) -- so it
+was replaced. If you are upgrading an existing installation you can uninstall it;
+nothing calls `j2` any more.
 
 ### DNS
 
@@ -207,7 +223,8 @@ habidat-setup/
   flake.nix               # Pinned development and test environment
   lib/                    # Shared bash libraries
     common.sh             #   Logging, error handling, prerequisites
-    template.sh           #   Jinja2/envsubst rendering, template resolution
+    template.sh           #   Template resolution and rendering
+    render.py             #   Jinja2 renderer (replaces j2cli)
     version.sh            #   Version comparison, migration runner
     modules.sh            #   Module discovery, lifecycle, dependency management
   tests/                  # Test suite (see tests/README.md)
@@ -262,11 +279,11 @@ Templates are resolved per-version using a fallback strategy: if a template does
 
 ### Jinja2 templating
 
-Configuration and compose files use [j2cli](https://github.com/kolypto/j2cli) for Jinja2 templating. This supports conditionals, defaults, loops, and filters -- replacing the limited `envsubst` approach. All environment variables from `setup.env` are automatically available in templates.
+Configuration and compose files are Jinja2 templates rendered by `lib/render.py`. This supports conditionals, defaults, loops and filters -- replacing the limited `envsubst` approach. Every environment variable exported by `setup.env`, plus the values a module's `setup.sh` generates at run time, is available in a template.
 
 Two things to know when editing a template:
 
-- **j2cli renders with `StrictUndefined`.** A variable that nothing exports is a
+- **Rendering uses `StrictUndefined`.** A variable that nothing exports is a
   hard error, not an empty string -- and inside a migration that means aborting
   partway through an upgrade. Give optional variables a `default(...)`, and make
   sure anything mandatory is either in `setup.env.example` or exported by the
@@ -276,14 +293,15 @@ Two things to know when editing a template:
   gets interpolated into URLs.
 
 `tests/30_render.bats` renders every template under three configuration profiles
-and checks both of these, so a mistake here fails in CI rather than on a server.
+and checks both of these, and `tests/23_render_py.bats` pins the renderer's own
+behaviour -- so a mistake here fails in CI rather than on a server.
 
 ## Development
 
 ### Development environment
 
 A Nix flake pins every tool the project and its tests need -- bats, shellcheck,
-j2cli, the Docker CLI, mkcert, openssl:
+Python with Jinja2, the Docker CLI, mkcert, openssl:
 
 ```bash
 nix develop        # everything, including the runtime tools for a real install

@@ -6,8 +6,8 @@ source ../store/auth/passwords.env
 
 git clone https://github.com/soudis/habidat-direktkredit-platform.git ../store/direktkredit
 
-j2 config/settings.env.j2 -o ../store/direktkredit/settings.env
-j2 docker-compose.yml.j2 -o ../store/direktkredit/docker-compose.yml
+../lib/render.py config/settings.env.j2 ../store/direktkredit/settings.env
+../lib/render.py docker-compose.yml.j2 ../store/direktkredit/docker-compose.yml
 
 echo "Spinning up containers..."
 

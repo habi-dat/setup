@@ -32,7 +32,7 @@ else
   cat >&2 <<'EOF'
 bats is not available. Either:
 
-  nix develop            # brings bats, shellcheck, j2cli and the docker CLI
+  nix develop            # brings bats, shellcheck, python+jinja2, docker CLI
   npm install            # installs bats into node_modules/
 
 EOF
@@ -44,16 +44,14 @@ fi
 # ---------------------------------------------------------------------------
 missing=()
 
-# Check that j2 *runs*, not merely that it is on PATH: a j2cli whose
-# `import pkg_resources` fails is present but useless, and the render tier would
-# report every template as broken rather than the environment.
-if ! command -v j2 >/dev/null 2>&1; then
-  missing+=("j2 (j2cli) -- the render tier cannot run without it")
-elif ! j2 --version >/dev/null 2>&1; then
-  missing+=("j2 is on PATH but fails to run: $(j2 --version 2>&1 | tail -n1)")
+# Check that the renderer *runs*, not merely that it exists: without Jinja2 it
+# is present but useless, and the render tier would report every template as
+# broken rather than blaming the environment.
+if ! command -v python3 >/dev/null 2>&1; then
+  missing+=("python3 -- needed by lib/render.py and the invariant checks")
+elif ! ./lib/render.py --help >/dev/null 2>&1; then
+  missing+=("lib/render.py cannot run: $(./lib/render.py --help 2>&1 | tail -n2 | tr '\n' ' ')")
 fi
-
-command -v python3 >/dev/null 2>&1 || missing+=("python3 -- used by the invariant and compose checks")
 if [[ ${#missing[@]} -gt 0 ]]; then
   printf 'missing prerequisite: %s\n' "${missing[@]}" >&2
   echo "run inside 'nix develop' for a complete environment" >&2
