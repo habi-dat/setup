@@ -75,8 +75,11 @@ render_versioned_template nextcloud "$(cat ../store/nextcloud/version)" \
 docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" pull
 docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" up -d
 
-echo "Waiting for containers to start (2 minutes)..."
-sleep 120
+# maintenance:mode --off below needs the instance up; the restored database may
+# also trigger an upgrade on first start.
+../lib/wait-for.sh "Nextcloud" 900 \
+  "docker compose -f '$COMPOSE_FILE' -p '$COMPOSE_PROJECT' exec -T --user www-data \
+     nextcloud php occ status | grep -q 'installed: true'"
 
 docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" exec --user www-data nextcloud php occ maintenance:mode --off
 docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" exec --user www-data nextcloud /habidat/habidat-afterupdate.sh

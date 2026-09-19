@@ -51,8 +51,10 @@ echo "Spinning up containers..."
 docker compose -f "../store/mediawiki/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-mediawiki-$1" pull
 docker compose -f "../store/mediawiki/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-mediawiki-$1" build
 docker compose -f "../store/mediawiki/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-mediawiki-$1" up -d db
-echo "Waiting for database to initialize..."
-sleep 20
+../lib/wait-for.sh "mediawiki $1 database" 300 \
+  "docker compose -f '../store/mediawiki/$1/docker-compose.yml' \
+     -p '$HABIDAT_DOCKER_PREFIX-mediawiki-$1' exec -T db \
+     mysql -u root --password='$HABIDAT_MEDIAWIKI_DB_ROOT_PASSWORD' -e 'select 1'"
 docker compose -f "../store/mediawiki/$1/docker-compose.yml" -p "$HABIDAT_DOCKER_PREFIX-mediawiki-$1" up -d web
 
 echo "Waiting for mediawiki container to initialize (this can take several minutes)..."

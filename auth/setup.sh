@@ -100,18 +100,28 @@ fi
 
 ../lib/render.py docker-compose.yml.j2 ../store/auth/docker-compose.yml
 
-echo "Spinning up containers..."
-docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" pull
-docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d user-db user-redis ldap
+COMPOSE_FILE="../store/auth/docker-compose.yml"
+COMPOSE_PROJECT="$HABIDAT_DOCKER_PREFIX-auth"
+COMPOSE=(docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT")
 
-echo "Waiting for containers to start (30 seconds)..."
-sleep 30
+echo "Spinning up containers..."
+"${COMPOSE[@]}" pull
+
+# user-db and user-redis declare healthchecks, so `--wait` blocks until they are
+# actually accepting connections. ldap has no healthcheck, so it is polled below.
+"${COMPOSE[@]}" up -d --wait user-db user-redis
+"${COMPOSE[@]}" up -d ldap
+
+../lib/wait-for.sh "LDAP directory" 180 \
+  "docker compose -f '$COMPOSE_FILE' -p '$COMPOSE_PROJECT' exec -T ldap \
+     ldapsearch -x -H ldap://localhost -D 'cn=admin,$HABIDAT_LDAP_BASE' \
+     -w '$HABIDAT_LDAP_ADMIN_PASSWORD' -b '$HABIDAT_LDAP_BASE' -s base dn"
 
 echo "Running auth-init (migrate + seed)..."
-docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" run --rm user-init
+"${COMPOSE[@]}" run --rm user-init
 
 if [[ "${HABIDAT_MAILHOG:-false}" == "true" ]]; then
-  docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d mailhog
+  "${COMPOSE[@]}" up -d mailhog
 fi
 
-docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d user user-worker
+"${COMPOSE[@]}" up -d user user-worker

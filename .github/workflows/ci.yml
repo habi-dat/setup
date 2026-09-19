@@ -77,14 +77,20 @@ jobs:
       - name: Run the test suite
         run: ./tests/run.sh
 
-  # Real installs against a live Docker daemon. Not a merge gate: image pulls
-  # and the hardcoded sleep 30 / sleep 120 waits in the module scripts make this
-  # slow and occasionally flaky.
+  # Real installs against a live Docker daemon: slow, several GB of image pulls,
+  # and dependent on the fixed `sleep 30` / `sleep 120` waits in the module
+  # scripts, so it is not a per-PR merge gate.
   #
-  # Enable the schedule once the suite has proven stable.
+  # TEMPORARY: `tests` is in this condition so the job can run at all. Manual
+  # dispatch and `schedule:` both require the workflow to live on the default
+  # branch, and main carries no workflow yet -- so before this branch merges, a
+  # push is the only trigger available.
+  #
+  # At merge time: drop `github.ref_name == 'tests'` and add a nightly
+  # `schedule:` trigger, which starts working once the file is on main.
   integration:
     name: Integration (nginx + auth + nextcloud)
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || github.ref_name == 'tests'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -122,6 +128,32 @@ jobs:
           nix develop --command ./habidat.sh export auth
           nix develop --command ./habidat.sh import auth list
 
-      - name: Collect container logs on failure
+      # A failure here is almost always a container that was not ready yet, so
+      # dump enough to tell that apart from a genuine error without a second run.
+      - name: Diagnostics on failure
         if: failure()
-        run: docker ps -a && docker compose ls || true
+        run: |
+          echo "::group::containers"
+          docker ps -a
+          echo "::endgroup::"
+
+          echo "::group::disk and image usage"
+          df -h /
+          docker system df
+          echo "::endgroup::"
+
+          for c in $(docker ps -aq); do
+            name=$(docker inspect --format '{{.Name}}' "$c" | tr -d /)
+            echo "::group::logs $name"
+            docker logs --tail 120 "$c" 2>&1 || true
+            echo "::endgroup::"
+          done
+
+          echo "::group::nextcloud occ status"
+          docker exec --user www-data "$(grep '^HABIDAT_DOCKER_PREFIX=' setup.env | cut -d= -f2)-nextcloud" \
+            php occ status 2>&1 || echo "(container not running or not installed yet)"
+          echo "::endgroup::"
+
+          echo "::group::store tree"
+          find store -maxdepth 3 2>/dev/null || true
+          echo "::endgroup::"

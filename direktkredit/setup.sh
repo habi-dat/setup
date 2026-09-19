@@ -22,5 +22,10 @@ echo "Add link to nextcloud..."
 sed -i '/HABIDAT_DIREKTKREDIT_SUBDOMAIN/d' ../store/nextcloud/nextcloud.env
 echo "HABIDAT_DIREKTKREDIT_SUBDOMAIN=$HABIDAT_DIREKTKREDIT_SUBDOMAIN" >> ../store/nextcloud/nextcloud.env
 docker compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" up -d nextcloud
-sleep 5
+# nextcloud was just recreated to pick up the new subdomain; the external-site
+# helper below calls occ, which fails while it is still starting.
+../lib/wait-for.sh "nextcloud" 300 \
+  "docker compose -f ../store/nextcloud/docker-compose.yml \
+     -p '$HABIDAT_DOCKER_PREFIX-nextcloud' exec -T --user www-data \
+     nextcloud php occ status | grep -q 'installed: true'"
 docker compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud /habidat/habidat-add-externalsite.sh direktkredit
