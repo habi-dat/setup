@@ -38,8 +38,9 @@ if [[ ! -f ../store/auth/cert/saml/oidc-jwks.json ]]; then
   else
     docker run --rm node:22-alpine node -e "$OIDC_JWKS_JS" > ../store/auth/cert/saml/oidc-jwks.json
   fi
-  chmod 600 ../store/auth/cert/saml/oidc-jwks.json
 fi
+# Bind-mounted into the web container as uid 1001; match SAML cert/key readability.
+chmod a+r ../store/auth/cert/saml/oidc-jwks.json
 
 export HABIDAT_SSO_CERTIFICATE=$(cat ../store/auth/cert/saml/cert.cer | sed --expression=':a;N;$!ba;s/\n/\\n/g')
 echo "export HABIDAT_SSO_CERTIFICATE='$HABIDAT_SSO_CERTIFICATE'" >> ../store/auth/passwords.env

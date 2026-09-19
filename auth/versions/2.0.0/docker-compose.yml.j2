@@ -146,7 +146,7 @@ services:
       options:
         max-size: 50m
 
-{% if HABIDAT_MAILHOG == "true" %}
+{% if HABIDAT_MAILHOG | default("false") == "true" %}
   mailhog:
     image: mailhog/mailhog:latest
     restart: unless-stopped

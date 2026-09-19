@@ -5,6 +5,8 @@ set -a
 source ../store/nginx/networks.env
 source ../store/auth/passwords.env
 [[ -f ../store/auth/user.env ]] && source ../store/auth/user.env
+[[ -f ../store/nextcloud/passwords.env ]] && source ../store/nextcloud/passwords.env
+[[ -f ../store/discourse/passwords.env ]] && source ../store/discourse/passwords.env
 set +a
 
 export HABIDAT_INTERNAL_NETWORK_DISABLE='#'
@@ -156,8 +158,9 @@ if [[ ! -f ../store/auth/cert/saml/oidc-jwks.json ]]; then
   else
     docker run --rm node:22-alpine node -e "$OIDC_JWKS_JS" > ../store/auth/cert/saml/oidc-jwks.json
   fi
-  chmod 600 ../store/auth/cert/saml/oidc-jwks.json
 fi
+# Bind-mounted into the web container as uid 1001; match SAML cert/key readability.
+chmod a+r ../store/auth/cert/saml/oidc-jwks.json
 
 ensure_key "ADMIN_EMAIL" "${HABIDAT_ADMIN_EMAIL:-admin@example.com}"
 ensure_key "ADMIN_PASSWORD" "${HABIDAT_ADMIN_PASSWORD:-}"
@@ -179,10 +182,22 @@ ensure_key "SMTP_USER" "${HABIDAT_USER_SMTP_USER:-}"
 ensure_key "SMTP_PASS" "${HABIDAT_USER_SMTP_PASSWORD:-}"
 ensure_key "SMTP_FROM" "${HABIDAT_USER_SMTP_EMAILFROM:-noreply@${HOST}}"
 
-ensure_key "DISCOURSE_URL" "http://${HABIDAT_DOCKER_PREFIX}-discourse:80"
-ensure_key "DISCOURSE_API_KEY" "${HABIDAT_DISCOURSE_API_KEY:-}"
-ensure_key "DISCOURSE_API_USERNAME" "system"
-ensure_key "DISCOURSE_SSO_SECRET" "${HABIDAT_DISCOURSE_SSO_SECRET:-}"
+# Keys owned by other modules: replace so a previous empty write can be repaired.
+replace_key() {
+  local key="$1"
+  local value="$2"
+  sed -i "/^${key}=/d" "$AUTH_ENV"
+  if [[ -n "$value" ]]; then
+    echo "${key}=${value}" >> "$AUTH_ENV"
+  fi
+}
+
+replace_key "DISCOURSE_SSO_SECRET" "${HABIDAT_DISCOURSE_SSO_SECRET:-}"
+if [[ -d ../store/discourse ]]; then
+  replace_key "DISCOURSE_URL" "http://${HABIDAT_DOCKER_PREFIX}-discourse:80"
+  replace_key "DISCOURSE_API_KEY" "${HABIDAT_DISCOURSE_API_KEY:-}"
+  replace_key "DISCOURSE_API_USERNAME" "system"
+fi
 
 set -a
 [[ -f "$AUTH_ENV" ]] && source "$AUTH_ENV"
