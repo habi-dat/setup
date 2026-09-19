@@ -65,7 +65,15 @@ jobs:
           cache: npm
 
       - name: Install j2cli
-        run: pipx install j2cli
+        run: |
+          pipx install j2cli
+          # j2cli 0.3.10 does `import pkg_resources` at module load. Python 3.12
+          # stopped installing setuptools into new venvs, so a fresh pipx venv
+          # has no pkg_resources and `j2` dies before doing any work. Pin below
+          # 81, where pkg_resources is still shipped rather than only deprecated.
+          # flake.nix solves the same problem by patching the import out.
+          pipx inject j2cli 'setuptools<81'
+          j2 --version
 
       - name: Install test dependencies
         run: npm ci

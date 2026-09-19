@@ -144,11 +144,17 @@ load helpers/load
 }
 
 @test ".gitignore covers the runtime state directories" {
-  local entry
-  for entry in store backup setup.env; do
-    run grep -qxF "$entry" "$REPO_ROOT/.gitignore"
+  # Asserted through git itself rather than by grepping the file, so the rules
+  # can be rewritten as long as the intent holds.
+  local path
+  for path in store backup setup.env; do
+    run git -C "$REPO_ROOT" check-ignore -q "$path"
     assert_success
   done
+
+  # ...and the example config must stay shippable.
+  run git -C "$REPO_ROOT" check-ignore -q setup.env.example
+  assert_failure
 }
 
 # ---------------------------------------------------------------------------
@@ -215,4 +221,38 @@ load helpers/load
   done < <(find "$REPO_ROOT/.github/workflows" -name '*.yml' -o -name '*.yaml' 2>/dev/null)
 
   [[ ${#failures[@]} -eq 0 ]] || fail_with_list "multi-line plain 'run:' scalars (use 'run: |'):" "${failures[@]}"
+}
+
+@test "every file the suite needs is tracked by git" {
+  # The bug this exists for: tests/fixtures/modules/store/alpha/version was
+  # matched by an unanchored `store` rule in .gitignore, so it lived on disk,
+  # passed locally, and was never committed -- five tests then failed only in CI.
+  #
+  # Anything under tests/ that git does not track is either an oversight or a
+  # .gitignore rule reaching further than intended.
+  local file untracked=()
+
+  while IFS= read -r file; do
+    git -C "$REPO_ROOT" ls-files --error-unmatch "$file" >/dev/null 2>&1 \
+      || untracked+=("$file $(git -C "$REPO_ROOT" check-ignore -v "$file" 2>/dev/null || echo '(untracked)')")
+  done < <(cd "$REPO_ROOT" && find tests -type f | sort)
+
+  [[ ${#untracked[@]} -eq 0 ]] \
+    || fail_with_list "files under tests/ that git will not ship:" "${untracked[@]}"
+}
+
+@test "gitignore rules for runtime state are anchored to the repository root" {
+  # `store` without a leading slash matches a directory of that name at any
+  # depth. Anchoring keeps it meaning "the runtime state directory here".
+  local rule failures=()
+  while IFS= read -r rule; do
+    [[ -z "$rule" || "$rule" == \#* ]] && continue
+    case "$rule" in
+      store | backup | setup.env | setup.env.*)
+        failures+=("$rule should be anchored as /$rule")
+        ;;
+    esac
+  done < "$REPO_ROOT/.gitignore"
+
+  [[ ${#failures[@]} -eq 0 ]] || fail_with_list "unanchored .gitignore rules:" "${failures[@]}"
 }

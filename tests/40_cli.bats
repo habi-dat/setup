@@ -532,9 +532,21 @@ EOF
 
 @test "lifecycle: a module's own script takes precedence over generic compose" {
   # discourse ships start.sh, which drives its launcher rather than compose.
+  #
+  # The real start.sh calls ../store/discourse/launcher, which the sandbox has
+  # no copy of; standing in a marker script keeps the test about the precedence
+  # rule instead of depending on that lookup failing.
   seed_module discourse "$(repo_module_version discourse)"
+  cat > "$SANDBOX/discourse/start.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+echo "module start.sh ran"
+EOF
+  chmod +x "$SANDBOX/discourse/start.sh"
 
   habidat start discourse
+  assert_success
+  assert_output --partial "module start.sh ran"
   refute_docker_called "compose -f $SANDBOX/store/discourse/docker-compose.yml"
 }
 
