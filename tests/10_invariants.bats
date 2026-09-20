@@ -287,8 +287,11 @@ _strip_comments() {
   #   - nextcloud: versions/32.0.5/config/ snapshots exist but have since
   #     diverged from the root copies (notably default("") there vs
   #     default(none) at the root), and no later version re-snapshotted them.
+  #     34.0.4.1 is config-only (afterupdate, image stays 34.0.4), so compose
+  #     and mariadb.cnf live in versions/34.0.4/ and not in the newest dir.
   #   - direktkredit, discourse, mailtrain, mediawiki, auth's appStore: no
-  #     versioned config snapshot has ever been taken.
+  #     versioned config snapshot has ever been taken. mediawiki's
+  #     auth-app.json.j2 is the same: setup.sh renders it, migrate.sh does not.
   #
   # Adding the templates to the newest version directory and rendering them from
   # that module's migrate.sh removes entries from this list.
@@ -303,10 +306,13 @@ _strip_comments() {
     "mailtrain/config/mailtrain.env.j2"
     "mailtrain/config/public.env.j2"
     "mailtrain/config/sandbox.env.j2"
+    "mediawiki/config/auth-app.json.j2"
     "mediawiki/config/db.env.j2"
     "mediawiki/config/web.env.j2"
     "nextcloud/config/db.env.j2"
+    "nextcloud/config/mariadb.cnf.j2"
     "nextcloud/config/nextcloud.env.j2"
+    "nextcloud/docker-compose.yml.j2"
   )
 
   local mod newest rel found=()
@@ -555,14 +561,6 @@ PY
 @test "the SSO certificate path modules read is the one auth/setup.sh writes" {
   # auth/setup.sh generates the SAML certificate at store/auth/cert/saml/cert.cer
   # and every consumer must agree on that path.
-  #
-  # RATCHET. mediawiki/setup.sh reads ../store/auth/cert/server.cert instead,
-  # inside its `if [[ "${HABIDAT_SSO:-false}" == "true" ]]` branch. The branch is
-  # unreachable today only because nothing sets HABIDAT_SSO in the shell -- it is
-  # set exclusively inside container env files (nextcloud.env, web.env) -- so
-  # turning SSO on would fail at that line.
-  local known=("mediawiki/setup.sh: ../store/auth/cert/server.cert")
-
   run grep -q 'store/auth/cert/saml/cert.cer' "$REPO_ROOT/auth/setup.sh"
   assert_success
 
@@ -571,9 +569,9 @@ PY
     [[ "$script" == auth/setup.sh ]] && continue
     local bad
     bad="$(grep -oE '\.\./store/auth/cert/[A-Za-z0-9_./-]+' "$REPO_ROOT/$script" \
-      | grep -v '^\.\./store/auth/cert/saml/' | sort -u)"
+      | grep -vE '^\.\./store/auth/cert/saml(/|$)' | sort -u)"
     [[ -n "$bad" ]] && found+=("$script: $bad")
   done < <(repo_scripts)
 
-  assert_equal "$(printf '%s\n' "${found[@]}")" "$(printf '%s\n' "${known[@]}")"
+  [[ ${#found[@]} -eq 0 ]] || fail_with_list "SSO certificate path mismatches:" "${found[@]}"
 }
