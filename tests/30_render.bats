@@ -376,24 +376,43 @@ for name, svc in (doc.get("services") or {}).items():
   fi
 }
 
-@test "auth: the compose images match the module version" {
-  local version
-  version="$(repo_module_version auth)"
+@test "auth: nginx-proxy CERT_NAME is only set for the mkcert wildcard" {
+  # Let's Encrypt stores user.example.org.crt. CERT_NAME=example.org makes
+  # nginx-proxy look for the apex file instead, which is SSL unrecognized_name
+  # on an existing nginx-proxy (HABIDAT_EXISTING_NGINX_GENERATOR_NETWORK).
+  run cat "$(rendered auth/docker-compose.yml.j2 prod)"
+  assert_output --partial "LETSENCRYPT_HOST=user.example.org"
+  refute_output --partial "CERT_NAME="
 
   run cat "$(rendered auth/docker-compose.yml.j2 dev)"
-  assert_output --partial "image: habidat/auth:$version"
-  assert_output --partial "image: habidat/auth-worker:$version"
+  assert_output --partial "CERT_NAME=habidat.localhost"
+  refute_output --partial "LETSENCRYPT_HOST="
 }
 
-@test "every auth version snapshot pins its own version's images" {
-  local ver failures=()
+@test "auth: the compose image tag is a prefix of the module version" {
+  # A habidat-only bump (2.0.0.1) keeps habidat/auth:2.0.0.
+  local version tag worker
+  version="$(repo_module_version auth)"
+  tag="$(repo_compose_image_tag "$(rendered auth/docker-compose.yml.j2 dev)" 'habidat/auth')"
+  worker="$(repo_compose_image_tag "$(rendered auth/docker-compose.yml.j2 dev)" 'habidat/auth-worker')"
+  version_covers_image_tag "$version" "$tag" \
+    || fail "image tag $tag is not a prefix of module version $version"
+  version_covers_image_tag "$version" "$worker" \
+    || fail "worker image tag $worker is not a prefix of module version $version"
+}
+
+@test "every auth version snapshot tags its app image with a prefix of its version" {
+  local ver compose tag failures=()
 
   while IFS= read -r ver; do
-    grep -q "image: habidat/auth:$ver" "$RENDER_CACHE/dev/auth/versions/$ver/docker-compose.yml.j2" \
-      || failures+=("versions/$ver does not pin image habidat/auth:$ver")
+    compose="$RENDER_CACHE/dev/auth/versions/$ver/docker-compose.yml.j2"
+    [[ -f "$compose" ]] || continue
+    tag="$(repo_compose_image_tag "$compose" 'habidat/auth')" || tag=""
+    version_covers_image_tag "$ver" "$tag" \
+      || failures+=("versions/$ver: image tag '${tag:-<missing>}' is not a prefix of $ver")
   done < <(repo_version_dirs auth)
 
   if [[ ${#failures[@]} -gt 0 ]]; then
-    fail_with_list "auth snapshots with mismatched image tags:" "${failures[@]}"
+    fail_with_list "auth snapshots whose image tag is not their version:" "${failures[@]}"
   fi
 }

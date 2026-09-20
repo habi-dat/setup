@@ -289,14 +289,22 @@ _strip_comments() {
   #     default(none) at the root), and no later version re-snapshotted them.
   #     34.0.4.1 is config-only (afterupdate, image stays 34.0.4), so compose
   #     and mariadb.cnf live in versions/34.0.4/ and not in the newest dir.
-  #   - direktkredit, discourse, mailtrain, mediawiki, auth's appStore: no
-  #     versioned config snapshot has ever been taken. mediawiki's
-  #     auth-app.json.j2 is the same: setup.sh renders it, migrate.sh does not.
+  #   - auth: 2.0.0.1 re-renders compose only (CERT_NAME / Let's Encrypt), so
+  #     ldap/user/bootstrap templates live in versions/2.0.0/. appStore.json.j2
+  #     is setup.sh-only and has never been snapshotted.
+  #   - direktkredit, discourse, mailtrain, mediawiki: no versioned config
+  #     snapshot has ever been taken. mediawiki's auth-app.json.j2 is the same:
+  #     setup.sh renders it, migrate.sh does not.
   #
   # Adding the templates to the newest version directory and rendering them from
   # that module's migrate.sh removes entries from this list.
   local known=(
     "auth/config/appStore.json.j2"
+    "auth/config/bootstrap-update.ldif.j2"
+    "auth/config/bootstrap.ldif.j2"
+    "auth/config/ldap.env.j2"
+    "auth/config/memberOf.ldif.j2"
+    "auth/config/user.env.j2"
     "direktkredit/config/settings.env.j2"
     "discourse/config/discourse-settings.yml.j2"
     "discourse/templates/discourse-data.yml.j2"

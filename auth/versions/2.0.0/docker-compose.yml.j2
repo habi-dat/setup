@@ -109,8 +109,16 @@ services:
       - ./auth.env
     environment:
       - VIRTUAL_HOST={{ HABIDAT_USER_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}
+{% if HABIDAT_LETSENCRYPT | default("false") == "true" %}
       - LETSENCRYPT_HOST={{ HABIDAT_USER_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}
+{% endif %}
+{% if HABIDAT_CREATE_SELFSIGNED | default("false") == "true" %}
+      # mkcert writes a wildcard as HABIDAT_DOMAIN.crt; nginx-proxy otherwise
+      # looks for user.HABIDAT_DOMAIN.crt. Must not be set with Let's Encrypt:
+      # the companion issues per-host certs, and CERT_NAME would point at a
+      # missing apex file (SSL_ERROR_UNRECOGNIZED_NAME_ALERT).
       - CERT_NAME={{ HABIDAT_DOMAIN }}
+{% endif %}
       - DISCOURSE_AVATAR_BASE_URL=http://{{ HABIDAT_DOCKER_PREFIX }}-user-avatars
     volumes:
       - ./cert/saml:/app/saml

@@ -65,8 +65,13 @@ repo_example_env_keys() {
 
 # Nextcloud app image tag in a compose file (habidat/nextcloud:X or nextcloud:X).
 repo_nextcloud_image_tag() {
-  local line
-  line="$(grep -E '^[[:space:]]*image:[[:space:]]+(habidat/)?nextcloud:' "$1" | head -1)" || return 1
+  repo_compose_image_tag "$1" '(habidat/)?nextcloud'
+}
+
+# Tag of `image: <name>:<tag>` in a compose file. `name` is an ERE.
+repo_compose_image_tag() {
+  local file="$1" name="$2" line
+  line="$(grep -E "^[[:space:]]*image:[[:space:]]+${name}:" "$file" | head -1)" || return 1
   line="${line##*:}"
   tr -d '[:space:]' <<< "$line"
 }
