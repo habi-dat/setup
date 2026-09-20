@@ -89,14 +89,45 @@ WAIT_FOR="$BATS_TEST_DIRNAME/../lib/wait-for.sh"
 }
 
 @test "the live nextcloud upgrade and import paths poll instead of sleeping" {
-  local version
+  # Current nextcloud/version may be a config-only step (34.0.4.1 keeps the
+  # 34.0.4 image and only runs afterupdate). That migrate has nothing to wait
+  # for. The last migrate that pulls/recreates containers, and the import
+  # script resolve_versioned_script would pick, still must poll.
+  local version migrate import live_migrate f ver
   version="$(repo_module_version nextcloud)"
+  migrate="$REPO_ROOT/nextcloud/versions/$version/migrate.sh"
 
-  run grep -c 'wait-for.sh' "$REPO_ROOT/nextcloud/versions/$version/migrate.sh"
+  [[ -f "$migrate" ]]
+  run grep -q 'sleep 120' "$migrate"
+  assert_failure
+
+  import=""
+  for f in "$REPO_ROOT/nextcloud/import/"*.sh; do
+    [[ -f "$f" ]] || continue
+    ver="$(basename "$f" .sh)"
+    [[ "$(printf '%s\n%s' "$ver" "$version" | sort -V | tail -n1)" == "$version" ]] || continue
+    if [[ -z "$import" ]] || [[ "$(printf '%s\n%s' "$(basename "$import" .sh)" "$ver" | sort -V | tail -n1)" == "$ver" ]]; then
+      import="$f"
+    fi
+  done
+  [[ -n "$import" ]]
+  run grep -c 'wait-for.sh' "$import"
   assert_success
   refute_output "0"
+  run grep -q 'sleep 120' "$import"
+  assert_failure
 
-  run grep -q 'sleep 120' "$REPO_ROOT/nextcloud/versions/$version/migrate.sh"
+  live_migrate=""
+  while IFS= read -r f; do
+    grep -qE 'docker compose .*[[:space:]](up|pull)' "$f" || continue
+    live_migrate="$f"
+  done < <(find "$REPO_ROOT/nextcloud/versions" -name migrate.sh -type f | sort -V)
+
+  [[ -n "$live_migrate" ]]
+  run grep -c 'wait-for.sh' "$live_migrate"
+  assert_success
+  refute_output "0"
+  run grep -q 'sleep 120' "$live_migrate"
   assert_failure
 }
 
