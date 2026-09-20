@@ -149,3 +149,10 @@ EOF
   assert_failure
   assert_output ""
 }
+
+@test "version_covers_image_tag: a habidat suffix still matches the Nextcloud image" {
+  version_covers_image_tag "34.0.4" "34.0.4"
+  version_covers_image_tag "34.0.4.1" "34.0.4"
+  ! version_covers_image_tag "34.0.5" "34.0.4"
+  ! version_covers_image_tag "34.0.40" "34.0.4"
+}

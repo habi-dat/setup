@@ -63,6 +63,21 @@ repo_example_env_keys() {
   sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' "$REPO_ROOT/setup.env.example" | sort -u
 }
 
+# Nextcloud app image tag in a compose file (habidat/nextcloud:X or nextcloud:X).
+repo_nextcloud_image_tag() {
+  local line
+  line="$(grep -E '^[[:space:]]*image:[[:space:]]+(habidat/)?nextcloud:' "$1" | head -1)" || return 1
+  line="${line##*:}"
+  tr -d '[:space:]' <<< "$line"
+}
+
+# True when a habidat module/snapshot version is the Nextcloud image tag or a
+# further suffix of it (34.0.4.1 still ships nextcloud:34.0.4).
+version_covers_image_tag() {
+  local version="$1" tag="$2"
+  [[ -n "$tag" && ( "$version" == "$tag" || "$version" == "$tag".* ) ]]
+}
+
 # Fail with a multi-line message listing offenders. Keeps assertions readable
 # when a convention is violated in several places at once.
 fail_with_list() {

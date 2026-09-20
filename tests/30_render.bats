@@ -344,23 +344,31 @@ for name, svc in (doc.get("services") or {}).items():
 # Image tags must track module versions
 # ---------------------------------------------------------------------------
 
-@test "nextcloud: the compose image tag matches the module version" {
-  # A version bump that updates <module>/version but forgets the image tag would
-  # advance the store marker without actually upgrading nextcloud.
-  run cat "$(rendered nextcloud/docker-compose.yml.j2 dev)"
-  assert_output --partial "image: nextcloud:$(repo_module_version nextcloud)"
+@test "nextcloud: the compose image tag is a prefix of the module version" {
+  # A habidat-only bump (34.0.4.1) keeps the Nextcloud image at 34.0.4. The
+  # store marker may grow a suffix; the image tag must still be that version
+  # or a prefix of it. Forgetting to bump the image on a real Nextcloud upgrade
+  # still fails (34.0.5 vs image 34.0.4).
+  local version tag
+  version="$(repo_module_version nextcloud)"
+  tag="$(repo_nextcloud_image_tag "$(rendered nextcloud/docker-compose.yml.j2 dev)")"
+  version_covers_image_tag "$version" "$tag" \
+    || fail "image tag $tag is not a prefix of module version $version"
 }
 
-@test "every nextcloud version snapshot tags its app image with its own version" {
+@test "every nextcloud version snapshot tags its app image with a prefix of its version" {
   # The image *name* legitimately changed at 32.0.6, when commit ebd84a7 dropped
   # the custom habidat/nextcloud build for the official nextcloud image. Only the
-  # tag has to track the version directory.
-  local ver failures=()
+  # tag has to track the version directory (or be a prefix of it). Config-only
+  # snapshots have no compose file and inherit the previous image.
+  local ver compose tag failures=()
 
   while IFS= read -r ver; do
-    grep -qE "image: (habidat/)?nextcloud:$ver\$" \
-      "$RENDER_CACHE/dev/nextcloud/versions/$ver/docker-compose.yml.j2" \
-      || failures+=("versions/$ver: $(grep -E 'image: .*nextcloud' "$RENDER_CACHE/dev/nextcloud/versions/$ver/docker-compose.yml.j2" | head -1 | tr -d ' ')")
+    compose="$RENDER_CACHE/dev/nextcloud/versions/$ver/docker-compose.yml.j2"
+    [[ -f "$compose" ]] || continue
+    tag="$(repo_nextcloud_image_tag "$compose")" || tag=""
+    version_covers_image_tag "$ver" "$tag" \
+      || failures+=("versions/$ver: image tag '${tag:-<missing>}' is not a prefix of $ver")
   done < <(repo_version_dirs nextcloud)
 
   if [[ ${#failures[@]} -gt 0 ]]; then

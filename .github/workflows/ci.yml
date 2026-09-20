@@ -29,6 +29,9 @@ concurrency:
 jobs:
   test:
     name: Test suite
+    # Same-repo pull requests already ran on the branch push. Fork PRs have no
+    # push event in this repository, so those still need the pull_request trigger.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -58,9 +61,11 @@ jobs:
         run: nix develop .#ci --command ./tests/run.sh
 
   # Verifies the npm path still works, so a contributor without Nix can run the
-  # suite. The static tier skips here (no shellcheck).
+  # suite. The static tier skips here (no shellcheck). Only on the default
+  # branch: running the same suite twice on every feature-branch push is noise.
   test-npm:
     name: Test suite (npm, no Nix)
+    if: github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
