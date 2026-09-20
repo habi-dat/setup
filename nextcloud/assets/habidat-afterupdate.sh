@@ -115,6 +115,7 @@ php occ ldap:set-config -n "$LDAP_ID" ldapUuidUserAttribute auto
 php occ ldap:set-config -n "$LDAP_ID" turnOffCertCheck 0
 php occ ldap:set-config -n "$LDAP_ID" turnOnPasswordChange 0
 php occ ldap:set-config -n "$LDAP_ID" useMemberOfToDetectMembership 0
+php occ ldap:set-config -n "$LDAP_ID" ldapAdminGroup admin
 
 if [ $HABIDAT_SSO == "true" ]
 then
