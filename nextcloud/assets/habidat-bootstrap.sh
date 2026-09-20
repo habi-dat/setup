@@ -13,7 +13,7 @@ php occ config:system:set -n trusted_domains 2 --value="$HABIDAT_NEXTCLOUD_SUBDO
 php occ config:system:set -n trusted_domains 3 --value="$HABIDAT_DOCKER_PREFIX-nextcloud"
 php occ config:system:set -n default_language --value=de
 php occ config:system:set -n force_language --value=de
-php occ config:system:set -n lost_password_link --value="$HABIDAT_PROTOCOL://$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN/lostpasswd"
+php occ config:system:set -n lost_password_link --value="$HABIDAT_PROTOCOL://$HABIDAT_USER_SUBDOMAIN.$HABIDAT_DOMAIN/forgot-password"
 
 #install calendar
 echo "[HABIDAT] Installing Calendar..."
@@ -51,12 +51,6 @@ php occ config:app:set -n files_antivirus av_mode --value="daemon"
 php occ config:app:set -n files_antivirus av_host --value="$HABIDAT_DOCKER_PREFIX-nextcloud-antivirus"
 php occ config:app:set -n files_antivirus av_infected_action --value="only_log"
 php occ config:app:set -n files_antivirus av_port --value="3310"
-
-
-php occ app:install -n discoursesso
-php occ app:enable -n discoursesso
-php occ config:app:set -n discoursesso clientsecret --value="$HABIDAT_DISCOURSE_SSO_SECRET"
-php occ config:app:set -n discoursesso clienturl --value="$HABIDAT_PROTOCOL://$HABIDAT_DISCOURSE_SUBDOMAIN.$HABIDAT_DOMAIN"
 
 
 #setup ldap
@@ -110,6 +104,7 @@ php occ ldap:set-config -n "$LDAP_ID" ldapUuidUserAttribute auto
 php occ ldap:set-config -n "$LDAP_ID" turnOffCertCheck 0
 php occ ldap:set-config -n "$LDAP_ID" turnOnPasswordChange 0
 php occ ldap:set-config -n "$LDAP_ID" useMemberOfToDetectMembership 0
+php occ ldap:set-config -n "$LDAP_ID" ldapAdminGroup admin
 
 if [ $HABIDAT_SSO == "true" ]
 then
@@ -128,9 +123,10 @@ then
   php occ saml:config:set -n 1 --idp-singleLogoutService.url="https://user.$HABIDAT_DOMAIN/sso/logout/nextcloud"
   php occ saml:config:set -n 1 --idp-singleSignOnService.url="https://user.$HABIDAT_DOMAIN/sso/login/nextcloud"
   php occ saml:config:set -n 1 --idp-x509cert="$(echo $HABIDAT_SSO_CERTIFICATE | sed --expression='s/\\n/\n/g')"
-  php occ saml:config:set -n 1 --saml-attribute-mapping-displayName_mapping=cn
-  php occ saml:config:set -n 1 --saml-attribute-mapping-email_mapping=mail
-  php occ saml:config:set -n 1 --saml-attribute-mapping-quota_mapping=description
+  # Display name, email and quota come from LDAP, not from the SAML assertion.
+  php occ saml:config:set -n 1 --saml-attribute-mapping-displayName_mapping=""
+  php occ saml:config:set -n 1 --saml-attribute-mapping-email_mapping=""
+  php occ saml:config:set -n 1 --saml-attribute-mapping-quota_mapping=""
 fi
 
 php occ maintenance:mode -n --on

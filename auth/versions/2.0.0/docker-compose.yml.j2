@@ -38,6 +38,13 @@ services:
     command: --copy-service --loglevel debug
     networks:
       - {{ HABIDAT_DOCKER_PREFIX }}-back
+    healthcheck:
+      # Bind as admin: anonymous suffix searches return 32 under OpenLDAP ACLs.
+      test: ["CMD-SHELL", "ldapsearch -x -H ldap://127.0.0.1:389 -D \"cn=admin,$$LDAP_BASE\" -w \"$$LDAP_ADMIN_PASSWORD\" -b \"$$LDAP_BASE\" -s base >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
     logging:
       options:
         max-size: 50m
@@ -90,6 +97,8 @@ services:
         condition: service_healthy
       user-redis:
         condition: service_healthy
+      ldap:
+        condition: service_healthy
     command: sh -c "cd /app/packages/db && npx prisma migrate deploy && npx prisma db seed"
 
   user:
@@ -102,6 +111,7 @@ services:
       - VIRTUAL_HOST={{ HABIDAT_USER_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}
       - LETSENCRYPT_HOST={{ HABIDAT_USER_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}
       - CERT_NAME={{ HABIDAT_DOMAIN }}
+      - DISCOURSE_AVATAR_BASE_URL=http://{{ HABIDAT_DOCKER_PREFIX }}-user-avatars
     volumes:
       - ./cert/saml:/app/saml
       - user-uploads:/app/apps/web/public/uploads
@@ -126,6 +136,11 @@ services:
     container_name: {{ HABIDAT_DOCKER_PREFIX }}-user-worker
     env_file:
       - ./auth.env
+    environment:
+      - UPLOADS_DIR=/app/apps/web/public/uploads
+      - DISCOURSE_AVATAR_BASE_URL=http://{{ HABIDAT_DOCKER_PREFIX }}-user-avatars
+    volumes:
+      - user-uploads:/app/apps/web/public/uploads
     networks:
       - {{ HABIDAT_DOCKER_PREFIX }}-back
       - {{ HABIDAT_DOCKER_PREFIX }}-auth
@@ -138,7 +153,18 @@ services:
       options:
         max-size: 50m
 
-{% if HABIDAT_MAILHOG == "true" %}
+  user-avatars:
+    image: nginx:alpine
+    restart: unless-stopped
+    container_name: {{ HABIDAT_DOCKER_PREFIX }}-user-avatars
+    entrypoint: ["/usr/sbin/nginx"]
+    command: ["-g", "daemon off;"]
+    volumes:
+      - user-uploads:/usr/share/nginx/html/uploads:ro
+    networks:
+      - {{ HABIDAT_DOCKER_PREFIX }}-back
+
+{% if HABIDAT_MAILHOG | default("false") == "true" %}
   mailhog:
     image: mailhog/mailhog:latest
     restart: unless-stopped

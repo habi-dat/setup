@@ -1,0 +1,14 @@
+[
+  {
+    "id": "{{ HABIDAT_MEDIAWIKI_PROJECTID }}.{{ HABIDAT_MEDIAWIKI_SUBDOMAIN | default('mediawiki') }}",
+    "label": {{ HABIDAT_MEDIAWIKI_TITLE | tojson }},
+    "url": "{{ HABIDAT_PROTOCOL | default('https') }}://{{ HABIDAT_MEDIAWIKI_PROJECTID }}.{{ HABIDAT_MEDIAWIKI_SUBDOMAIN | default('mediawiki') }}.{{ HABIDAT_DOMAIN }}",
+    "saml": {
+      "samlEnabled": true,
+      "entityId": "{{ HABIDAT_PROTOCOL | default('https') }}://{{ HABIDAT_MEDIAWIKI_PROJECTID }}.{{ HABIDAT_MEDIAWIKI_SUBDOMAIN | default('mediawiki') }}.{{ HABIDAT_DOMAIN }}",
+      "acs": "{{ HABIDAT_PROTOCOL | default('https') }}://{{ HABIDAT_MEDIAWIKI_PROJECTID }}.{{ HABIDAT_MEDIAWIKI_SUBDOMAIN | default('mediawiki') }}.{{ HABIDAT_DOMAIN }}/simplesaml/module.php/saml/sp/saml2-acs.php/habidat",
+      "slo": "{{ HABIDAT_PROTOCOL | default('https') }}://{{ HABIDAT_MEDIAWIKI_PROJECTID }}.{{ HABIDAT_MEDIAWIKI_SUBDOMAIN | default('mediawiki') }}.{{ HABIDAT_DOMAIN }}/simplesaml/module.php/saml/sp/saml2-logout.php/habidat"
+    },
+    "groups": [{{ HABIDAT_MEDIAWIKI_LDAP_GROUP | tojson }}]
+  }
+]

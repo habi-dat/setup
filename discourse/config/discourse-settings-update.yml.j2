@@ -1,6 +1,8 @@
 ---
 
-discourse_connect_url: "https://{{ HABIDAT_NEXTCLOUD_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}/index.php/apps/discoursesso"
+discourse_connect_url: "{{ HABIDAT_PROTOCOL }}://{{ HABIDAT_USER_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}/sso/discourse"
 discourse_connect_secret: "{{ HABIDAT_DISCOURSE_SSO_SECRET }}"
 enable_discourse_connect: 'true'
-logout_redirect: "{{ HABIDAT_PROTOCOL }}://{{ HABIDAT_NEXTCLOUD_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}/index.php/apps/discoursesso/logout"
+discourse_connect_overrides_avatar: 'true'
+allowed_internal_hosts: "{{ HABIDAT_USER_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}|{{ HABIDAT_DOCKER_PREFIX }}-user-avatars"
+logout_redirect: "{{ HABIDAT_PROTOCOL }}://{{ HABIDAT_USER_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}/sso/discourse/logout"

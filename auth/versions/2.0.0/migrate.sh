@@ -5,6 +5,8 @@ set -a
 source ../store/nginx/networks.env
 source ../store/auth/passwords.env
 [[ -f ../store/auth/user.env ]] && source ../store/auth/user.env
+[[ -f ../store/nextcloud/passwords.env ]] && source ../store/nextcloud/passwords.env
+[[ -f ../store/discourse/passwords.env ]] && source ../store/discourse/passwords.env
 set +a
 
 export HABIDAT_INTERNAL_NETWORK_DISABLE='#'
@@ -17,6 +19,103 @@ else
 fi
 
 mkdir -p ../store/auth/user-import
+
+# Copy Vue/Express JSON stores into user-import BEFORE compose replaces {prefix}-user.
+# 1.x kept settings/apps/invites under /app/data (volume user-data). Seed reads /app/import.
+LEGACY_STORE_FILES=(
+  appStore.json
+  settingsStore.json
+  activationStore.json
+  emailTemplateStore.json
+)
+IMPORT_DIR="../store/auth/user-import"
+USER_CONTAINER="${HABIDAT_DOCKER_PREFIX}-user"
+COMPOSE_PROJECT="${HABIDAT_DOCKER_PREFIX}-auth"
+
+legacy_store_present() {
+  local dir="$1"
+  local f
+  for f in "${LEGACY_STORE_FILES[@]}"; do
+    [[ -f "$dir/$f" ]] && return 0
+  done
+  return 1
+}
+
+copy_legacy_stores_from_dir() {
+  local src="$1"
+  local f
+  for f in "${LEGACY_STORE_FILES[@]}"; do
+    if [[ -f "$src/$f" ]]; then
+      cp -f "$src/$f" "$IMPORT_DIR/$f"
+      echo "Copied legacy $f into store/auth/user-import"
+    fi
+  done
+}
+
+copy_legacy_json_from_user_container() {
+  if ! docker inspect "$USER_CONTAINER" &>/dev/null; then
+    return 1
+  fi
+  local tmp
+  tmp=$(mktemp -d)
+  if ! docker cp "$USER_CONTAINER:/app/data/." "$tmp/" 2>/dev/null; then
+    rm -rf "$tmp"
+    return 1
+  fi
+  if ! legacy_store_present "$tmp"; then
+    rm -rf "$tmp"
+    return 1
+  fi
+  echo "Found legacy /app/data on $USER_CONTAINER; overwriting user-import stores from 1.x..."
+  copy_legacy_stores_from_dir "$tmp"
+  rm -rf "$tmp"
+}
+
+copy_legacy_json_from_volume() {
+  local vol=""
+  if docker inspect "$USER_CONTAINER" &>/dev/null; then
+    vol=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/app/data"}}{{.Name}}{{end}}{{end}}' "$USER_CONTAINER" 2>/dev/null || true)
+  fi
+  if [[ -z "$vol" ]]; then
+    for candidate in "${COMPOSE_PROJECT}_user-data" "${COMPOSE_PROJECT}-user-data"; do
+      if docker volume inspect "$candidate" &>/dev/null; then
+        vol="$candidate"
+        break
+      fi
+    done
+  fi
+  if [[ -z "$vol" ]] || ! docker volume inspect "$vol" &>/dev/null; then
+    return 1
+  fi
+
+  local tmp
+  tmp=$(mktemp -d)
+  if ! docker run --rm \
+    -v "$vol":/legacy-data:ro \
+    -v "$tmp":/out \
+    alpine:3.20 \
+    sh -c 'cp -a /legacy-data/. /out/ 2>/dev/null || true'; then
+    rm -rf "$tmp"
+    return 1
+  fi
+  if ! legacy_store_present "$tmp"; then
+    rm -rf "$tmp"
+    return 1
+  fi
+  echo "Found legacy JSON on volume $vol; overwriting user-import stores from 1.x..."
+  copy_legacy_stores_from_dir "$tmp"
+  rm -rf "$tmp"
+}
+
+if copy_legacy_json_from_user_container; then
+  :
+elif [[ -f "$IMPORT_DIR/appStore.json" ]]; then
+  echo "No live 1.x /app/data; keeping existing store/auth/user-import files."
+elif copy_legacy_json_from_volume; then
+  :
+else
+  echo "No legacy JSON stores found on $USER_CONTAINER:/app/data or user-data volume."
+fi
 
 AUTH_ENV="../store/auth/auth.env"
 touch "$AUTH_ENV"
@@ -42,12 +141,27 @@ PROTO="${HABIDAT_PROTOCOL:-https}"
 APP_URL="${PROTO}://${HOST}"
 ensure_key "APP_URL" "$APP_URL"
 ensure_key "NEXT_PUBLIC_APP_URL" "$APP_URL"
+ensure_key "DISCOURSE_AVATAR_BASE_URL" "http://${HABIDAT_DOCKER_PREFIX:-habidat}-user-avatars"
 ensure_key "TRUSTED_ORIGINS" "${PROTO}://*.${HABIDAT_DOMAIN:-habidat.local}"
 
 SECRET="${HABIDAT_USER_SESSION_SECRET:-}"
 [[ -z "$SECRET" ]] && SECRET=$(openssl rand -base64 32 | tr -d '\n')
 ensure_key "SESSION_SECRET" "$SECRET"
 ensure_key "BETTER_AUTH_SECRET" "$SECRET"
+ensure_key "OIDC_COOKIE_KEYS" "$(openssl rand -hex 32)"
+
+if [[ ! -f ../store/auth/cert/saml/oidc-jwks.json ]]; then
+  echo "Generating OIDC signing keys..."
+  mkdir -p ../store/auth/cert/saml
+  OIDC_JWKS_JS='const {generateKeyPairSync}=require("crypto");const {privateKey}=generateKeyPairSync("rsa",{modulusLength:2048});const jwk=privateKey.export({format:"jwk"});process.stdout.write(JSON.stringify({keys:[{...jwk,kid:"habidat-oidc-1",use:"sig",alg:"RS256"}]}))'
+  if command -v node >/dev/null 2>&1; then
+    node -e "$OIDC_JWKS_JS" > ../store/auth/cert/saml/oidc-jwks.json
+  else
+    docker run --rm node:22-alpine node -e "$OIDC_JWKS_JS" > ../store/auth/cert/saml/oidc-jwks.json
+  fi
+fi
+# Bind-mounted into the web container as uid 1001; match SAML cert/key readability.
+chmod a+r ../store/auth/cert/saml/oidc-jwks.json
 
 ensure_key "ADMIN_EMAIL" "${HABIDAT_ADMIN_EMAIL:-admin@example.com}"
 ensure_key "ADMIN_PASSWORD" "${HABIDAT_ADMIN_PASSWORD:-}"
@@ -69,10 +183,22 @@ ensure_key "SMTP_USER" "${HABIDAT_USER_SMTP_USER:-}"
 ensure_key "SMTP_PASS" "${HABIDAT_USER_SMTP_PASSWORD:-}"
 ensure_key "SMTP_FROM" "${HABIDAT_USER_SMTP_EMAILFROM:-noreply@${HOST}}"
 
-ensure_key "DISCOURSE_URL" "http://${HABIDAT_DOCKER_PREFIX}-discourse:80"
-ensure_key "DISCOURSE_API_KEY" "${HABIDAT_DISCOURSE_API_KEY:-}"
-ensure_key "DISCOURSE_API_USERNAME" "system"
-ensure_key "DISCOURSE_SSO_SECRET" "${HABIDAT_DISCOURSE_SSO_SECRET:-}"
+# Keys owned by other modules: replace so a previous empty write can be repaired.
+replace_key() {
+  local key="$1"
+  local value="$2"
+  sed -i "/^${key}=/d" "$AUTH_ENV"
+  if [[ -n "$value" ]]; then
+    echo "${key}=${value}" >> "$AUTH_ENV"
+  fi
+}
+
+replace_key "DISCOURSE_SSO_SECRET" "${HABIDAT_DISCOURSE_SSO_SECRET:-}"
+if [[ -d ../store/discourse ]]; then
+  replace_key "DISCOURSE_URL" "http://${HABIDAT_DOCKER_PREFIX}-discourse:80"
+  replace_key "DISCOURSE_API_KEY" "${HABIDAT_DISCOURSE_API_KEY:-}"
+  replace_key "DISCOURSE_API_USERNAME" "system"
+fi
 
 set -a
 [[ -f "$AUTH_ENV" ]] && source "$AUTH_ENV"
@@ -87,7 +213,7 @@ render_versioned_template auth "$HABIDAT_MIGRATE_VERSION" \
 
 echo "Pulling images and recreating containers..."
 docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" pull
-docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d user-db user-redis ldap
+docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d --remove-orphans user-db user-redis ldap
 
 echo "Running auth-init (migrate + seed)..."
 docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" run --rm user-init
@@ -96,4 +222,4 @@ if [[ "${HABIDAT_MAILHOG:-false}" == "true" ]]; then
   docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d mailhog
 fi
 
-docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d user user-worker 
+docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" up -d --remove-orphans user user-worker 
