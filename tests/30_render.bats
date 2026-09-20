@@ -390,7 +390,8 @@ for name, svc in (doc.get("services") or {}).items():
 }
 
 @test "auth: the compose image tag is a prefix of the module version" {
-  # A habidat-only bump (2.0.0.1) keeps habidat/auth:2.0.0.
+  # A habidat-only bump (2.0.0.1) keeps habidat/auth:2.0.0; 2.0.1 ships
+  # habidat/auth:2.0.1. The tag must still be a prefix of the module version.
   local version tag worker
   version="$(repo_module_version auth)"
   tag="$(repo_compose_image_tag "$(rendered auth/docker-compose.yml.j2 dev)" 'habidat/auth')"

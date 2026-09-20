@@ -289,9 +289,9 @@ _strip_comments() {
   #     default(none) at the root), and no later version re-snapshotted them.
   #     34.0.4.1 is config-only (afterupdate, image stays 34.0.4), so compose
   #     and mariadb.cnf live in versions/34.0.4/ and not in the newest dir.
-  #   - auth: 2.0.0.1 re-renders compose only (CERT_NAME / Let's Encrypt), so
-  #     ldap/user/bootstrap templates live in versions/2.0.0/. appStore.json.j2
-  #     is setup.sh-only and has never been snapshotted.
+  #   - auth: 2.0.1 snapshotted compose only (image bump). ldap/user/bootstrap
+  #     templates live in versions/2.0.0/. appStore.json.j2 is setup.sh-only
+  #     and has never been snapshotted.
   #   - direktkredit, discourse, mailtrain, mediawiki: no versioned config
   #     snapshot has ever been taken. mediawiki's auth-app.json.j2 is the same:
   #     setup.sh renders it, migrate.sh does not.
