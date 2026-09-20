@@ -65,7 +65,7 @@ if [[ ! -f ../store/auth/docker-compose.yml ]]; then
   exit 1
 fi
 mkdir -p ../store/auth/user-import
-j2 config/auth-app.json.j2 -o "../store/auth/user-import/appStore-mediawiki-$1.json"
+../lib/render.py config/auth-app.json.j2 "../store/auth/user-import/appStore-mediawiki-$1.json"
 if ! docker compose -f ../store/auth/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-auth" run --rm user-init; then
   echo "Failed to register MediaWiki SAML app in habidat-auth."
   rm -f "../store/auth/user-import/appStore-mediawiki-$1.json"
