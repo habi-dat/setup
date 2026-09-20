@@ -1,0 +1,170 @@
+name: CI
+
+on:
+  push:
+    # Every branch, so work in progress is tested before it reaches main. The
+    # release tags (32.0.5, 31.0.2, ...) are deliberately excluded: a bare
+    # `push:` would also fire on tag pushes, re-testing a commit its branch
+    # already covered.
+    branches: ['**']
+  # Needed on top of the push trigger for pull requests from forks, whose
+  # branches live in another repository and so never push here.
+  pull_request:
+  # Nightly, for the integration job. Not on the hour: GitHub's scheduler is
+  # busiest then and delays runs. Scheduled runs only ever fire on the default
+  # branch, so this does nothing until the workflow is on main.
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  # A push that supersedes an in-flight run cancels it.
+  #
+  # head_ref (the PR's source branch) and ref_name (the pushed branch) resolve
+  # to the same string, so a same-repo pull request collapses into one run
+  # instead of racing its own branch push.
+  group: ci-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test suite
+    # Same-repo pull requests already ran on the branch push. Fork PRs have no
+    # push event in this repository, so those still need the pull_request trigger.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # The flake pins bats, shellcheck, Python with Jinja2 and the docker CLI,
+      # so CI and a developer's `nix develop` run the same versions.
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            accept-flake-config = true
+
+      # Keep this reasonably current: older majors used GitHub's cache v1 API,
+      # which has been switched off, and the action then fails with
+      # "Cache service responded with 400" while still reporting success.
+      - name: Cache the Nix store
+        uses: DeterminateSystems/magic-nix-cache-action@v15
+
+      - name: Show the environment
+        run: |
+          nix develop .#ci --command bats --version
+          nix develop .#ci --command shellcheck --version
+          nix develop .#ci --command python3 -c "import jinja2; print(f'jinja2 {jinja2.__version__}')"
+          nix develop .#ci --command docker --version
+
+      - name: Run the test suite
+        run: nix develop .#ci --command ./tests/run.sh
+
+  # Verifies the npm path still works, so a contributor without Nix can run the
+  # suite. The static tier skips here (no shellcheck). Only on the default
+  # branch: running the same suite twice on every feature-branch push is noise.
+  test-npm:
+    name: Test suite (npm, no Nix)
+    if: github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      # lib/render.py needs only Jinja2 and works on any current Python, so this
+      # is the whole template-rendering dependency. Installed from apt rather
+      # than pip to match how a server would get it.
+      - name: Install Jinja2
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-jinja2
+          ./lib/render.py --help >/dev/null
+
+      - name: Install test dependencies
+        run: npm ci
+
+      - name: Run the test suite
+        run: ./tests/run.sh
+
+  # Real installs against a live Docker daemon: several GB of image pulls and a
+  # few minutes of container start-up, so it runs nightly and on demand rather
+  # than gating every pull request. A job this size will eventually go red for
+  # reasons unrelated to the change under review, and a gate that cries wolf
+  # gets ignored.
+  #
+  # Both triggers only fire for a workflow on the default branch, so this job is
+  # dormant until the branch merges. Run it before then by adding
+  # `|| github.ref_name == '<branch>'` here temporarily.
+  integration:
+    name: Integration (nginx + auth + nextcloud)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+
+      - name: Prepare a development configuration
+        run: |
+          cp tests/helpers/profiles/dev.env setup.env
+          sed -i 's|^HABIDAT_BACKUP_DIR=.*|HABIDAT_BACKUP_DIR='"$PWD"'/backup|' setup.env
+          mkdir -p backup
+
+      - name: Trust the mkcert CA
+        run: nix develop --command mkcert -install
+
+      # One module at a time and in dependency order on purpose: installing
+      # nextcloud directly would hit check_dependencies' interactive
+      # "Install them? [y/n]" prompt, which has no stdin on a runner.
+      - name: Install nginx
+        run: nix develop --command ./habidat.sh install nginx
+
+      - name: Install auth
+        run: nix develop --command ./habidat.sh install auth
+
+      - name: Install nextcloud
+        run: nix develop --command ./habidat.sh install nextcloud
+
+      - name: Show module status
+        run: nix develop --command ./habidat.sh modules
+
+      - name: Export and re-import auth
+        run: |
+          nix develop --command ./habidat.sh export auth
+          nix develop --command ./habidat.sh import auth list
+
+      # A failure here is almost always a container that was not ready yet, so
+      # dump enough to tell that apart from a genuine error without a second run.
+      - name: Diagnostics on failure
+        if: failure()
+        run: |
+          echo "::group::containers"
+          docker ps -a
+          echo "::endgroup::"
+
+          echo "::group::disk and image usage"
+          df -h /
+          docker system df
+          echo "::endgroup::"
+
+          for c in $(docker ps -aq); do
+            name=$(docker inspect --format '{{.Name}}' "$c" | tr -d /)
+            echo "::group::logs $name"
+            docker logs --tail 120 "$c" 2>&1 || true
+            echo "::endgroup::"
+          done
+
+          echo "::group::nextcloud occ status"
+          docker exec --user www-data "$(grep '^HABIDAT_DOCKER_PREFIX=' setup.env | cut -d= -f2)-nextcloud" \
+            php occ status 2>&1 || echo "(container not running or not installed yet)"
+          echo "::endgroup::"
+
+          echo "::group::store tree"
+          find store -maxdepth 3 2>/dev/null || true
+          echo "::endgroup::"

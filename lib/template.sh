@@ -55,7 +55,7 @@ resolve_template() {
 # render_template <template_path> <output_path>
 #
 # Renders a template to an output file.
-# If the template has a .j2 extension, uses j2cli.
+# If the template has a .j2 extension, renders it with lib/render.py.
 # Otherwise falls back to envsubst (for backward compat with old versions/).
 # ---------------------------------------------------------------------------
 render_template() {
@@ -74,7 +74,10 @@ render_template() {
   mkdir -p "$(dirname "$output")"
 
   if [[ "$template" == *.j2 ]]; then
-    j2 "$template" -o "$output"
+    # Located relative to this file, not to BASE_DIR: render.py ships with the
+    # libraries, whereas BASE_DIR is the repository/state root and is pointed at
+    # a fixture tree by the tests.
+    "${BASH_SOURCE[0]%/*}/render.py" "$template" "$output"
   else
     envsubst < "$template" > "$output"
   fi

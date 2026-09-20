@@ -2,7 +2,15 @@
   "name": "habidat-setup",
   "description": "Setup scripts for habi*DAT platform",
   "main": "habidat.sh",
+  "scripts": {
+    "test": "./tests/run.sh"
+  },
   "repository": "https://github.com/habi-dat/setup.git",
   "author": "Florian Humer <florian.humer@gmail.com>",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "bats": "^1.13.0",
+    "bats-assert": "^2.2.4",
+    "bats-support": "^0.3.0"
+  }
 }

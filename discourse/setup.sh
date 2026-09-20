@@ -19,9 +19,9 @@ echo "export HABIDAT_DISCOURSE_ADMIN_PASSWORD=$HABIDAT_DISCOURSE_ADMIN_PASSWORD"
 
 mkdir -p ../store/discourse/bootstrap
 
-j2 config/discourse-settings.yml.j2 -o ../store/discourse/bootstrap/discourse-settings.yml
-j2 templates/discourse-data.yml.j2 -o "../store/discourse/containers/$HABIDAT_DOCKER_PREFIX-discourse-data.yml"
-j2 templates/discourse.yml.j2 -o "../store/discourse/containers/$HABIDAT_DOCKER_PREFIX-discourse.yml"
+../lib/render.py config/discourse-settings.yml.j2 ../store/discourse/bootstrap/discourse-settings.yml
+../lib/render.py templates/discourse-data.yml.j2 "../store/discourse/containers/$HABIDAT_DOCKER_PREFIX-discourse-data.yml"
+../lib/render.py templates/discourse.yml.j2 "../store/discourse/containers/$HABIDAT_DOCKER_PREFIX-discourse.yml"
 
 echo "Building and starting containers..."
 

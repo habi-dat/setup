@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set +x
 
 # After the container has updated the code, the instance can still be flagged as

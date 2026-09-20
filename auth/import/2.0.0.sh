@@ -45,8 +45,9 @@ render_versioned_template auth "$(cat ../store/auth/version)" \
 docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" down -v
 docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" up -d user-db user-redis ldap
 
-echo "Waiting for LDAP to be ready (1 minute)..."
-sleep 60
+../lib/wait-for.sh "LDAP directory" 300 \
+  "docker compose -f '$COMPOSE_FILE' -p '$COMPOSE_PROJECT' exec -T ldap \
+     ldapsearch -x -H ldap://localhost -b '' -s base namingContexts"
 
 # v2 format: restore PostgreSQL dump before running init
 if [[ -f "$BACKUP_DIR/db.sql" ]]; then

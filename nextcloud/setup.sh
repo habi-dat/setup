@@ -26,15 +26,15 @@ chmod +x ../store/nextcloud/assets/habidat-bootstrap.sh
 chmod +x ../store/nextcloud/assets/habidat-afterupdate.sh
 chmod +x ../store/nextcloud/assets/habidat-add-externalsite.sh
 
-j2 config/db.env.j2 -o ../store/nextcloud/db.env
-j2 config/nextcloud.env.j2 -o ../store/nextcloud/nextcloud.env
-j2 config/mariadb.cnf.j2 -o ../store/nextcloud/mariadb.cnf
+../lib/render.py config/db.env.j2 ../store/nextcloud/db.env
+../lib/render.py config/nextcloud.env.j2 ../store/nextcloud/nextcloud.env
+../lib/render.py config/mariadb.cnf.j2 ../store/nextcloud/mariadb.cnf
 
 if [[ "${HABIDAT_CREATE_SELFSIGNED:-false}" == "true" ]]; then
   echo "CERT_NAME=$HABIDAT_DOMAIN" >> ../store/nextcloud/nextcloud.env
 fi
 
-j2 docker-compose.yml.j2 -o ../store/nextcloud/docker-compose.yml
+../lib/render.py docker-compose.yml.j2 ../store/nextcloud/docker-compose.yml
 
 COMPOSE_FILE="../store/nextcloud/docker-compose.yml"
 COMPOSE_PROJECT="$HABIDAT_DOCKER_PREFIX-nextcloud"
@@ -43,8 +43,29 @@ echo "Spinning up containers..."
 docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" pull
 docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" up -d
 
-echo "Waiting for containers to start (30 seconds)..."
-sleep 30
+# The database first: the nextcloud entrypoint will not begin installing until
+# it can connect. mariadb 11.8 renamed the client, hence `mariadb` not `mysql`.
+../lib/wait-for.sh "Nextcloud database" 300 \
+  "docker compose -f '$COMPOSE_FILE' -p '$COMPOSE_PROJECT' exec -T db \
+     mariadb -u nextcloud --password='$HABIDAT_NEXTCLOUD_DB_PASSWORD' -e 'select 1' nextcloud"
+
+# Then the application -- but only until `occ` is *usable*, not until Nextcloud is
+# installed. habidat installs it itself, further down in habidat-bootstrap.sh
+# (`occ maintenance:install`), so waiting for "installed: true" here would block
+# forever on something this script has not done yet.
+#
+# The official image copies the application into /var/www/html on first start,
+# which is what the old fixed 30s wait was really gambling on.
+#
+# `occ status` answering at all is the signal: it requires PHP to load
+# Nextcloud's autoloader, config and version.php, so it cannot respond until the
+# copy is done. Match "installed" case-insensitively -- before installation occ
+# prints "Nextcloud is not installed ..." plus "installed: false", afterwards
+# "installed: true". Either proves occ is usable, without depending on its exit
+# code in limited mode.
+../lib/wait-for.sh "Nextcloud container (occ usable)" 600 \
+  "docker compose -f '$COMPOSE_FILE' -p '$COMPOSE_PROJECT' exec -T --user www-data \
+     nextcloud php occ status 2>&1 | grep -qi installed"
 
 echo "Installing dependencies in container..."
 docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" exec nextcloud bash -c \

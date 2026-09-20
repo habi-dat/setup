@@ -211,13 +211,10 @@ run_migrations() {
     export HABIDAT_MIGRATE_VERSION="$ver"
     export HABIDAT_MIGRATE_FROM="$installed"
 
-    (
-      cd "$BASE_DIR/$module" || exit 1
-      # shellcheck disable=SC1090
-      source "$BASE_DIR/$module/versions/$ver/migrate.sh"
-    ) 2>&1 | log_module "$module"
+    local rc=0
+    run_logged "$module" \
+      run_module_script "$module" "$BASE_DIR/$module/versions/$ver/migrate.sh" || rc=$?
 
-    local rc=${PIPESTATUS[0]}
     if [[ $rc -ne 0 ]]; then
       log_error "Migration $module $installed -> $ver FAILED (exit code $rc). Fix the issue and retry."
       return 1

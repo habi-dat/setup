@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set +x
 
 EXTERNAL_SITES_TEMPLATE='{"%s":{"icon":"%s","lang":"","type":"link","device":"","id":"%s","name":"%s","url":"%s"}}'

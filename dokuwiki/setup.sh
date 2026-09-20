@@ -8,11 +8,11 @@ mkdir -p ../store/dokuwiki
 
 echo "Creating configuration files..."
 
-j2 config/web.env.j2 -o ../store/dokuwiki/web.env
-j2 config/local.php.j2 -o ../store/dokuwiki/local.php
-j2 config/acl.auth.php.j2 -o ../store/dokuwiki/acl.auth.php
+../lib/render.py config/web.env.j2 ../store/dokuwiki/web.env
+../lib/render.py config/local.php.j2 ../store/dokuwiki/local.php
+../lib/render.py config/acl.auth.php.j2 ../store/dokuwiki/acl.auth.php
 
-j2 docker-compose.yml.j2 -o ../store/dokuwiki/docker-compose.yml
+../lib/render.py docker-compose.yml.j2 ../store/dokuwiki/docker-compose.yml
 
 if [[ "${HABIDAT_CREATE_SELFSIGNED:-false}" == "true" ]]; then
   echo "CERT_NAME=$HABIDAT_DOMAIN" >> ../store/dokuwiki/web.env
@@ -51,5 +51,10 @@ echo "Add link to nextcloud..."
 sed -i '/HABIDAT_DOKUWIKI_SUBDOMAIN/d' ../store/nextcloud/nextcloud.env
 echo "HABIDAT_DOKUWIKI_SUBDOMAIN=$HABIDAT_DOKUWIKI_SUBDOMAIN" >> ../store/nextcloud/nextcloud.env
 docker compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" up -d nextcloud
-sleep 5
+# nextcloud was just recreated to pick up the new subdomain; the external-site
+# helper below calls occ, which fails while it is still starting.
+../lib/wait-for.sh "nextcloud" 300 \
+  "docker compose -f ../store/nextcloud/docker-compose.yml \
+     -p '$HABIDAT_DOCKER_PREFIX-nextcloud' exec -T --user www-data \
+     nextcloud php occ status | grep -q 'installed: true'"
 docker compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" exec --user www-data nextcloud /habidat/habidat-add-externalsite.sh dokuwiki
