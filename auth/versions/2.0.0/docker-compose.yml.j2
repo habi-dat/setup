@@ -111,6 +111,7 @@ services:
       - VIRTUAL_HOST={{ HABIDAT_USER_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}
       - LETSENCRYPT_HOST={{ HABIDAT_USER_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}
       - CERT_NAME={{ HABIDAT_DOMAIN }}
+      - DISCOURSE_AVATAR_BASE_URL=http://{{ HABIDAT_DOCKER_PREFIX }}-user-avatars
     volumes:
       - ./cert/saml:/app/saml
       - user-uploads:/app/apps/web/public/uploads
@@ -135,6 +136,11 @@ services:
     container_name: {{ HABIDAT_DOCKER_PREFIX }}-user-worker
     env_file:
       - ./auth.env
+    environment:
+      - UPLOADS_DIR=/app/apps/web/public/uploads
+      - DISCOURSE_AVATAR_BASE_URL=http://{{ HABIDAT_DOCKER_PREFIX }}-user-avatars
+    volumes:
+      - user-uploads:/app/apps/web/public/uploads
     networks:
       - {{ HABIDAT_DOCKER_PREFIX }}-back
       - {{ HABIDAT_DOCKER_PREFIX }}-auth
@@ -146,6 +152,17 @@ services:
     logging:
       options:
         max-size: 50m
+
+  user-avatars:
+    image: nginx:alpine
+    restart: unless-stopped
+    container_name: {{ HABIDAT_DOCKER_PREFIX }}-user-avatars
+    entrypoint: ["/usr/sbin/nginx"]
+    command: ["-g", "daemon off;"]
+    volumes:
+      - user-uploads:/usr/share/nginx/html/uploads:ro
+    networks:
+      - {{ HABIDAT_DOCKER_PREFIX }}-back
 
 {% if HABIDAT_MAILHOG | default("false") == "true" %}
   mailhog:

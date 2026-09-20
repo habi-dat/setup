@@ -141,6 +141,7 @@ PROTO="${HABIDAT_PROTOCOL:-https}"
 APP_URL="${PROTO}://${HOST}"
 ensure_key "APP_URL" "$APP_URL"
 ensure_key "NEXT_PUBLIC_APP_URL" "$APP_URL"
+ensure_key "DISCOURSE_AVATAR_BASE_URL" "http://${HABIDAT_DOCKER_PREFIX:-habidat}-user-avatars"
 ensure_key "TRUSTED_ORIGINS" "${PROTO}://*.${HABIDAT_DOMAIN:-habidat.local}"
 
 SECRET="${HABIDAT_USER_SESSION_SECRET:-}"

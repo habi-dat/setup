@@ -16,6 +16,8 @@ discourse_connect_url: "{{ HABIDAT_PROTOCOL }}://{{ HABIDAT_USER_SUBDOMAIN }}.{{
 discourse_connect_secret: "{{ HABIDAT_DISCOURSE_SSO_SECRET }}"
 enable_discourse_connect: "true"
 discourse_connect_overrides_groups: "true"
+discourse_connect_overrides_avatar: "true"
+allowed_internal_hosts: "{{ HABIDAT_USER_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}|{{ HABIDAT_DOCKER_PREFIX }}-user-avatars"
 email_editable: "false"
 auth_overrides_email: "true"
 auth_overrides_name: "true"
