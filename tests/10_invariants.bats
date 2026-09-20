@@ -330,6 +330,22 @@ _strip_comments() {
   assert_equal "$(printf '%s\n' "${found[@]}" | sort)" "$(printf '%s\n' "${known[@]}" | sort)"
 }
 
+@test "nextcloud migrates remount /habidat after replacing the assets directory" {
+  # store/nextcloud/assets is bind-mounted at /habidat. `rm -rf` + `cp -r`
+  # while the container is running leaves /habidat on the deleted inode, so
+  # exec /habidat/habidat-afterupdate.sh fails with "no such file".
+  local f failures=()
+  while IFS= read -r f; do
+    grep -qE 'rm -rf[[:space:]]+\.\./store/nextcloud/assets' "$f" || continue
+    grep -qE '/habidat/' "$f" || continue
+    grep -qE 'docker compose .*[[:space:]](up|pull)' "$f" \
+      || failures+=("${f#"$REPO_ROOT"/}: deletes assets then execs /habidat without recreating containers")
+  done < <(find "$REPO_ROOT/nextcloud/versions" -name migrate.sh -type f | sort)
+
+  [[ ${#failures[@]} -eq 0 ]] \
+    || fail_with_list "nextcloud migrates that break the /habidat bind mount:" "${failures[@]}"
+}
+
 @test "modules without a migrate.sh for their current version are exactly the known ones" {
   # A module whose newest version directory has no migrate.sh cannot be updated:
   # `update` finds no step, bumps store/<module>/version and re-renders nothing.

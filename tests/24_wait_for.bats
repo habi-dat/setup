@@ -89,10 +89,10 @@ WAIT_FOR="$BATS_TEST_DIRNAME/../lib/wait-for.sh"
 }
 
 @test "the live nextcloud upgrade and import paths poll instead of sleeping" {
-  # Current nextcloud/version may be a config-only step (34.0.4.1 keeps the
-  # 34.0.4 image and only runs afterupdate). That migrate has nothing to wait
-  # for. The last migrate that pulls/recreates containers, and the import
-  # script resolve_versioned_script would pick, still must poll.
+  # Current nextcloud/version may keep the image (34.0.4.1 stays on 34.0.4)
+  # but still recreate containers to remount /habidat. Any migrate that
+  # pulls/recreates, and the import script resolve_versioned_script would
+  # pick, must poll rather than sleep.
   local version migrate import live_migrate f ver
   version="$(repo_module_version nextcloud)"
   migrate="$REPO_ROOT/nextcloud/versions/$version/migrate.sh"
