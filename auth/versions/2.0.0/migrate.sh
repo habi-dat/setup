@@ -145,7 +145,9 @@ ensure_key "DISCOURSE_AVATAR_BASE_URL" "http://${HABIDAT_DOCKER_PREFIX:-habidat}
 ensure_key "TRUSTED_ORIGINS" "${PROTO}://*.${HABIDAT_DOMAIN:-habidat.local}"
 
 SECRET="${HABIDAT_USER_SESSION_SECRET:-}"
-[[ -z "$SECRET" ]] && SECRET=$(openssl rand -base64 32 | tr -d '\n')
+if [[ ${#SECRET} -lt 32 ]]; then
+  SECRET=$(openssl rand -base64 32 | tr -d '\n')
+fi
 ensure_key "SESSION_SECRET" "$SECRET"
 ensure_key "BETTER_AUTH_SECRET" "$SECRET"
 ensure_key "OIDC_COOKIE_KEYS" "$(openssl rand -hex 32)"
