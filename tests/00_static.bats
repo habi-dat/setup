@@ -570,6 +570,12 @@ assert mod.mailtrain_import_name("News", "abc", shared=False) == "News"
 assert mod.mailtrain_import_name("News", "abc", shared=True) == "News (abc)"
 assert mod.restore_html("61210A62") == "a!\nb"
 assert "HEX" in mod.sql_html("html")
+old_campaign = dict(mod.campaign_column_exprs({"id", "html", "type", "status", "subject", "template"}))
+assert "HEX" in old_campaign["html"]
+assert old_campaign["type"] == "`type`"
+new_campaign = dict(mod.campaign_column_exprs({"id", "type", "status", "data", "cid"}))
+assert "sourceCustom.html" in new_campaign["html"]
+assert "sourceTemplate" in new_campaign["template"]
 
 import subprocess
 clock = {"t": 0}

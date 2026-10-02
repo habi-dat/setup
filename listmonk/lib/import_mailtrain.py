@@ -1150,25 +1150,62 @@ def fetch_templates(table: str) -> list[dict[str, str]]:
     return out
 
 
+def campaign_column_exprs(cols: set[str]) -> list[tuple[str, str]]:
+    # Older Mailtrain stores the body in campaigns.html. Current Mailtrain
+    # stores it in campaigns.data as JSON: data.sourceCustom.html, and the
+    # template id in data.sourceTemplate.
+    missing = {"id", "type", "status"} - cols
+    if missing:
+        raise ImportError(f"Mailtrain campaigns table is missing {sorted(missing)}")
+    if "html" not in cols and "data" not in cols:
+        raise ImportError(
+            "Mailtrain campaigns table has neither an html column nor a data column "
+            f"(found {', '.join(sorted(cols))})"
+        )
+    exprs = [
+        ("id", "id"),
+        ("type", "`type`"),
+        ("status", "`status`"),
+    ]
+    for column in ("cid", "name", "list"):
+        exprs.append((column, sql_cell(column) if column in cols else "''"))
+    if "template" in cols:
+        exprs.append(("template", sql_cell("template")))
+    elif "data" in cols:
+        exprs.append(
+            (
+                "template",
+                "IFNULL(JSON_UNQUOTE(JSON_EXTRACT(`data`, '$.sourceTemplate')), '')",
+            )
+        )
+    else:
+        exprs.append(("template", "''"))
+    if "subject" in cols:
+        exprs.append(("subject", sql_cell("subject")))
+    elif "data" in cols:
+        subject = "JSON_UNQUOTE(JSON_EXTRACT(`data`, '$.subject'))"
+        if "subject_override" in cols:
+            subject = f"COALESCE(NULLIF({subject}, ''), NULLIF(`subject_override`, ''))"
+        exprs.append(("subject", f"IFNULL({subject}, '')"))
+    else:
+        exprs.append(("subject", "''"))
+    if "html" in cols:
+        exprs.append(("html", sql_html("html")))
+    else:
+        exprs.append(
+            (
+                "html",
+                "IFNULL(HEX(JSON_UNQUOTE(JSON_EXTRACT(`data`, '$.sourceCustom.html'))), '')",
+            )
+        )
+    return exprs
+
+
 def fetch_campaigns(table: str) -> list[dict[str, str]]:
     cols = list_columns(table)
-    required = {"id", "html", "type", "status"}
-    if not required <= cols:
-        raise ImportError(f"Mailtrain campaigns table is missing {sorted(required - cols)}")
-    optional = {
-        "cid": "''",
-        "name": "''",
-        "template": "''",
-        "subject": "''",
-        "list": "''",
-    }
-    cells = ["id"]
-    keys = ["id"]
-    for column, fallback in optional.items():
-        keys.append(column)
-        cells.append(sql_cell(column) if column in cols else fallback)
-    cells.append(sql_html("html"))
-    keys.append("html")
+    selected = campaign_column_exprs(cols)
+    keys = [key for key, _expr in selected]
+    cells = [expr for _key, expr in selected]
     rows = mysql_units(
         "SELECT CONCAT_WS(CHAR(31), " + ", ".join(cells) + f") FROM {quote_ident(table)} ORDER BY id"
     )
