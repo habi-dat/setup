@@ -576,6 +576,9 @@ assert old_campaign["type"] == "`type`"
 new_campaign = dict(mod.campaign_column_exprs({"id", "type", "status", "data", "cid"}))
 assert "sourceCustom.html" in new_campaign["html"]
 assert "sourceTemplate" in new_campaign["template"]
+slotted = mod.with_content_slot("<html><body><p>Hi</p></body></html>")
+assert slotted.index('{{ template "content" . }}') < slotted.lower().index("</body>")
+assert mod.with_content_slot('{{ template "content" . }}') == '{{ template "content" . }}'
 
 import subprocess
 clock = {"t": 0}

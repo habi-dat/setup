@@ -986,6 +986,8 @@ _FILE_PATH = re.compile(
 )
 _PASSTHROUGH_TEMPLATE_NAME = "Mailtrain HTML"
 _PASSTHROUGH_TEMPLATE_BODY = '{{ template "content" . }}'
+# Listmonk returns 400 for a campaign template that does not contain this.
+_CONTENT_SLOT_RE = re.compile(r'\{\{(\s+)?template\s+"content"(\s+)?\.(\s+)?\}\}')
 _EDITABLE_CAMPAIGN_STATUSES = {"draft", "paused", "scheduled"}
 
 
@@ -1341,8 +1343,18 @@ def ensure_passthrough_template() -> int:
     return int(created["id"])
 
 
+def with_content_slot(html: str) -> str:
+    """Campaign templates must include the content placeholder or Listmonk rejects them."""
+    if _CONTENT_SLOT_RE.search(html):
+        return html
+    match = re.search(r"</body>", html, flags=re.IGNORECASE)
+    if match:
+        return html[: match.start()] + _PASSTHROUGH_TEMPLATE_BODY + "\n" + html[match.start() :]
+    return html + "\n" + _PASSTHROUGH_TEMPLATE_BODY
+
+
 def upsert_html_template(name: str, body: str, existing: dict[str, int]) -> None:
-    payload = {"name": name, "type": "campaign", "body": body}
+    payload = {"name": name, "type": "campaign", "body": with_content_slot(body)}
     current = existing.get(name)
     if current:
         listmonk_api_json("PUT", f"/api/templates/{current}", payload)
@@ -1351,6 +1363,22 @@ def upsert_html_template(name: str, body: str, existing: dict[str, int]) -> None
     if not isinstance(created, dict) or "id" not in created:
         raise ImportError(f"Listmonk did not return a template id for {name!r}")
     existing[name] = int(created["id"])
+
+
+def allow_all_media_extensions() -> None:
+    # The default list is images only. Mailtrain also stores other files.
+    settings = unmask_listmonk_settings(unwrap(listmonk_get("/api/settings")))
+    if not isinstance(settings, dict):
+        raise ImportError("Listmonk settings response was not an object")
+    current = settings.get("upload.extensions")
+    if isinstance(current, list) and "*" in current:
+        return
+    settings["upload.extensions"] = ["*"]
+    print("Allowing every media file type so Mailtrain uploads are accepted.", flush=True)
+    listmonk_api_json("PUT", "/api/settings", settings)
+    print("Waiting for Listmonk to reload settings...", flush=True)
+    time.sleep(1)
+    wait_listmonk_ready()
 
 
 def upload_mailtrain_file(
@@ -1377,8 +1405,12 @@ def upload_mailtrain_file(
             ],
             file_mount=(str(local), "/mailtrain-file"),
         )
-    except subprocess.CalledProcessError:
-        print(f"WARNING: Listmonk rejected Mailtrain file {remote}.", file=sys.stderr)
+    except subprocess.CalledProcessError as exc:
+        detail = (exc.stdout or exc.stderr or "").strip().replace("\n", " ")
+        print(
+            f"WARNING: Listmonk rejected Mailtrain file {remote}: {detail[:300]}",
+            file=sys.stderr,
+        )
         return None
     data = unwrap(json.loads(raw) if raw else {})
     if not isinstance(data, dict):
@@ -1465,6 +1497,8 @@ def apply_mailtrain_content(list_ids: dict[str, int]) -> None:
             refs.append(parts)
 
     urls: dict[tuple[str, str, str, str], str] = {}
+    if refs:
+        allow_all_media_extensions()
     with tempfile.TemporaryDirectory() as tmp:
         dest = Path(tmp)
         for parts in refs:
@@ -1625,8 +1659,15 @@ def main() -> int:
         print("Mailtrain import finished. Mailtrain was not removed.")
         return 0
     except subprocess.CalledProcessError as exc:
-        sys.stderr.write(exc.stderr or exc.stdout or str(exc))
-        sys.stderr.write("\n")
+        # curl -f puts Listmonk's JSON body on stdout and its own line on stderr.
+        detail = (exc.stdout or "").strip()
+        err = (exc.stderr or "").strip()
+        if detail:
+            sys.stderr.write(detail[:2000] + "\n")
+        if err:
+            sys.stderr.write(err + "\n")
+        if not detail and not err:
+            sys.stderr.write(str(exc) + "\n")
         return 1
     except ImportError as exc:
         sys.stderr.write(f"{exc}\n")
