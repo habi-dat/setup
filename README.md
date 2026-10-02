@@ -121,7 +121,14 @@ in the given group never finish login. Setup replaces Listmonk's sample visual
 template with Standardvorlage (logo, greeting, two image-and-text blocks, and
 the unsubscribe and view-in-browser links). Mailtrain can keep running at
 `lists.{domain}` during a migration -- the hostnames do not collide. Pass
-`--from-mailtrain` to copy lists, subscribers and SMTP send configurations into the new instance. Mailtrain's hourly throttling is copied too: Listmonk has one send pace for the whole instance, so the tightest mailbox cap is used and messages stay at or under that rate. Built-in ZoneMTA and Amazon SES stay behind; Listmonk then keeps the SMTP settings from `setup.env`.
+`--from-mailtrain` to copy lists, subscribers, SMTP send configurations, HTML templates, campaign content, and uploaded files into the new instance. Mailtrain's hourly throttling is copied too: Listmonk has one send pace for the whole instance, so the tightest mailbox cap is used and messages stay at or under that rate. Built-in ZoneMTA and Amazon SES stay behind; Listmonk then keeps the SMTP settings from `setup.env`. Finished Mailtrain campaigns become finished Listmonk campaigns and are not sent; unsent ones become drafts. Send history, open and click counts, automations, segments, and custom forms stay behind.
+A Mailtrain that habidat-setup did not install can be named with `--database`, one Listmonk instance per database:
+
+```bash
+./habidat.sh install listmonk schlor "Schlör" schlor --from-mailtrain --database mailtrain_schlor
+```
+
+That reads the MariaDB root password from the running `<prefix>-mailtrain-db` container and does not print it. Files are taken from `<prefix>-mailtrain-<project-id>` when that container is running, otherwise from `<prefix>-mailtrain`. The same import for an instance that already exists is `listmonk/migrate-from-mailtrain.sh <project-id> [--database <name>]`.
 Mailtrain is not removed. Per-list status is kept only for addresses that
 still have an email. This platform's Mailtrain wipes the email one day after
 an unsubscribe or complaint and deletes the row after 30 days; those rows are

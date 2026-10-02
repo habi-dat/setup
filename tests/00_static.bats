@@ -523,6 +523,54 @@ PY
   assert_output "ok"
 }
 
+@test "Mailtrain campaign content maps status and rewrites tags" {
+  grep -q -- '--database' "$REPO_ROOT/listmonk/setup.sh"
+  grep -q -- '--database' "$REPO_ROOT/listmonk/migrate-from-mailtrain.sh"
+  grep -q -- '--database' "$REPO_ROOT/README.md"
+
+  run python3 - "$REPO_ROOT/listmonk/lib/import_mailtrain.py" <<'PY'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("import_mailtrain", sys.argv[1])
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+
+assert mod.campaign_import_action(1, 3) == "finished"
+assert mod.campaign_import_action(3, 3) == "finished"
+for status in (1, 2, 4, 7, 8):
+    assert mod.campaign_import_action(1, status) == "draft", status
+assert mod.campaign_import_action(2, 6) is None
+assert mod.campaign_import_action(4, 6) is None
+
+html = (
+    'Hi {{link:unsubscribe}} [LINK_BROWSER] [LINK_PREFERENCES] '
+    '[MERGE_FIRST_NAME] {{last_name}} {{CITY}} [MERGE_CITY] '
+    'https://lists.example.org/files/template/file/4/abc.png'
+)
+rewritten, leftovers = mod.rewrite_mailtrain_html(html)
+assert "{{ UnsubscribeURL }}" in rewritten
+assert "{{ MessageURL }}" in rewritten
+assert rewritten.count("{{ .Subscriber.Name }}") == 2
+assert "{{CITY}}" in leftovers
+assert "[MERGE_CITY]" in leftovers
+assert "{{link:unsubscribe}}" not in leftovers
+assert '{{ "{{" }}' in rewritten
+
+rewritten = mod.apply_file_rewrites(
+    rewritten,
+    "https://lists.example.org",
+    {("template", "file", "4", "abc.png"): "https://schlor.lists.example.org/uploads/abc.png"},
+)
+assert "https://schlor.lists.example.org/uploads/abc.png" in rewritten
+assert "/files/template/file/4/abc.png" not in rewritten
+
+assert mod.mailtrain_import_name("News", "abc", shared=False) == "News"
+assert mod.mailtrain_import_name("News", "abc", shared=True) == "News (abc)"
+print("ok")
+PY
+  assert_success
+  assert_output "ok"
+}
+
 @test "listmonk API auth uses the install-time API token" {
   grep -q 'LISTMONK_ADMIN_API_USER=habidat-api' "$REPO_ROOT/listmonk/config/listmonk.env.j2"
   grep -q 'LISTMONK_ADMIN_API_USER=habidat-api' "$REPO_ROOT/listmonk/versions/6.2.0/config/listmonk.env.j2"

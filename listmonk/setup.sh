@@ -5,21 +5,41 @@ set -euo pipefail
 source "$(dirname "$0")/lib/common.sh"
 
 usage() {
-  echo "./habidat.sh install listmonk <project-id> <title> <ldap-group> [--from-mailtrain]"
+  echo "./habidat.sh install listmonk <project-id> <title> <ldap-group> [--from-mailtrain] [--database <name>]"
   exit 1
 }
 
 FROM_MAILTRAIN=false
+MAILTRAIN_DATABASE=""
 ARGS=()
-for arg in "$@"; do
-  if [[ "$arg" == "--from-mailtrain" ]]; then
-    FROM_MAILTRAIN=true
-  else
-    ARGS+=("$arg")
-  fi
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --from-mailtrain)
+      FROM_MAILTRAIN=true
+      shift
+      ;;
+    --database)
+      [[ $# -ge 2 ]] || usage
+      MAILTRAIN_DATABASE="$2"
+      shift 2
+      ;;
+    --database=*)
+      MAILTRAIN_DATABASE="${1#--database=}"
+      shift
+      ;;
+    *)
+      ARGS+=("$1")
+      shift
+      ;;
+  esac
 done
 
 [[ ${#ARGS[@]} -ge 3 ]] || usage
+
+if [[ -n "$MAILTRAIN_DATABASE" && "$FROM_MAILTRAIN" != "true" ]]; then
+  echo "--database requires --from-mailtrain." >&2
+  exit 1
+fi
 
 PROJECT_ID="${ARGS[0]}"
 TITLE="${ARGS[1]}"
@@ -239,7 +259,11 @@ if [[ -f ../store/nextcloud/docker-compose.yml ]]; then
 fi
 
 if [[ "$FROM_MAILTRAIN" == "true" ]]; then
-  "./migrate-from-mailtrain.sh" "$PROJECT_ID"
+  if [[ -n "$MAILTRAIN_DATABASE" ]]; then
+    "./migrate-from-mailtrain.sh" "$PROJECT_ID" --database "$MAILTRAIN_DATABASE"
+  else
+    "./migrate-from-mailtrain.sh" "$PROJECT_ID"
+  fi
 fi
 
 SETUP_OK=1

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Copy Mailtrain lists and subscribers into one Listmonk instance.
+"""Copy one Mailtrain database into one Listmonk instance.
 
 Unsubscribe status is per-list. Each Mailtrain subscription__* table is dumped
 in full (no WHERE status=1) and imported in separate Listmonk passes per
@@ -11,6 +11,7 @@ from __future__ import annotations
 import csv
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -154,14 +155,25 @@ def unwrap(payload: dict) -> object:
     return payload
 
 
+def container_running(name: str) -> bool:
+    if not name:
+        return False
+    probe = run(["docker", "inspect", "-f", "{{.State.Running}}", name], check=False)
+    return probe.returncode == 0 and probe.stdout.strip() == "true"
+
+
 def mailtrain_running() -> None:
-    container = os.environ.get("MAILTRAIN_CONTAINER", "")
     db_container = os.environ.get("MAILTRAIN_DB_CONTAINER", "")
-    for name in (container, db_container):
-        if not name:
-            raise ImportError("Mailtrain is not installed (store/mailtrain missing).")
-        probe = run(["docker", "inspect", "-f", "{{.State.Running}}", name], check=False)
-        if probe.returncode != 0 or probe.stdout.strip() != "true":
+    if not db_container:
+        raise ImportError("Mailtrain database container is not set.")
+    names = [db_container]
+    # Set only for a habidat-setup Mailtrain. An external database override
+    # leaves this empty: the app containers are named per project.
+    app = os.environ.get("MAILTRAIN_CONTAINER", "")
+    if app:
+        names.append(app)
+    for name in names:
+        if not container_running(name):
             raise ImportError(
                 f"Mailtrain is not running (container {name}). "
                 "Start it with: ./habidat.sh start mailtrain"
@@ -854,6 +866,564 @@ def import_blacklist(table: str) -> set[str]:
     return {e.lower() for e in emails}
 
 
+# Mailtrain v2 shared/campaigns.js. RSS listeners and triggered campaigns are
+# automations. Regular campaigns and RSS entries are the newsletters themselves.
+CAMPAIGN_TYPE_REGULAR = 1
+CAMPAIGN_TYPE_RSS = 2
+CAMPAIGN_TYPE_RSS_ENTRY = 3
+CAMPAIGN_TYPE_TRIGGERED = 4
+CAMPAIGN_STATUS_FINISHED = 3
+
+_CAMPAIGN_TYPE_LABEL = {
+    CAMPAIGN_TYPE_REGULAR: "regular",
+    CAMPAIGN_TYPE_RSS: "rss",
+    CAMPAIGN_TYPE_RSS_ENTRY: "rss-entry",
+    CAMPAIGN_TYPE_TRIGGERED: "triggered",
+}
+
+# Listmonk's UnsubscribeURL opens the page where a person also manages lists.
+_LINK_TAG_VALUES = {
+    "link:unsubscribe": "{{ UnsubscribeURL }}",
+    "LINK_UNSUBSCRIBE": "{{ UnsubscribeURL }}",
+    "link:browser": "{{ MessageURL }}",
+    "LINK_BROWSER": "{{ MessageURL }}",
+    "link:preferences": "{{ UnsubscribeURL }}",
+    "LINK_PREFERENCES": "{{ UnsubscribeURL }}",
+    "link:manage": "{{ UnsubscribeURL }}",
+    "LINK_MANAGE": "{{ UnsubscribeURL }}",
+}
+_NAME_TAG_VALUE = "{{ .Subscriber.Name }}"
+_NAME_TAGS = {
+    "first_name",
+    "firstName",
+    "FIRST_NAME",
+    "MERGE_FIRST_NAME",
+    "last_name",
+    "lastName",
+    "LAST_NAME",
+    "MERGE_LAST_NAME",
+}
+
+_CURLY_TAG = re.compile(r"\{\{\s*([^{}]+?)\s*\}\}")
+_SQUARE_TAG = re.compile(r"\[([A-Za-z][A-Za-z0-9_:-]*)\]")
+_FILE_PATH = re.compile(
+    r"/files/(?P<type>[A-Za-z0-9_-]+)/(?P<sub>[A-Za-z0-9_-]+)/(?P<id>[0-9]+)/(?P<name>[A-Za-z0-9._-]+)"
+)
+_PASSTHROUGH_TEMPLATE_NAME = "Mailtrain HTML"
+_PASSTHROUGH_TEMPLATE_BODY = '{{ template "content" . }}'
+_EDITABLE_CAMPAIGN_STATUSES = {"draft", "paused", "scheduled"}
+
+
+def campaign_import_action(campaign_type: int, status: int) -> str | None:
+    """Listmonk status for one Mailtrain campaign, or None when it is skipped."""
+    if campaign_type not in (CAMPAIGN_TYPE_REGULAR, CAMPAIGN_TYPE_RSS_ENTRY):
+        return None
+    if status == CAMPAIGN_STATUS_FINISHED:
+        return "finished"
+    return "draft"
+
+
+def mailtrain_import_name(name: str, cid: str, *, shared: bool) -> str:
+    base = (name or "").strip() or (cid or "").strip() or "mailtrain"
+    if shared and (cid or "").strip():
+        return f"{base} ({cid.strip()})"
+    return base
+
+
+def _tag_replacement(token: str) -> str | None:
+    if token in _LINK_TAG_VALUES:
+        return _LINK_TAG_VALUES[token]
+    if token in _NAME_TAGS:
+        return _NAME_TAG_VALUE
+    return None
+
+
+def rewrite_mailtrain_html(html: str) -> tuple[str, set[str]]:
+    """Rewrite known Mailtrain tags and escape every other {{ }} sequence.
+
+    Listmonk compiles the campaign body as a Go template, so an unknown
+    {{token}} would reject the campaign. Escaping leaves the token visible
+    as text. The returned set is the tags that were not rewritten.
+    """
+    leftovers: set[str] = set()
+    sentinels: dict[str, str] = {}
+
+    def curly(match: re.Match[str]) -> str:
+        token = match.group(1).strip()
+        replacement = _tag_replacement(token)
+        shown = "{{" + token + "}}"
+        if replacement is None:
+            leftovers.add(shown)
+            return match.group(0)
+        key = f"\x00T{len(sentinels)}\x00"
+        sentinels[key] = replacement
+        return key
+
+    def square(match: re.Match[str]) -> str:
+        token = match.group(1)
+        replacement = _tag_replacement(token)
+        if replacement is None:
+            if token.startswith(("LINK_", "MERGE_")) or token in {"FIRST_NAME", "LAST_NAME"}:
+                leftovers.add(f"[{token}]")
+            return match.group(0)
+        key = f"\x00T{len(sentinels)}\x00"
+        sentinels[key] = replacement
+        return key
+
+    rewritten = _SQUARE_TAG.sub(square, _CURLY_TAG.sub(curly, html))
+    rewritten = rewritten.replace("{{", '{{ "{{" }}')
+    for key, value in sentinels.items():
+        rewritten = rewritten.replace(key, value)
+    return rewritten, leftovers
+
+
+def mailtrain_file_refs(html: str) -> list[tuple[str, str, str, str]]:
+    found: list[tuple[str, str, str, str]] = []
+    seen: set[tuple[str, str, str, str]] = set()
+    for source in (html, urllib.parse.unquote(html)):
+        for match in _FILE_PATH.finditer(source):
+            parts = (match.group("type"), match.group("sub"), match.group("id"), match.group("name"))
+            if parts[3] in {".", ".."} or ".." in parts[3]:
+                continue
+            if parts in seen:
+                continue
+            seen.add(parts)
+            found.append(parts)
+    return found
+
+
+def apply_file_rewrites(
+    html: str,
+    public_base: str,
+    urls: dict[tuple[str, str, str, str], str],
+) -> str:
+    base = public_base.rstrip("/")
+    items = sorted(urls.items(), key=lambda item: len(item[0][3]), reverse=True)
+    for (type_, sub, entity, name), new_url in items:
+        path = f"/files/{type_}/{sub}/{entity}/{name}"
+        encoded = urllib.parse.quote(path, safe="")
+        html = html.replace(base + path, new_url)
+        html = html.replace(encoded, urllib.parse.quote(new_url, safe=""))
+        html = html.replace(path, new_url)
+    return html
+
+
+def table_named(name: str) -> str | None:
+    tables = [row[0] for row in mysql_tsv("SHOW TABLES")]
+    return next((table for table in tables if table.lower() == name.lower()), None)
+
+
+def mysql_units(query: str) -> list[list[str]]:
+    rows = []
+    for line in mysql(query).splitlines():
+        if line == "":
+            continue
+        rows.append(line.split("\x1f"))
+    return rows
+
+
+def sql_cell(column: str, *, keep_newlines: bool) -> str:
+    ident = quote_ident(column)
+    newline = "CHAR(30)" if keep_newlines else "' '"
+    return (
+        f"IFNULL(REPLACE(REPLACE(REPLACE({ident}, CHAR(31), ''), "
+        f"CHAR(10), {newline}), CHAR(13), ''), '')"
+    )
+
+
+def restore_html(value: str) -> str:
+    if value in {"", "NULL", r"\N"}:
+        return ""
+    return value.replace("\x1e", "\n")
+
+
+def fetch_templates(table: str) -> list[dict[str, str]]:
+    cols = list_columns(table)
+    if "id" not in cols or "html" not in cols:
+        return []
+    name = sql_cell("name", keep_newlines=False) if "name" in cols else "''"
+    cid = sql_cell("cid", keep_newlines=False) if "cid" in cols else "''"
+    rows = mysql_units(
+        "SELECT CONCAT_WS(CHAR(31), id, "
+        f"{cid}, {name}, {sql_cell('html', keep_newlines=True)}) "
+        f"FROM {quote_ident(table)} ORDER BY id"
+    )
+    out = []
+    for parts in rows:
+        if len(parts) < 4:
+            raise ImportError("unexpected Mailtrain templates row")
+        out.append(
+            {
+                "id": parts[0],
+                "cid": "" if parts[1] in {"NULL", r"\N"} else parts[1],
+                "name": "" if parts[2] in {"NULL", r"\N"} else parts[2],
+                "html": restore_html(parts[3]),
+            }
+        )
+    return out
+
+
+def fetch_campaigns(table: str) -> list[dict[str, str]]:
+    cols = list_columns(table)
+    required = {"id", "html", "type", "status"}
+    if not required <= cols:
+        raise ImportError(f"Mailtrain campaigns table is missing {sorted(required - cols)}")
+    optional = {
+        "cid": "''",
+        "name": "''",
+        "template": "''",
+        "subject": "''",
+        "list": "''",
+    }
+    cells = ["id"]
+    keys = ["id"]
+    for column, fallback in optional.items():
+        keys.append(column)
+        cells.append(sql_cell(column, keep_newlines=False) if column in cols else fallback)
+    cells.append(sql_cell("html", keep_newlines=True))
+    keys.append("html")
+    rows = mysql_units(
+        "SELECT CONCAT_WS(CHAR(31), " + ", ".join(cells) + f") FROM {quote_ident(table)} ORDER BY id"
+    )
+    out = []
+    for parts in rows:
+        if len(parts) < len(keys):
+            raise ImportError("unexpected Mailtrain campaigns row")
+        row = {}
+        for key, value in zip(keys, parts):
+            if key == "html":
+                row[key] = restore_html(value)
+            elif value in {"NULL", r"\N"}:
+                row[key] = ""
+            else:
+                row[key] = value
+        out.append(row)
+    return out
+
+
+def fetch_campaign_lists(table: str | None) -> dict[str, list[str]]:
+    if not table:
+        return {}
+    cols = list_columns(table)
+    campaign_col = next((name for name in ("campaign", "campaign_id") if name in cols), None)
+    list_col = next((name for name in ("list", "list_id") if name in cols), None)
+    if not campaign_col or not list_col:
+        return {}
+    grouped: dict[str, list[str]] = defaultdict(list)
+    for row in mysql_tsv(
+        f"SELECT {quote_ident(campaign_col)}, {quote_ident(list_col)} FROM {quote_ident(table)}"
+    ):
+        if len(row) < 2 or row[0] in {"", "NULL", r"\N"} or row[1] in {"", "NULL", r"\N"}:
+            continue
+        grouped[row[0]].append(row[1])
+    return grouped
+
+
+def assign_import_names(rows: list[dict[str, str]]) -> None:
+    counts: dict[str, int] = defaultdict(int)
+    for row in rows:
+        counts[(row.get("name") or "").strip()] += 1
+    for row in rows:
+        key = (row.get("name") or "").strip()
+        row["import_name"] = mailtrain_import_name(
+            key, row.get("cid") or "", shared=counts[key] > 1
+        )
+
+
+def container_env_value(container: str, key: str) -> str:
+    probe = run(
+        ["docker", "inspect", "-f", "{{range .Config.Env}}{{println .}}{{end}}", container]
+    )
+    prefix = f"{key}="
+    for line in probe.stdout.splitlines():
+        if line.startswith(prefix):
+            return line[len(prefix) :]
+    raise ImportError(f"container {container} has no {key}")
+
+
+def mailtrain_files_container() -> str:
+    prefix = env("HABIDAT_DOCKER_PREFIX")
+    project = os.environ.get("HABIDAT_LISTMONK_PROJECTID", "")
+    names = []
+    if project:
+        names.append(f"{prefix}-mailtrain-{project}")
+    names.append(f"{prefix}-mailtrain")
+    for name in names:
+        if container_running(name):
+            return name
+    raise ImportError(
+        "Mailtrain files container is not running "
+        f"(tried {', '.join(names)}). "
+        "Lists and SMTP were already imported."
+    )
+
+
+def listmonk_root_url() -> str:
+    settings = unwrap(listmonk_get("/api/settings"))
+    if isinstance(settings, dict):
+        root = str(settings.get("app.root_url") or "")
+        if root:
+            return root
+    return ""
+
+
+def listmonk_templates() -> list[dict]:
+    payload = unwrap(listmonk_get("/api/templates"))
+    if isinstance(payload, list):
+        return [item for item in payload if isinstance(item, dict)]
+    if isinstance(payload, dict):
+        results = payload.get("results") or []
+        return [item for item in results if isinstance(item, dict)]
+    return []
+
+
+def listmonk_campaigns() -> list[dict]:
+    page = 1
+    found: list[dict] = []
+    while page < 1000:
+        payload = unwrap(listmonk_get(f"/api/campaigns?page={page}&per_page=100&no_body=true"))
+        if not isinstance(payload, dict):
+            break
+        results = [item for item in (payload.get("results") or []) if isinstance(item, dict)]
+        if not results:
+            break
+        found.extend(results)
+        total = int(payload.get("total") or 0)
+        if total and len(found) >= total:
+            break
+        page += 1
+    return found
+
+
+def ensure_passthrough_template() -> int:
+    for item in listmonk_templates():
+        if item.get("name") == _PASSTHROUGH_TEMPLATE_NAME and item.get("type") == "campaign":
+            return int(item["id"])
+    created = unwrap(
+        listmonk_api_json(
+            "POST",
+            "/api/templates",
+            {
+                "name": _PASSTHROUGH_TEMPLATE_NAME,
+                "type": "campaign",
+                "body": _PASSTHROUGH_TEMPLATE_BODY,
+            },
+        )
+    )
+    if not isinstance(created, dict) or "id" not in created:
+        raise ImportError("Listmonk did not return the Mailtrain HTML template id")
+    return int(created["id"])
+
+
+def upsert_html_template(name: str, body: str, existing: dict[str, int]) -> None:
+    payload = {"name": name, "type": "campaign", "body": body}
+    current = existing.get(name)
+    if current:
+        listmonk_api_json("PUT", f"/api/templates/{current}", payload)
+        return
+    created = unwrap(listmonk_api_json("POST", "/api/templates", payload))
+    if not isinstance(created, dict) or "id" not in created:
+        raise ImportError(f"Listmonk did not return a template id for {name!r}")
+    existing[name] = int(created["id"])
+
+
+def upload_mailtrain_file(
+    container: str,
+    parts: tuple[str, str, str, str],
+    dest_dir: Path,
+) -> str | None:
+    type_, sub, entity, name = parts
+    remote = f"/app/server/files/{type_}/{sub}/{entity}/{name}"
+    local = dest_dir / f"{type_}_{sub}_{entity}_{name}"
+    copied = run(["docker", "cp", f"{container}:{remote}", str(local)], check=False)
+    if copied.returncode != 0 or not local.is_file():
+        print(f"WARNING: Mailtrain file {remote} was not on {container}.", file=sys.stderr)
+        return None
+    safe = re.sub(r"[^A-Za-z0-9._-]", "_", name) or "file"
+    try:
+        raw = listmonk_curl(
+            [
+                "-X",
+                "POST",
+                "-F",
+                f"file=@/mailtrain-file;filename={safe}",
+                "http://127.0.0.1:9000/api/media",
+            ],
+            file_mount=(str(local), "/mailtrain-file"),
+        )
+    except subprocess.CalledProcessError:
+        print(f"WARNING: Listmonk rejected Mailtrain file {remote}.", file=sys.stderr)
+        return None
+    data = unwrap(json.loads(raw) if raw else {})
+    if not isinstance(data, dict):
+        return None
+    url = str(data.get("url") or data.get("uri") or "")
+    if url.startswith("/"):
+        root = listmonk_root_url().rstrip("/")
+        url = f"{root}{url}" if root else url
+    return url or None
+
+
+def save_campaign(
+    name: str,
+    subject: str,
+    body: str,
+    list_ids: list[int],
+    template_id: int,
+    action: str,
+    existing: dict[str, dict[str, object]],
+) -> bool:
+    current = existing.get(name)
+    if current and str(current.get("status") or "") not in _EDITABLE_CAMPAIGN_STATUSES:
+        print(f"Leaving Listmonk campaign {name!r} ({current.get('status')}) unchanged.")
+        return False
+    payload = {
+        "name": name,
+        "subject": subject or name,
+        "lists": list_ids,
+        "body": body,
+        "content_type": "html",
+        "type": "regular",
+        "messenger": "email",
+        "template_id": template_id,
+        "archive_template_id": template_id,
+        "archive": action == "finished",
+        "tags": ["mailtrain"],
+    }
+    if current:
+        campaign_id = int(current["id"])
+        listmonk_api_json("PUT", f"/api/campaigns/{campaign_id}", payload)
+    else:
+        created = unwrap(listmonk_api_json("POST", "/api/campaigns", payload))
+        if not isinstance(created, dict) or "id" not in created:
+            raise ImportError(f"Listmonk did not return a campaign id for {name!r}")
+        campaign_id = int(created["id"])
+        existing[name] = {"id": campaign_id, "status": "draft"}
+    if action == "finished":
+        listmonk_api_json("PUT", f"/api/campaigns/{campaign_id}/status", {"status": "finished"})
+        if name in existing:
+            existing[name]["status"] = "finished"
+    return True
+
+
+def apply_mailtrain_content(list_ids: dict[str, int]) -> None:
+    templates_table = table_named("templates")
+    campaigns_table = table_named("campaigns")
+    if not templates_table and not campaigns_table:
+        print("Mailtrain has no templates or campaigns tables. Skipping content.")
+        return
+    templates = fetch_templates(templates_table) if templates_table else []
+    campaigns = fetch_campaigns(campaigns_table) if campaigns_table else []
+    if not templates and not campaigns:
+        print("Mailtrain has no HTML templates or campaigns to copy.")
+        return
+
+    files_container = mailtrain_files_container()
+    public_base = container_env_value(files_container, "URL_BASE_PUBLIC").rstrip("/")
+    print(f"Copying Mailtrain files from {files_container}.")
+
+    for campaign in campaigns:
+        if campaign["html"].strip():
+            continue
+        source = next((row for row in templates if row["id"] == campaign.get("template")), None)
+        if source and source["html"].strip():
+            campaign["html"] = source["html"]
+
+    refs: list[tuple[str, str, str, str]] = []
+    seen_refs: set[tuple[str, str, str, str]] = set()
+    for row in [*templates, *campaigns]:
+        for parts in mailtrain_file_refs(row.get("html") or ""):
+            if parts in seen_refs:
+                continue
+            seen_refs.add(parts)
+            refs.append(parts)
+
+    urls: dict[tuple[str, str, str, str], str] = {}
+    with tempfile.TemporaryDirectory() as tmp:
+        dest = Path(tmp)
+        for parts in refs:
+            uploaded = upload_mailtrain_file(files_container, parts, dest)
+            if uploaded:
+                urls[parts] = uploaded
+
+    existing_templates: dict[str, int] = {}
+    for item in listmonk_templates():
+        if item.get("type") == "campaign" and item.get("name"):
+            existing_templates[str(item["name"])] = int(item["id"])
+    passthrough_id = ensure_passthrough_template()
+
+    assign_import_names(templates)
+    for row in templates:
+        if row["import_name"] == _PASSTHROUGH_TEMPLATE_NAME:
+            row["import_name"] = f"{row['import_name']} ({row['cid'] or row['id']})"
+    leftovers: set[str] = set()
+    copied_templates = 0
+    for row in templates:
+        if not row["html"].strip():
+            print(f"Skipping Mailtrain template {row['import_name']!r}: no HTML.")
+            continue
+        body, found = rewrite_mailtrain_html(row["html"])
+        leftovers.update(found)
+        body = apply_file_rewrites(body, public_base, urls)
+        upsert_html_template(row["import_name"], body, existing_templates)
+        copied_templates += 1
+
+    campaign_lists = fetch_campaign_lists(table_named("campaign_lists"))
+    existing_campaigns: dict[str, dict[str, object]] = {}
+    for item in listmonk_campaigns():
+        if item.get("name"):
+            existing_campaigns[str(item["name"])] = {
+                "id": int(item["id"]),
+                "status": str(item.get("status") or ""),
+            }
+
+    assign_import_names(campaigns)
+    copied_campaigns = 0
+    for row in campaigns:
+        try:
+            campaign_type = int(row["type"])
+            status = int(row["status"])
+        except ValueError as exc:
+            raise ImportError(f"Mailtrain campaign {row.get('id')!r} has a bad type or status") from exc
+        action = campaign_import_action(campaign_type, status)
+        label = _CAMPAIGN_TYPE_LABEL.get(campaign_type, str(campaign_type))
+        if action is None:
+            print(f"Skipping Mailtrain {label} campaign {row['import_name']!r} (automation).")
+            continue
+        if not row["html"].strip():
+            print(f"Skipping Mailtrain campaign {row['import_name']!r}: no HTML.")
+            continue
+        source_lists = campaign_lists.get(row["id"]) or ([row["list"]] if row.get("list") else [])
+        target_lists = []
+        for source_id in source_lists:
+            if source_id in list_ids and list_ids[source_id] not in target_lists:
+                target_lists.append(list_ids[source_id])
+        if not target_lists:
+            print(f"Skipping Mailtrain campaign {row['import_name']!r}: none of its lists were imported.")
+            continue
+        body, found = rewrite_mailtrain_html(row["html"])
+        subject, subject_tags = rewrite_mailtrain_html(row.get("subject") or "")
+        leftovers.update(found)
+        leftovers.update(subject_tags)
+        body = apply_file_rewrites(body, public_base, urls)
+        if save_campaign(
+            row["import_name"],
+            subject,
+            body,
+            target_lists,
+            passthrough_id,
+            action,
+            existing_campaigns,
+        ):
+            copied_campaigns += 1
+
+    print(f"Copied {copied_templates} Mailtrain template(s) and {copied_campaigns} campaign(s).")
+    if leftovers:
+        print("Mailtrain tags left unchanged:")
+        for tag in sorted(leftovers):
+            print(f"  {tag}")
+
+
 def main() -> int:
     try:
         mailtrain_running()
@@ -867,12 +1437,14 @@ def main() -> int:
         print(f"Found {len(lists)} Mailtrain list(s), {len(sub_tables)} subscription table(s).")
 
         checks: list[dict] = []
+        list_ids: dict[str, int] = {}
         with tempfile.TemporaryDirectory() as tmp:
             workdir = Path(tmp)
             for meta in lists:
                 table = f"subscription__{meta['id']}"
                 if table not in sub_tables:
-                    create_list(meta["name"], meta["description"])
+                    new_id = create_list(meta["name"], meta["description"])
+                    list_ids[meta["id"]] = new_id
                     print(f"List {meta['name']!r}: no subscription table, created empty Listmonk list.")
                     continue
                 by_status, counts = fetch_subscribers(table)
@@ -884,6 +1456,7 @@ def main() -> int:
                 )
                 warn_wiped(meta["name"], counts)
                 new_id = create_list(meta["name"], meta["description"])
+                list_ids[meta["id"]] = new_id
                 # Unsubscribed first so a later confirmed pass cannot overwrite
                 # an opt-out if the same address appears twice (it should not).
                 for status in ("unsubscribed", "unconfirmed", "confirmed"):
@@ -922,6 +1495,7 @@ def main() -> int:
                         f"  blacklist marked {flipped} previously confirmed address(es) "
                         f"unsubscribed on {check['name']!r}."
                     )
+        apply_mailtrain_content(list_ids)
         print("Mailtrain import finished. Mailtrain was not removed.")
         return 0
     except subprocess.CalledProcessError as exc:
