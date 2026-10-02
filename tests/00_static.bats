@@ -568,6 +568,8 @@ assert "/files/template/file/4/abc.png" not in rewritten
 
 assert mod.mailtrain_import_name("News", "abc", shared=False) == "News"
 assert mod.mailtrain_import_name("News", "abc", shared=True) == "News (abc)"
+assert mod.restore_html("61210A62") == "a!\nb"
+assert "HEX" in mod.sql_html("html")
 
 import subprocess
 clock = {"t": 0}

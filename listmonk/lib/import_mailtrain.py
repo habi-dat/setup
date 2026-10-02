@@ -1089,44 +1089,56 @@ def table_named(name: str) -> str | None:
 
 
 def mysql_units(query: str) -> list[list[str]]:
+    # Split only on LF. str.splitlines() also breaks on U+001E, which is a
+    # real character in copied HTML and must not start a new row.
     rows = []
-    for line in mysql(query).splitlines():
+    for line in mysql(query).split("\n"):
+        if line.endswith("\r"):
+            line = line[:-1]
         if line == "":
             continue
         rows.append(line.split("\x1f"))
     return rows
 
 
-def sql_cell(column: str, *, keep_newlines: bool) -> str:
+def sql_cell(column: str) -> str:
     ident = quote_ident(column)
-    newline = "CHAR(30)" if keep_newlines else "' '"
     return (
         f"IFNULL(REPLACE(REPLACE(REPLACE({ident}, CHAR(31), ''), "
-        f"CHAR(10), {newline}), CHAR(13), ''), '')"
+        f"CHAR(10), ' '), CHAR(13), ''), '')"
     )
+
+
+def sql_html(column: str) -> str:
+    # Hex keeps newlines and the unit separator inside the HTML from splitting
+    # the mysql batch row. A placeholder byte would be eaten by splitlines.
+    return f"IFNULL(HEX({quote_ident(column)}), '')"
 
 
 def restore_html(value: str) -> str:
     if value in {"", "NULL", r"\N"}:
         return ""
-    return value.replace("\x1e", "\n")
+    try:
+        return bytes.fromhex(value).decode("utf-8")
+    except ValueError as exc:
+        raise ImportError("Mailtrain HTML could not be read") from exc
 
 
 def fetch_templates(table: str) -> list[dict[str, str]]:
     cols = list_columns(table)
     if "id" not in cols or "html" not in cols:
         return []
-    name = sql_cell("name", keep_newlines=False) if "name" in cols else "''"
-    cid = sql_cell("cid", keep_newlines=False) if "cid" in cols else "''"
+    name = sql_cell("name") if "name" in cols else "''"
+    cid = sql_cell("cid") if "cid" in cols else "''"
     rows = mysql_units(
         "SELECT CONCAT_WS(CHAR(31), id, "
-        f"{cid}, {name}, {sql_cell('html', keep_newlines=True)}) "
+        f"{cid}, {name}, {sql_html('html')}) "
         f"FROM {quote_ident(table)} ORDER BY id"
     )
     out = []
     for parts in rows:
         if len(parts) < 4:
-            raise ImportError("unexpected Mailtrain templates row")
+            raise ImportError(f"unexpected Mailtrain templates row ({len(parts)} fields)")
         out.append(
             {
                 "id": parts[0],
@@ -1154,8 +1166,8 @@ def fetch_campaigns(table: str) -> list[dict[str, str]]:
     keys = ["id"]
     for column, fallback in optional.items():
         keys.append(column)
-        cells.append(sql_cell(column, keep_newlines=False) if column in cols else fallback)
-    cells.append(sql_cell("html", keep_newlines=True))
+        cells.append(sql_cell(column) if column in cols else fallback)
+    cells.append(sql_html("html"))
     keys.append("html")
     rows = mysql_units(
         "SELECT CONCAT_WS(CHAR(31), " + ", ".join(cells) + f") FROM {quote_ident(table)} ORDER BY id"
@@ -1163,7 +1175,9 @@ def fetch_campaigns(table: str) -> list[dict[str, str]]:
     out = []
     for parts in rows:
         if len(parts) < len(keys):
-            raise ImportError("unexpected Mailtrain campaigns row")
+            raise ImportError(
+                f"unexpected Mailtrain campaigns row ({len(parts)} fields, expected {len(keys)})"
+            )
         row = {}
         for key, value in zip(keys, parts):
             if key == "html":
