@@ -67,7 +67,7 @@ setup() {
   assert_success
   assert_line --partial "nginx [NOT INSTALLED]"
   assert_line --partial "nextcloud [NOT INSTALLED]"
-  assert [ "${#lines[@]}" -eq 8 ]
+  assert [ "${#lines[@]}" -eq 9 ]
 }
 
 @test "modules: lists modules in dependency order" {
@@ -414,6 +414,110 @@ EOF
   assert_failure
   assert_output --partial "already installed"
   assert_no_destructive_docker
+}
+
+@test "install: a second listmonk instance is allowed without force" {
+  seed_module nginx "$(repo_module_version nginx)"
+  seed_module auth "$(repo_module_version auth)"
+  seed_module nextcloud "$(repo_module_version nextcloud)"
+  seed_module listmonk "$(repo_module_version listmonk)"
+  cat > "$SANDBOX/listmonk/setup.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+echo "setup args:$*"
+EOF
+  chmod +x "$SANDBOX/listmonk/setup.sh"
+
+  habidat install listmonk haus2 "Rotes Haus" rotes-haus
+  assert_success
+  assert_output --partial "setup args:haus2 Rotes Haus rotes-haus"
+  refute_output --partial "already installed"
+}
+
+@test "install: force on a multi-instance module removes only that instance" {
+  seed_module nginx "$(repo_module_version nginx)"
+  seed_module auth "$(repo_module_version auth)"
+  seed_module nextcloud "$(repo_module_version nextcloud)"
+  seed_module listmonk "$(repo_module_version listmonk)"
+  mkdir -p "$SANDBOX/store/listmonk/haus1" "$SANDBOX/store/listmonk/haus2"
+  : > "$SANDBOX/store/listmonk/haus1/keep"
+  : > "$SANDBOX/store/listmonk/haus2/keep"
+
+  cat > "$SANDBOX/listmonk/remove.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+echo "remove args:$*"
+rm -rf "../store/listmonk/$1"
+EOF
+  chmod +x "$SANDBOX/listmonk/remove.sh"
+  cat > "$SANDBOX/listmonk/setup.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+echo "setup args:$*"
+EOF
+  chmod +x "$SANDBOX/listmonk/setup.sh"
+
+  habidat install listmonk force haus1 "Rotes Haus" rotes-haus
+  assert_success
+  assert_output --partial "remove args:haus1"
+  assert_output --partial "setup args:haus1 Rotes Haus rotes-haus"
+  refute_output --partial "remove args:force"
+  assert [ ! -d "$SANDBOX/store/listmonk/haus1" ]
+  assert [ -d "$SANDBOX/store/listmonk/haus2" ]
+}
+
+@test "install all: skips multi-instance modules" {
+  local mod
+  for mod in nginx auth nextcloud direktkredit discourse dokuwiki mailtrain; do
+    seed_module "$mod" "$(repo_module_version "$mod")"
+  done
+
+  cat > "$SANDBOX/listmonk/setup.sh" <<'EOF'
+#!/usr/bin/env bash
+echo "LISTMONK_SETUP_RAN"
+exit 1
+EOF
+  chmod +x "$SANDBOX/listmonk/setup.sh"
+  cat > "$SANDBOX/mediawiki/setup.sh" <<'EOF'
+#!/usr/bin/env bash
+echo "MEDIAWIKI_SETUP_RAN"
+exit 1
+EOF
+  chmod +x "$SANDBOX/mediawiki/setup.sh"
+
+  habidat install all
+  assert_success
+  assert_output --partial "listmonk is multi-instance"
+  assert_output --partial "mediawiki is multi-instance"
+  refute_output --partial "LISTMONK_SETUP_RAN"
+  refute_output --partial "MEDIAWIKI_SETUP_RAN"
+}
+
+@test "remove: force is not forwarded to a multi-instance remove.sh" {
+  seed_module listmonk "$(repo_module_version listmonk)"
+  mkdir -p "$SANDBOX/store/listmonk/haus1"
+  cat > "$SANDBOX/listmonk/remove.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+echo "remove args:$*"
+EOF
+  chmod +x "$SANDBOX/listmonk/remove.sh"
+
+  habidat remove listmonk force haus1
+  assert_success
+  assert_output --partial "remove args:haus1"
+  refute_output --partial "remove args:force haus1"
+}
+
+@test "validate_store: does not require a top-level compose file for listmonk" {
+  mkdir -p "$SANDBOX/store/listmonk/haus1"
+  echo "$(repo_module_version listmonk)" > "$SANDBOX/store/listmonk/version"
+  cp "$SANDBOX/listmonk/dependencies" "$SANDBOX/store/listmonk/dependencies"
+
+  habidat modules
+  assert_success
+  refute_output --partial "listmonk has no docker-compose.yml"
+  refute_output --partial "store integrity warning"
 }
 
 @test "install: an unknown module is rejected" {

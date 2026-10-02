@@ -16,3 +16,7 @@ NOTIZEN.txt
 
 node_modules
 result
+
+# CPython writes these next to imported modules. They are not source.
+__pycache__/
+*.pyc

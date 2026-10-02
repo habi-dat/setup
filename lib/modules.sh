@@ -26,7 +26,8 @@ validate_store() {
       warnings=$((warnings + 1))
     fi
 
-    if [[ ! -f "$dir/docker-compose.yml" ]] && [[ "$mod" != "discourse" ]] && [[ "$mod" != "direktkredit" ]] && [[ "$mod" != "mediawiki" ]]; then
+    if [[ ! -f "$dir/docker-compose.yml" ]] && ! is_multi_instance "$mod" \
+      && [[ "$mod" != "discourse" ]] && [[ "$mod" != "direktkredit" ]]; then
       log_warn "Store warning: $mod has no docker-compose.yml in store/"
       warnings=$((warnings + 1))
     fi
@@ -40,6 +41,15 @@ validate_store() {
   if [[ $warnings -gt 0 ]]; then
     log_warn "Found $warnings store integrity warning(s). Some operations may fail."
   fi
+}
+
+# ---------------------------------------------------------------------------
+# is_multi_instance <module>
+#   True when the module ships a `multi-instance` marker (one store/<mod>
+#   directory holds several independently installed instances).
+# ---------------------------------------------------------------------------
+is_multi_instance() {
+  [[ -f "$BASE_DIR/$1/multi-instance" ]]
 }
 
 # ---------------------------------------------------------------------------
@@ -268,7 +278,11 @@ setup_module() {
 
 remove_module() {
   local module="$1"; shift
-  local force="${1:-}"
+  local force=""
+  if [[ "${1:-}" == "force" ]]; then
+    force="force"
+    shift
+  fi
 
   local store_dir="$BASE_DIR/store/$module"
   local partially_installed=false
@@ -549,6 +563,10 @@ dispatch() {
       if [[ "$target" == "all" ]]; then
         local mod
         for mod in $(get_ordered_modules); do
+          if is_multi_instance "$mod"; then
+            log_info "Module $mod is multi-instance; skipping (install instances individually)."
+            continue
+          fi
           if is_installed "$mod" && [[ -f "$BASE_DIR/store/$mod/version" ]] && [[ "${1:-}" != "force" ]]; then
             log_info "Module $mod already installed, skipping."
             continue
@@ -565,17 +583,29 @@ dispatch() {
         print_admin_credentials
       else
         is_valid_module "$target" || die "Unknown module: $target"
-        if is_installed "$target" && [[ "${1:-}" != "force" ]]; then
-          die "Module $target already installed. Use force to reinstall, or remove first."
-        fi
         if [[ "${1:-}" == "force" ]]; then
-          log_info "Force reinstall $target, removing old installation..."
-          if [[ -f "$BASE_DIR/store/$target/docker-compose.yml" ]]; then
-            docker compose -f "$BASE_DIR/store/$target/docker-compose.yml" \
-              -p "${HABIDAT_DOCKER_PREFIX}-$target" down -v --remove-orphans 2>&1 | log_module "$target" || true
-          fi
-          rm -rf "$BASE_DIR/store/$target"
           shift
+          if is_multi_instance "$target"; then
+            local instance_id="${1:-}"
+            if [[ -z "$instance_id" ]]; then
+              die "Usage: habidat.sh install $target force <instance-id> ..."
+            fi
+            if [[ -d "$BASE_DIR/store/$target/$instance_id" ]]; then
+              log_info "Force reinstall $target instance $instance_id, removing old instance..."
+              if [[ -x "$BASE_DIR/$target/remove.sh" ]]; then
+                run_module_executable "$target" remove.sh "$instance_id" || true
+              fi
+            fi
+          else
+            log_info "Force reinstall $target, removing old installation..."
+            if [[ -f "$BASE_DIR/store/$target/docker-compose.yml" ]]; then
+              docker compose -f "$BASE_DIR/store/$target/docker-compose.yml" \
+                -p "${HABIDAT_DOCKER_PREFIX}-$target" down -v --remove-orphans 2>&1 | log_module "$target" || true
+            fi
+            rm -rf "$BASE_DIR/store/$target"
+          fi
+        elif is_installed "$target" && ! is_multi_instance "$target"; then
+          die "Module $target already installed. Use force to reinstall, or remove first."
         fi
         setup_module "$target" "$@"
         print_admin_credentials

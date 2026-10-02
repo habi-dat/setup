@@ -1,0 +1,16 @@
+[
+  {
+    "id": "{{ HABIDAT_LISTMONK_PROJECTID }}.{{ HABIDAT_LISTMONK_SUBDOMAIN | default('lists') }}",
+    "label": {{ HABIDAT_LISTMONK_TITLE | tojson }},
+    "url": "{{ HABIDAT_PROTOCOL | default('https') }}://{{ HABIDAT_LISTMONK_PROJECTID }}.{{ HABIDAT_LISTMONK_SUBDOMAIN | default('lists') }}.{{ HABIDAT_DOMAIN }}",
+    "oidc": {
+      "enabled": true,
+      "clientId": "{{ HABIDAT_LISTMONK_OIDC_CLIENT_ID }}",
+      "clientSecret": "{{ HABIDAT_LISTMONK_OIDC_CLIENT_SECRET }}",
+      "redirectUris": [
+        "{{ HABIDAT_PROTOCOL | default('https') }}://{{ HABIDAT_LISTMONK_PROJECTID }}.{{ HABIDAT_LISTMONK_SUBDOMAIN | default('lists') }}.{{ HABIDAT_DOMAIN }}/auth/oidc"
+      ]
+    },
+    "groups": [{{ HABIDAT_LISTMONK_LDAP_GROUP | tojson }}]
+  }
+]

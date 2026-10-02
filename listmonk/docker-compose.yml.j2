@@ -1,0 +1,64 @@
+volumes:
+  db:
+  uploads:
+
+networks:
+  {{ HABIDAT_DOCKER_PREFIX }}-proxy:
+    name: {{ HABIDAT_PROXY_NETWORK }}
+    external: true
+  {{ HABIDAT_DOCKER_PREFIX }}-back:
+    name: {{ HABIDAT_BACKEND_NETWORK }}
+    external: true
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: {{ HABIDAT_DOCKER_PREFIX }}-listmonk-{{ HABIDAT_LISTMONK_PROJECTID }}-db
+    restart: unless-stopped
+    env_file:
+      - ./db.env
+    volumes:
+      - db:/var/lib/postgresql/data
+    networks:
+      - {{ HABIDAT_DOCKER_PREFIX }}-back
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U listmonk"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    logging:
+      options:
+        max-size: 50m
+
+  listmonk:
+    image: listmonk/listmonk:v6.2.0
+    container_name: {{ HABIDAT_DOCKER_PREFIX }}-listmonk-{{ HABIDAT_LISTMONK_PROJECTID }}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - ./listmonk.env
+    volumes:
+      - ./config.toml:/listmonk/config.toml:ro
+      - uploads:/listmonk/uploads
+{% if HABIDAT_CREATE_SELFSIGNED | default("false") == "true" %}
+      - ./mkcert-root.crt:/usr/local/share/mkcert/rootCA.crt:ro
+{% endif %}
+    command:
+      - sh
+      - -c
+      - if [ -s /usr/local/share/mkcert/rootCA.crt ] && ! grep -q HABIDAT_MKCERT_ROOT /etc/ssl/certs/ca-certificates.crt; then echo '# HABIDAT_MKCERT_ROOT' >> /etc/ssl/certs/ca-certificates.crt; cat /usr/local/share/mkcert/rootCA.crt >> /etc/ssl/certs/ca-certificates.crt; fi && ./listmonk --install --idempotent --yes --config /listmonk/config.toml && ./listmonk --upgrade --yes --config /listmonk/config.toml && ./listmonk --config /listmonk/config.toml
+{% if HABIDAT_CREATE_SELFSIGNED | default("false") == "true" %}
+    # *.localhost resolves to loopback inside the container, so the public
+    # auth hostname would never reach nginx. host-gateway is the published
+    # 443 on the Docker host.
+    extra_hosts:
+      - "{{ HABIDAT_USER_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}:host-gateway"
+{% endif %}
+    networks:
+      - {{ HABIDAT_DOCKER_PREFIX }}-proxy
+      - {{ HABIDAT_DOCKER_PREFIX }}-back
+    logging:
+      options:
+        max-size: 50m

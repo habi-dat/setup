@@ -30,6 +30,16 @@ then
 elif [ "$1" == "mailtrain" ] && [ ! -z $HABIDAT_MAILTRAIN_SUBDOMAIN ] 
 then
 	NEW_EXTERNAL_SITE+=$(printf "$EXTERNAL_SITES_TEMPLATE" "$INDEX" "newsletter.png" "$INDEX" "Newsletter" "$HABIDAT_PROTOCOL://$HABIDAT_MAILTRAIN_SUBDOMAIN.$HABIDAT_DOMAIN")
+elif [ "$1" == "listmonk" ]
+then
+	# One tile per Listmonk instance: title and public URL are passed by setup.sh.
+	LISTMONK_TITLE="${2:-Listmonk}"
+	LISTMONK_URL="${3:-}"
+	if [ -n "$LISTMONK_URL" ]
+	then
+		NEW_EXTERNAL_SITE=$(jq -cn --arg idx "$INDEX" --arg title "$LISTMONK_TITLE" --arg url "$LISTMONK_URL" \
+			'{($idx):{"icon":"newsletter.png","lang":"","type":"link","device":"","id":$idx,"name":$title,"url":$url}}')
+	fi
 fi
 
 if [ ! -z "$NEW_EXTERNAL_SITE" ]

@@ -22,6 +22,7 @@ auth
 direktkredit
 discourse
 dokuwiki
+listmonk
 mailtrain
 mediawiki
 nextcloud

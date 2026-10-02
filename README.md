@@ -51,8 +51,9 @@ You need a domain with subdomains for each module you want to install. The subdo
 | nextcloud    | `cloud.<domain>`           |
 | discourse    | `discourse.<domain>`       |
 | direktkredit | `direktkredit.<domain>`    |
-| mediawiki    | `mediawiki.<domain>`       |
+| mediawiki    | `{project}.mediawiki.<domain>` |
 | dokuwiki     | `dokuwiki.<domain>`        |
+| listmonk     | `{project}.lists.<domain>` |
 | mailtrain    | `mailtrain.<domain>`, `lists.<domain>`, `sandbox.mailtrain.<domain>` |
 
 ## Setup
@@ -103,18 +104,37 @@ Make sure SMTP settings are correct for production, or enable mailhog for develo
 ./habidat.sh install <module> force # Reinstall a module
 ```
 
-Modules are installed in dependency order: **nginx** -> **auth** -> **nextcloud** -> then direktkredit, discourse, dokuwiki, mailtrain, mediawiki.
+Modules are installed in dependency order: **nginx** -> **auth** -> **nextcloud** -> then direktkredit, discourse, dokuwiki, listmonk, mailtrain, mediawiki.
 
-**mediawiki is an exception.** It supports multiple independent instances, so each
-one needs a project id, a title and an LDAP group:
+**mediawiki** and **listmonk** are multi-instance modules. Each instance needs a
+project id, a title and an LDAP / habidat-auth group. `install all` skips them;
+add instances individually:
 
 ```bash
 ./habidat.sh install mediawiki <project-id> <project title> <ldap-group>
+./habidat.sh install listmonk <project-id> <title> <ldap-group> [--from-mailtrain]
 ```
 
-`install all` therefore cannot install mediawiki -- it reaches mediawiki last and
-stops there with mediawiki's usage message. Install every other module with
-`install all`, then add each wiki instance individually.
+Listmonk is reached at `{project}.lists.{domain}` (admin UI, subscribe and
+unsubscribe share that host). Sign-in is habidat-auth OIDC; people who are not
+in the given group never finish login. Setup replaces Listmonk's sample visual
+template with Standardvorlage (logo, greeting, two image-and-text blocks, and
+the unsubscribe and view-in-browser links). Mailtrain can keep running at
+`lists.{domain}` during a migration -- the hostnames do not collide. Pass
+`--from-mailtrain` to copy lists, subscribers and SMTP send configurations into the new instance. Mailtrain's hourly throttling is copied too: Listmonk has one send pace for the whole instance, so the tightest mailbox cap is used and messages stay at or under that rate. Built-in ZoneMTA and Amazon SES stay behind; Listmonk then keeps the SMTP settings from `setup.env`.
+Mailtrain is not removed. Per-list status is kept only for addresses that
+still have an email. This platform's Mailtrain wipes the email one day after
+an unsubscribe or complaint and deletes the row after 30 days; those rows are
+counted and skipped, and those people can be subscribed again in Listmonk.
+Bounced addresses keep their email and are imported as unsubscribed.
+
+```bash
+./habidat.sh start|stop|restart|up|down listmonk [project-id]
+./habidat.sh remove listmonk [project-id]
+./habidat.sh install listmonk force <project-id> <title> <ldap-group>
+```
+
+`force` on a multi-instance module tears down **that instance only**.
 
 #### Remove
 
@@ -205,7 +225,8 @@ Nextcloud export supports a `nodata` option to exclude user files:
 | **direktkredit** | Direct loan management | nginx, auth, nextcloud |
 | **mediawiki** | Wiki (supports multiple instances) | nginx, auth, nextcloud |
 | **dokuwiki** | Lightweight wiki | nginx, auth, nextcloud |
-| **mailtrain** | Newsletter / mailing list manager | nginx, auth, nextcloud |
+| **listmonk** | Newsletter / mailing list manager (multiple instances) | nginx, auth, nextcloud |
+| **mailtrain** | Newsletter / mailing list manager (legacy) | nginx, auth, nextcloud |
 
 ### Admin account
 

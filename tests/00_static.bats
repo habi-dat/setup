@@ -270,3 +270,301 @@ load helpers/load
 
   [[ ${#failures[@]} -eq 0 ]] || fail_with_list "unpinned workflow actions:" "${failures[@]}"
 }
+
+@test "Mailtrain importer maps subscription statuses without re-subscribing" {
+  run python3 - "$REPO_ROOT/listmonk/lib/import_mailtrain.py" <<'PY'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("import_mailtrain", sys.argv[1])
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+assert mod.map_status("1", None) == "confirmed"
+assert mod.map_status("1", "0") == "unconfirmed"
+assert mod.map_status("2", None) == "unsubscribed"
+assert mod.map_status("3", None) == "unsubscribed"
+assert mod.map_status("4", None) == "unsubscribed"
+for raw in ("0", "5", "99"):
+    try:
+        mod.map_status(raw, None)
+    except mod.ImportError:
+        pass
+    else:
+        raise SystemExit(f"status {raw} must abort")
+print("ok")
+PY
+  assert_success
+  assert_output "ok"
+}
+
+@test "Mailtrain SMTP send configurations map onto Listmonk servers" {
+  run python3 - "$REPO_ROOT/listmonk/lib/import_mailtrain.py" <<'PY'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("import_mailtrain", sys.argv[1])
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+
+rows = [
+    {
+        "id": 1,
+        "name": "System",
+        "mailer_type": "zone_mta",
+        "from_email": "admin@example.com",
+        "settings": {"zoneMtaType": 3, "hostname": "127.0.0.1", "port": 25},
+    },
+    {
+        "id": 2,
+        "name": "SES",
+        "mailer_type": "aws_ses",
+        "from_email": "ses@example.com",
+        "settings": {"key": "k", "secret": "s", "region": "eu-central-1"},
+    },
+    {
+        "id": 3,
+        "name": "Office",
+        "mailer_type": "generic_smtp",
+        "from_email": "news@example.org",
+        "settings": {
+            "hostname": "smtp.example.org",
+            "port": "587",
+            "encryption": "STARTTLS",
+            "useAuth": True,
+            "user": "mailer",
+            "password": "secret",
+            "allowSelfSigned": False,
+            "maxConnections": 4,
+        },
+    },
+    {
+        "id": 4,
+        "name": "Relay",
+        "mailer_type": "zone_mta",
+        "from_email": "relay@example.org",
+        "settings": {
+            "zoneMtaType": 0,
+            "hostname": "relay.example.org",
+            "port": 465,
+            "encryption": "tls",
+            "useAuth": False,
+            "allowSelfSigned": True,
+        },
+    },
+]
+servers = mod.usable_smtp_servers(rows, {4: 3, 3: 1})
+assert [item["name"] for item in servers] == ["Relay", "Office"], servers
+relay, office = servers
+assert relay["host"] == "relay.example.org"
+assert relay["port"] == 465
+assert relay["tls_type"] == "TLS"
+assert relay["auth_protocol"] == "none"
+assert relay["username"] == "" and relay["password"] == ""
+assert relay["tls_skip_verify"] is True
+assert relay["list_count"] == 3
+assert office["tls_type"] == "STARTTLS"
+assert office["auth_protocol"] == "plain"
+assert office["username"] == "mailer" and office["password"] == "secret"
+assert office["max_conns"] == 4
+assert office["hourly_limit"] == 0
+assert mod.mailtrain_config_to_smtp({"id": 9, "mailer_type": "generic_smtp", "settings": {}}) is None
+print("ok")
+PY
+  assert_success
+  assert_output "ok"
+}
+
+@test "Mailtrain hourly throttling becomes a Listmonk send pace" {
+  run python3 - "$REPO_ROOT/listmonk/lib/import_mailtrain.py" <<'PY'
+import importlib.util, sys
+from datetime import datetime, timezone
+spec = importlib.util.spec_from_file_location("import_mailtrain", sys.argv[1])
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+
+slow = mod.listmonk_throttle_settings(100)
+assert slow["app.message_sliding_window"] is True
+assert slow["app.message_sliding_window_duration"] == "36s"
+assert slow["app.message_sliding_window_rate"] == 1
+assert slow["app.concurrency"] == 1 and slow["app.message_rate"] == 1
+
+fast = mod.listmonk_throttle_settings(10000)
+assert fast["app.message_sliding_window_duration"] == "1h"
+assert fast["app.message_sliding_window_rate"] == 10000
+assert fast["app.concurrency"] == 1 and fast["app.message_rate"] == 2
+
+now = datetime(2026, 10, 2, tzinfo=timezone.utc)
+start = int(datetime(2026, 9, 27, tzinfo=timezone.utc).timestamp() * 1000)
+configured, current = mod.mailtrain_hourly_limit(
+    {"throttling": "200", "throttlingWarmUpDays": "10", "throttlingWarmUpFrom": start},
+    now,
+)
+assert (configured, current) == (200, 100), (configured, current)
+done, full = mod.mailtrain_hourly_limit(
+    {"throttling": 200, "throttlingWarmUpDays": 10, "throttlingWarmUpFrom": start},
+    datetime(2026, 10, 20, tzinfo=timezone.utc),
+)
+assert (done, full) == (200, 200)
+assert mod.mailtrain_hourly_limit({"throttling": ""}) == (0, 0)
+assert mod.mailtrain_hourly_limit({"throttling": 0}) == (0, 0)
+
+row = {
+    "id": 3,
+    "name": "Office",
+    "mailer_type": "generic_smtp",
+    "from_email": "news@example.org",
+    "settings": {
+        "hostname": "smtp.example.org",
+        "port": 587,
+        "encryption": "STARTTLS",
+        "throttling": 100,
+        "enableSenderOnDaySun": False,
+        "enableSenderOnDaySat": False,
+    },
+}
+server = mod.mailtrain_config_to_smtp(row)
+assert server["hourly_limit"] == 100
+assert server["weekdays_limited"] is True
+print("ok")
+PY
+  assert_success
+  assert_output "ok"
+}
+
+@test "Mailtrain importer counts GDPR-wiped unsubscribes instead of importing them" {
+  run python3 - "$REPO_ROOT/listmonk/lib/import_mailtrain.py" <<'PY'
+import importlib.util, sys
+from collections import Counter
+spec = importlib.util.spec_from_file_location("import_mailtrain", sys.argv[1])
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+rows = [
+    ("", "2", None),
+    ("NULL", "4", None),
+    ("a@b.c", "2", None),
+    ("a@b.c", "3", None),
+    ("", "3", None),
+    ("a@b.c", "1", None),
+    ("a@b.c", "1", "0"),
+]
+counts = Counter(mod.bucket_subscription(email, status, flag) for email, status, flag in rows)
+assert counts["wiped"] == 2, counts
+assert counts["unsubscribed"] == 2, counts
+assert counts["skip"] == 1, counts
+assert counts["confirmed"] == 1, counts
+assert counts["unconfirmed"] == 1, counts
+for raw in ("0", "5"):
+    try:
+        mod.bucket_subscription("a@b.c", raw, None)
+    except mod.ImportError:
+        pass
+    else:
+        raise SystemExit(f"status {raw} must abort")
+print("ok")
+PY
+  assert_success
+  assert_output "ok"
+}
+
+@test "Listmonk import wait accepts only a finished job" {
+  run python3 - "$REPO_ROOT/listmonk/lib/import_mailtrain.py" <<'PY'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("import_mailtrain", sys.argv[1])
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+
+try:
+    mod.require_import_started("none")
+except mod.ImportError:
+    pass
+else:
+    raise SystemExit("none after POST must fail")
+mod.require_import_started("importing")
+mod.require_import_started("finished")
+
+clock = {"t": 0}
+def time_fn():
+    return clock["t"]
+def sleep_fn(_n):
+    clock["t"] += 1
+seen = iter([{"status": "importing"}, {"status": "finished"}])
+got = mod.wait_import(lambda: next(seen), sleep_fn=sleep_fn, time_fn=time_fn, timeout=10)
+assert got["status"] == "finished"
+
+try:
+    mod.wait_import(lambda: {"status": "none"}, sleep_fn=lambda _n: None, time_fn=lambda: 0, timeout=10)
+except mod.ImportError:
+    pass
+else:
+    raise SystemExit("none during wait must fail")
+print("ok")
+PY
+  assert_success
+  assert_output "ok"
+}
+
+@test "unsubscribe lookup URL is safe for curl" {
+  run python3 - "$REPO_ROOT/listmonk/lib/import_mailtrain.py" <<'PY'
+import importlib.util, sys
+from urllib.parse import parse_qs, urlsplit
+spec = importlib.util.spec_from_file_location("import_mailtrain", sys.argv[1])
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+
+def query_of(email):
+    path = mod.subscriber_query_path(email)
+    if any(c in path for c in " '\"#"):
+        raise SystemExit(f"raw reserved character in {path}")
+    got = parse_qs(urlsplit("http://listmonk" + path).query)
+    return got["query"][0]
+
+assert query_of("a@b.c") == "subscribers.email = 'a@b.c'"
+assert query_of("a+b@c.com") == "subscribers.email = 'a+b@c.com'"
+assert query_of("o'reilly@b.c") == "subscribers.email = 'o''reilly@b.c'"
+print("ok")
+PY
+  assert_success
+  assert_output "ok"
+}
+
+@test "listmonk API auth uses the install-time API token" {
+  grep -q 'LISTMONK_ADMIN_API_USER=habidat-api' "$REPO_ROOT/listmonk/config/listmonk.env.j2"
+  grep -q 'LISTMONK_ADMIN_API_USER=habidat-api' "$REPO_ROOT/listmonk/versions/6.2.0/config/listmonk.env.j2"
+  grep -q 'HABIDAT_LISTMONK_API_TOKEN' "$REPO_ROOT/listmonk/lib/api.sh"
+  grep -q 'LISTMONK_ADMIN_API_TOKEN' "$REPO_ROOT/listmonk/setup.sh"
+  grep -q 'HABIDAT_LISTMONK_API_TOKEN' "$REPO_ROOT/listmonk/lib/import_mailtrain.py"
+  run grep -n 'HABIDAT_LISTMONK_ADMIN_PASSWORD' \
+    "$REPO_ROOT/listmonk/lib/api.sh" \
+    "$REPO_ROOT/listmonk/lib/import_mailtrain.py"
+  assert_failure
+}
+
+@test "the standard visual template keeps Listmonk placeholders" {
+  run python3 - <<PY
+import json
+asset = json.load(open("$REPO_ROOT/listmonk/assets/standard-visual-template.json", encoding="utf-8"))
+assert asset["name"] == "Standardvorlage"
+assert asset["type"] == "campaign_visual"
+body = asset["body"]
+for needle in (
+    "Hallo {{ .Subscriber.Name }}!",
+    "{{ UnsubscribeURL }}",
+    "{{ MessageURL }}",
+    '{{ L.T "email.unsub" }}',
+    '{{ L.T "email.viewInBrowser" }}',
+):
+    assert needle in body, needle
+design = json.loads(asset["body_source"])
+assert design["root"]["type"] == "EmailLayout"
+print("ok")
+PY
+  assert_success
+  assert_output "ok"
+  grep -q 'standard-visual-template.json' "$REPO_ROOT/listmonk/lib/configure-instance.sh"
+  grep -q 'Sample visual template' "$REPO_ROOT/listmonk/lib/configure-instance.sh"
+}
+
+@test "self-signed certificate names cover nested module hostnames" {
+  run bash -c "source '$REPO_ROOT/lib/selfsigned-cert.sh'; HABIDAT_DOMAIN=habidat.localhost habidat_selfsigned_hostnames"
+  assert_success
+  assert_line '*.habidat.localhost'
+  assert_line '*.lists.habidat.localhost'
+  assert_line '*.mediawiki.habidat.localhost'
+  assert_line '*.mailtrain.habidat.localhost'
+}

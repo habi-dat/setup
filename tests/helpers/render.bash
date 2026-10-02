@@ -57,6 +57,15 @@ RUNTIME_VARS=(
   # mailtrain/setup.sh
   "HABIDAT_MAILTRAIN_DB_PASSWORD=mt-db-pw"
   "HABIDAT_MAILTRAIN_DB_ROOT_PASSWORD=mt-db-root-pw"
+
+  # listmonk/setup.sh -- positional install arguments plus generated secrets
+  "HABIDAT_LISTMONK_PROJECTID=testlists"
+  "HABIDAT_LISTMONK_TITLE=Test Lists"
+  "HABIDAT_LISTMONK_LDAP_GROUP=testgroup"
+  "HABIDAT_LISTMONK_DB_PASSWORD=lm-db-pw"
+  "HABIDAT_LISTMONK_ADMIN_PASSWORD=lm-admin-pw"
+  "HABIDAT_LISTMONK_OIDC_CLIENT_ID=testlists.lists"
+  "HABIDAT_LISTMONK_OIDC_CLIENT_SECRET=lm-oidc-secret"
 )
 
 # ---------------------------------------------------------------------------

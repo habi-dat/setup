@@ -19,10 +19,9 @@ if [[ -z "${HABIDAT_EXISTING_NGINX_GENERATOR_NETWORK:-}" ]]; then
   docker compose -f ../store/nginx/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nginx" up -d
 
   if [[ "${HABIDAT_CREATE_SELFSIGNED:-false}" == "true" ]]; then
-    echo "Generating self-signed certificate..."
-    mkcert -install -key-file "../store/nginx/certificates/$HABIDAT_DOMAIN.key" \
-           -cert-file "../store/nginx/certificates/$HABIDAT_DOMAIN.crt" \
-           "*.$HABIDAT_DOMAIN"
+    # shellcheck source=../lib/selfsigned-cert.sh
+    source ../lib/selfsigned-cert.sh
+    habidat_ensure_selfsigned_cert
   fi
 
 else

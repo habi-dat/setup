@@ -46,6 +46,18 @@ EOF
   assert_failure
 }
 
+@test "is_multi_instance: is true only when the module ships the marker" {
+  mkdir -p "$BATS_TEST_TMPDIR/fixture/wiki" "$BATS_TEST_TMPDIR/fixture/solo"
+  echo "1.0.0" > "$BATS_TEST_TMPDIR/fixture/wiki/version"
+  echo "1.0.0" > "$BATS_TEST_TMPDIR/fixture/solo/version"
+  : > "$BATS_TEST_TMPDIR/fixture/wiki/multi-instance"
+
+  lib_eval "is_multi_instance wiki" "$BATS_TEST_TMPDIR/fixture"
+  assert_success
+  lib_eval "is_multi_instance solo" "$BATS_TEST_TMPDIR/fixture"
+  assert_failure
+}
+
 @test "is_installed: reflects the presence of a store/ directory" {
   lib_eval "is_installed alpha"
   assert_success
@@ -130,7 +142,7 @@ EOF
   assert [ "${lines[0]}" = "nginx" ]
   assert [ "${lines[1]}" = "auth" ]
   assert [ "${lines[2]}" = "nextcloud" ]
-  assert [ "${#lines[@]}" -eq 8 ]
+  assert [ "${#lines[@]}" -eq 9 ]
 }
 
 # ---------------------------------------------------------------------------
