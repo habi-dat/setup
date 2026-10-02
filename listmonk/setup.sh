@@ -249,6 +249,16 @@ if [[ -f ../store/nextcloud/docker-compose.yml ]]; then
        -p '$HABIDAT_DOCKER_PREFIX-nextcloud' exec -T --user www-data \
        nextcloud php occ status | grep -q 'installed: true'" || \
     echo "Nextcloud is not ready; skip external site tile."
+  # The external-sites script uses jq. Nextcloud's own setup installs it, but a
+  # container created before that step does not have it.
+  if ! docker compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" \
+      exec -T nextcloud bash -c 'command -v jq >/dev/null'; then
+    echo "Installing jq in Nextcloud..."
+    docker compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" \
+      exec -T nextcloud bash -c \
+      "apt-get update && apt-get -y install jq && apt-get clean && rm -rf /var/lib/apt/lists/*" \
+      || echo "Could not install jq; the Nextcloud tile may be skipped."
+  fi
   if docker compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud" \
       exec --user www-data nextcloud \
       /habidat/habidat-add-externalsite.sh listmonk "$TITLE" "$(listmonk_public_url "$PROJECT_ID")"; then

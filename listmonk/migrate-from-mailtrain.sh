@@ -109,4 +109,4 @@ export HABIDAT_LISTMONK_API_USER HABIDAT_LISTMONK_API_TOKEN
 
 echo "Importing Mailtrain database ${MAILTRAIN_DB_NAME} into listmonk instance ${ID}..."
 echo "Mailtrain will be left running."
-python3 "$(dirname "$0")/lib/import_mailtrain.py"
+python3 -u "$(dirname "$0")/lib/import_mailtrain.py"

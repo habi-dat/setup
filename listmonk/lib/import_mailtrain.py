@@ -99,6 +99,35 @@ def listmonk_basic_auth() -> str:
     return f"{env('HABIDAT_LISTMONK_API_USER')}:{env('HABIDAT_LISTMONK_API_TOKEN')}"
 
 
+# curl 7: nothing is listening yet. curl 56: the server closed the socket
+# mid-response. Listmonk sends itself SIGHUP after a settings save, so both
+# happen for a few seconds and are not a failed import.
+_LISTMONK_RETRY_CODES = {7, 56}
+
+
+def run_listmonk_http(
+    cmd: list[str],
+    *,
+    input_text: str | None = None,
+    runner=None,
+    sleep_fn=time.sleep,
+    time_fn=time.time,
+    timeout: float = 90,
+) -> subprocess.CompletedProcess[str]:
+    execute = runner or run
+    deadline = time_fn() + timeout
+    while True:
+        result = execute(cmd, input_text=input_text, check=False)
+        if result.returncode == 0:
+            return result
+        if result.returncode not in _LISTMONK_RETRY_CODES or time_fn() >= deadline:
+            raise subprocess.CalledProcessError(
+                result.returncode, cmd, result.stdout, result.stderr
+            )
+        print("Listmonk is not accepting API requests; retrying...", flush=True)
+        sleep_fn(1)
+
+
 def listmonk_curl(args: list[str], *, file_mount: tuple[str, str] | None = None) -> str:
     container = env("LISTMONK_CONTAINER")
     image = os.environ.get("LISTMONK_CURL_IMAGE", "curlimages/curl:8.13.0")
@@ -110,15 +139,14 @@ def listmonk_curl(args: list[str], *, file_mount: tuple[str, str] | None = None)
     cmd += ["--network", f"container:{container}", image]
     cmd += ["-sS", "-f", "-u", listmonk_basic_auth()]
     cmd += args
-    result = run(cmd)
-    return result.stdout
+    return run_listmonk_http(cmd).stdout
 
 
 def listmonk_api_json(method: str, path: str, body: dict) -> dict:
     container = env("LISTMONK_CONTAINER")
     image = os.environ.get("LISTMONK_CURL_IMAGE", "curlimages/curl:8.13.0")
     payload = json.dumps(body)
-    result = run(
+    result = run_listmonk_http(
         [
             "docker",
             "run",
@@ -142,6 +170,11 @@ def listmonk_api_json(method: str, path: str, body: dict) -> dict:
         input_text=payload,
     )
     return json.loads(result.stdout) if result.stdout else {}
+
+
+def wait_listmonk_ready() -> None:
+    # Settings saves reload the process. /health is up again only after that.
+    listmonk_curl(["http://127.0.0.1:9000/health"])
 
 
 def listmonk_get(path: str) -> dict:
@@ -512,6 +545,11 @@ def apply_mailtrain_smtp() -> None:
         if any(server["weekdays_limited"] for server in servers):
             throttle_note += " Mailtrain weekday windows are not copied; Listmonk sends every day."
     listmonk_api_json("PUT", "/api/settings", settings)
+    # Listmonk reloads itself half a second after this response. The next API
+    # call has to land after that reload, not in the gap where port 9000 is down.
+    print("Waiting for Listmonk to reload settings...", flush=True)
+    time.sleep(1)
+    wait_listmonk_ready()
     chosen = servers[0]
     print(
         f"Copied {len(servers)} Mailtrain SMTP server(s). "

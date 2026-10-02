@@ -565,10 +565,34 @@ assert "/files/template/file/4/abc.png" not in rewritten
 
 assert mod.mailtrain_import_name("News", "abc", shared=False) == "News"
 assert mod.mailtrain_import_name("News", "abc", shared=True) == "News (abc)"
+
+import subprocess
+clock = {"t": 0}
+def time_fn():
+    return clock["t"]
+def sleep_fn(seconds):
+    clock["t"] += seconds
+tries = {"n": 0}
+def flaky(cmd, input_text=None, check=False):
+    tries["n"] += 1
+    if tries["n"] < 3:
+        return subprocess.CompletedProcess(cmd, 7, "", "connect")
+    return subprocess.CompletedProcess(cmd, 0, "ok", "")
+got = mod.run_listmonk_http(["curl"], runner=flaky, sleep_fn=sleep_fn, time_fn=time_fn)
+assert got.stdout == "ok"
+assert tries["n"] == 3
+def refused(cmd, input_text=None, check=False):
+    return subprocess.CompletedProcess(cmd, 22, "", "http")
+try:
+    mod.run_listmonk_http(["curl"], runner=refused, sleep_fn=sleep_fn, time_fn=time_fn)
+except subprocess.CalledProcessError as exc:
+    assert exc.returncode == 22
+else:
+    raise SystemExit("HTTP errors must not be retried")
 print("ok")
 PY
   assert_success
-  assert_output "ok"
+  assert_line "ok"
 }
 
 @test "listmonk API auth uses the install-time API token" {
