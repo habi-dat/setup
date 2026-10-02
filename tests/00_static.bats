@@ -581,6 +581,19 @@ def flaky(cmd, input_text=None, check=False):
 got = mod.run_listmonk_http(["curl"], runner=flaky, sleep_fn=sleep_fn, time_fn=time_fn)
 assert got.stdout == "ok"
 assert tries["n"] == 3
+clock["t"] = 0
+restarts = {"n": 0}
+def restarting(cmd, input_text=None, check=False):
+    restarts["n"] += 1
+    if restarts["n"] < 2:
+        return subprocess.CompletedProcess(
+            cmd, 125, "", "Container abc is restarting, wait until the container is running"
+        )
+    return subprocess.CompletedProcess(cmd, 0, "ok", "")
+got = mod.run_listmonk_http(["curl"], runner=restarting, sleep_fn=sleep_fn, time_fn=time_fn)
+assert got.stdout == "ok"
+assert restarts["n"] == 2
+assert mod.listmonk_http_down(subprocess.CompletedProcess(["curl"], 125, "", "is restarting"))
 def refused(cmd, input_text=None, check=False):
     return subprocess.CompletedProcess(cmd, 22, "", "http")
 try:

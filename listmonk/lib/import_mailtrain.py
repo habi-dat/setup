@@ -100,9 +100,33 @@ def listmonk_basic_auth() -> str:
 
 
 # curl 7: nothing is listening yet. curl 56: the server closed the socket
-# mid-response. Listmonk sends itself SIGHUP after a settings save, so both
-# happen for a few seconds and are not a failed import.
+# mid-response. Docker itself refuses --network container: while the
+# Listmonk container is in a restart loop; that text is a retry too.
 _LISTMONK_RETRY_CODES = {7, 56}
+
+
+def listmonk_http_down(result: subprocess.CompletedProcess[str]) -> bool:
+    if result.returncode in _LISTMONK_RETRY_CODES:
+        return True
+    text = f"{result.stderr or ''}\n{result.stdout or ''}"
+    return "is restarting" in text or "wait until the container is running" in text
+
+
+def listmonk_process_up() -> bool | None:
+    """True when the app container is running and not restarting.
+
+    None when LISTMONK_CONTAINER is unset, so tests do not call docker.
+    """
+    name = os.environ.get("LISTMONK_CONTAINER", "")
+    if not name:
+        return None
+    probe = run(
+        ["docker", "inspect", "-f", "{{.State.Running}} {{.State.Restarting}}", name],
+        check=False,
+    )
+    if probe.returncode != 0:
+        return False
+    return probe.stdout.strip() == "true false"
 
 
 def run_listmonk_http(
@@ -112,20 +136,29 @@ def run_listmonk_http(
     runner=None,
     sleep_fn=time.sleep,
     time_fn=time.time,
-    timeout: float = 90,
+    timeout: float = 180,
 ) -> subprocess.CompletedProcess[str]:
     execute = runner or run
     deadline = time_fn() + timeout
     while True:
+        # Don't attach a sidecar while Docker is still restarting the app.
+        # Attaching then fails immediately and hides the reload.
+        if runner is None and listmonk_process_up() is False:
+            if time_fn() >= deadline:
+                name = os.environ.get("LISTMONK_CONTAINER", "")
+                raise ImportError(f"Listmonk container {name} did not stay running")
+            print("Listmonk container is restarting; waiting...", flush=True)
+            sleep_fn(2)
+            continue
         result = execute(cmd, input_text=input_text, check=False)
         if result.returncode == 0:
             return result
-        if result.returncode not in _LISTMONK_RETRY_CODES or time_fn() >= deadline:
+        if not listmonk_http_down(result) or time_fn() >= deadline:
             raise subprocess.CalledProcessError(
                 result.returncode, cmd, result.stdout, result.stderr
             )
         print("Listmonk is not accepting API requests; retrying...", flush=True)
-        sleep_fn(1)
+        sleep_fn(2)
 
 
 def listmonk_curl(args: list[str], *, file_mount: tuple[str, str] | None = None) -> str:

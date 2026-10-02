@@ -78,6 +78,13 @@ cleanup() {
   if [[ "$SETUP_OK" -eq 1 ]]; then
     return 0
   fi
+  local container
+  container="$(listmonk_container "$PROJECT_ID")"
+  if docker inspect "$container" >/dev/null 2>&1; then
+    echo "----- logs from ${container} (before removal) -----"
+    docker logs --tail 200 "$container" 2>&1 || true
+    echo "----- end logs from ${container} -----"
+  fi
   echo "Listmonk setup failed, cleaning up instance ${PROJECT_ID}..."
   rm -f "../store/auth/user-import/appStore-listmonk-${PROJECT_ID}.json"
   if [[ -f "../store/listmonk/${PROJECT_ID}/docker-compose.yml" ]]; then
