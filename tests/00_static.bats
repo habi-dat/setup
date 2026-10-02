@@ -565,6 +565,25 @@ rewritten = mod.apply_file_rewrites(
 )
 assert "https://schlor.lists.example.org/uploads/abc.png" in rewritten
 assert "/files/template/file/4/abc.png" not in rewritten
+direct = mod.apply_file_rewrites(
+    "[URL_BASE]/files/template/file/4/abc.png",
+    "https://lists.example.org",
+    {("template", "file", "4", "abc.png"): "https://schlor.lists.example.org/uploads/abc.png"},
+)
+assert direct == "https://schlor.lists.example.org/uploads/abc.png"
+mosaic = (
+    "[URL_BASE]/mosaico/img?src=[ENCODED_URL_BASE]%2Ffiles%2Ftemplate%2Ffile%2F4%2F"
+    "72fd7008b300fb805300e4bf69c47120&method=resize&params=258,null"
+)
+assert mod.mailtrain_file_refs(mosaic) == [("template", "file", "4", "72fd7008b300fb805300e4bf69c47120")]
+fixed = mod.apply_file_rewrites(
+    mosaic,
+    "https://lists.example.org",
+    {("template", "file", "4", "72fd7008b300fb805300e4bf69c47120"): "https://schlor.lists.example.org/uploads/72fd7008.jpg"},
+)
+assert fixed == "https://schlor.lists.example.org/uploads/72fd7008.jpg"
+assert mod.upload_filename("72fd7008b300fb805300e4bf69c47120", b"\xff\xd8\xff\xe0") == "72fd7008b300fb805300e4bf69c47120.jpg"
+assert mod.upload_filename("abc.png", b"\xff\xd8\xff") == "abc.png"
 
 assert mod.mailtrain_import_name("News", "abc", shared=False) == "News"
 assert mod.mailtrain_import_name("News", "abc", shared=True) == "News (abc)"

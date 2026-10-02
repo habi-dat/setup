@@ -984,6 +984,21 @@ _SQUARE_TAG = re.compile(r"\[([A-Za-z][A-Za-z0-9_:-]*)\]")
 _FILE_PATH = re.compile(
     r"/files/(?P<type>[A-Za-z0-9_-]+)/(?P<sub>[A-Za-z0-9_-]+)/(?P<id>[0-9]+)/(?P<name>[A-Za-z0-9._-]+)"
 )
+# Mosaico stores a resizer URL, not the file. The whole URL has to become the
+# Listmonk media address. Replacing only the inner /files path leaves
+# [URL_BASE]/mosaico/img?src=[ENCODED_URL_BASE]https%3A%2F%2F...
+_MOSAICO_IMG = re.compile(
+    r"(?:\[(?:URL_BASE|TRUSTED_URL_BASE|SANDBOX_URL_BASE)\]|https?://[^\s\"'<>]+?)?"
+    r"/mosaico/img\?[^\"'\s<>]*",
+    re.IGNORECASE,
+)
+_FILE_BASE_TAGS = ("[URL_BASE]", "[TRUSTED_URL_BASE]", "[SANDBOX_URL_BASE]")
+_ENCODED_FILE_BASE_TAGS = (
+    "[ENCODED_URL_BASE]",
+    "[ENCODED_TRUSTED_URL_BASE]",
+    "[ENCODED_SANDBOX_URL_BASE]",
+)
+_THUMB_SUFFIXES = {".jpg", ".jpeg", ".png", ".gif"}
 _PASSTHROUGH_TEMPLATE_NAME = "Mailtrain HTML"
 _PASSTHROUGH_TEMPLATE_BODY = '{{ template "content" . }}'
 # Listmonk returns 400 for a campaign template that does not contain this.
@@ -1069,6 +1084,36 @@ def mailtrain_file_refs(html: str) -> list[tuple[str, str, str, str]]:
     return found
 
 
+def _file_path(parts: tuple[str, str, str, str]) -> str:
+    type_, sub, entity, name = parts
+    return f"/files/{type_}/{sub}/{entity}/{name}"
+
+
+def image_extension(header: bytes) -> str | None:
+    if header.startswith(b"\xff\xd8\xff"):
+        return ".jpg"
+    if header.startswith(b"\x89PNG\r\n\x1a\n"):
+        return ".png"
+    if header.startswith((b"GIF87a", b"GIF89a")):
+        return ".gif"
+    if len(header) >= 12 and header.startswith(b"RIFF") and header[8:12] == b"WEBP":
+        return ".webp"
+    return None
+
+
+def upload_filename(name: str, header: bytes) -> str:
+    """Listmonk thumbnails only jpg, png, and gif, and only when the name has that suffix."""
+    safe = re.sub(r"[^A-Za-z0-9._-]", "_", name).strip("._") or "file"
+    suffix = Path(safe).suffix.lower()
+    if suffix in _THUMB_SUFFIXES:
+        return safe
+    sniffed = image_extension(header)
+    if not sniffed:
+        return safe
+    stem = safe[: -len(suffix)] if suffix else safe
+    return (stem or "file") + sniffed
+
+
 def apply_file_rewrites(
     html: str,
     public_base: str,
@@ -1076,12 +1121,30 @@ def apply_file_rewrites(
 ) -> str:
     base = public_base.rstrip("/")
     items = sorted(urls.items(), key=lambda item: len(item[0][3]), reverse=True)
-    for (type_, sub, entity, name), new_url in items:
-        path = f"/files/{type_}/{sub}/{entity}/{name}"
-        encoded = urllib.parse.quote(path, safe="")
-        html = html.replace(base + path, new_url)
-        html = html.replace(encoded, urllib.parse.quote(new_url, safe=""))
+
+    def mosaico_sub(match: re.Match[str]) -> str:
+        raw = match.group(0)
+        decoded = urllib.parse.unquote(raw)
+        for parts, new_url in items:
+            path = _file_path(parts)
+            if path in decoded or path in raw:
+                return new_url
+        return raw
+
+    html = _MOSAICO_IMG.sub(mosaico_sub, html)
+    for parts, new_url in items:
+        path = _file_path(parts)
+        encoded_path = urllib.parse.quote(path, safe="")
+        encoded_new = urllib.parse.quote(new_url, safe="")
+        for tag in _FILE_BASE_TAGS:
+            html = html.replace(tag + path, new_url)
+        if base:
+            html = html.replace(base + path, new_url)
+            html = html.replace(urllib.parse.quote(base + path, safe=""), encoded_new)
+        for tag in _ENCODED_FILE_BASE_TAGS:
+            html = html.replace(tag + encoded_path, new_url)
         html = html.replace(path, new_url)
+        html = html.replace(encoded_path, encoded_new)
     return html
 
 
@@ -1393,7 +1456,7 @@ def upload_mailtrain_file(
     if copied.returncode != 0 or not local.is_file():
         print(f"WARNING: Mailtrain file {remote} was not on {container}.", file=sys.stderr)
         return None
-    safe = re.sub(r"[^A-Za-z0-9._-]", "_", name) or "file"
+    safe = upload_filename(name, local.read_bytes()[:16])
     try:
         raw = listmonk_curl(
             [
