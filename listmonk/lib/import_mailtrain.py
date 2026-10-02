@@ -446,11 +446,15 @@ def listmonk_smtp_entry(smtp: dict) -> dict:
         "hello_hostname": "",
         "max_conns": smtp["max_conns"],
         "max_msg_retries": 2,
+        # v6.2.0 decodes this as a Go duration. An empty value makes the
+        # process crash-loop with "msg_retry_delay time: invalid duration".
+        "msg_retry_delay": "10ms",
         "idle_timeout": "15s",
         "wait_timeout": "5s",
         "tls_type": smtp["tls_type"],
         "tls_skip_verify": smtp["tls_skip_verify"],
         "email_headers": [],
+        "from_addresses": [smtp["from_email"]] if "@" in smtp["from_email"] else [],
     }
 
 

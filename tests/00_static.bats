@@ -363,6 +363,9 @@ assert office["auth_protocol"] == "plain"
 assert office["username"] == "mailer" and office["password"] == "secret"
 assert office["max_conns"] == 4
 assert office["hourly_limit"] == 0
+entry = mod.listmonk_smtp_entry(office)
+assert entry["msg_retry_delay"] == "10ms"
+assert entry["from_addresses"] == ["news@example.org"]
 assert mod.mailtrain_config_to_smtp({"id": 9, "mailer_type": "generic_smtp", "settings": {}}) is None
 print("ok")
 PY
