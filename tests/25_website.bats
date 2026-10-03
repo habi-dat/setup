@@ -48,6 +48,7 @@ source "$REPO_ROOT/website/lib/common.sh"
   assert_output --partial 'OIDC_REDIRECT_URI=https://schlor.org/auth/callback'
   assert_output --partial 'OIDC_ISSUER=https://user.habidat.localhost/oidc'
   assert_output --partial 'OIDC_CLIENT_ID=schlor'
+  assert_output --partial 'WEBSITE_ALLOW_PUBLISH=1'
 
   run env -i PATH="$PATH" HOME="${HOME:-/tmp}" "${env[@]}" \
     "$REPO_ROOT/lib/render.py" "$REPO_ROOT/website/docker-compose.yml.j2"
