@@ -1,0 +1,35 @@
+networks:
+  {{ HABIDAT_DOCKER_PREFIX }}-proxy:
+    name: {{ HABIDAT_PROXY_NETWORK }}
+    external: true
+
+services:
+  website:
+{% if HABIDAT_WEBSITE_SRC %}
+    build:
+      context: {{ HABIDAT_WEBSITE_SRC }}
+      dockerfile: Dockerfile
+    image: habidat-website:0.1.0
+{% else %}
+    image: {{ HABIDAT_WEBSITE_IMAGE | default('soudis/draftpunk:latest', true) }}
+{% endif %}
+    container_name: {{ HABIDAT_DOCKER_PREFIX }}-website-{{ HABIDAT_WEBSITE_PROJECTID }}
+    restart: unless-stopped
+    env_file:
+      - ./website.env
+    volumes:
+      - ./data:/data
+{% if HABIDAT_CREATE_SELFSIGNED | default("false") == "true" %}
+      - ./mkcert-root.crt:/usr/local/share/mkcert/rootCA.crt:ro
+    extra_hosts:
+      - "{{ HABIDAT_USER_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}:host-gateway"
+{% endif %}
+    command:
+      - sh
+      - -c
+      - if [ -s /usr/local/share/mkcert/rootCA.crt ]; then cp /usr/local/share/mkcert/rootCA.crt /usr/local/share/ca-certificates/habidat-mkcert.crt && update-ca-certificates; fi && exec pnpm exec next start -H 0.0.0.0 -p 3000
+    networks:
+      - {{ HABIDAT_DOCKER_PREFIX }}-proxy
+    logging:
+      options:
+        max-size: 50m

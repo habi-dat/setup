@@ -1,0 +1,16 @@
+[
+  {
+    "id": "{{ HABIDAT_WEBSITE_PROJECTID }}",
+    "label": {{ HABIDAT_WEBSITE_TITLE | tojson }},
+    "url": "{{ HABIDAT_PROTOCOL | default('https') }}://{{ HABIDAT_WEBSITE_HOST }}",
+    "oidc": {
+      "enabled": true,
+      "clientId": "{{ HABIDAT_WEBSITE_OIDC_CLIENT_ID }}",
+      "clientSecret": "{{ HABIDAT_WEBSITE_OIDC_CLIENT_SECRET }}",
+      "redirectUris": [
+        "{{ HABIDAT_PROTOCOL | default('https') }}://{{ HABIDAT_WEBSITE_HOST }}/auth/callback"
+      ]
+    },
+    "groups": [{{ HABIDAT_WEBSITE_LDAP_GROUP | tojson }}]
+  }
+]
