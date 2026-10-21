@@ -1,0 +1,123 @@
+volumes:
+  db:
+  data:
+
+networks:
+  {{ HABIDAT_DOCKER_PREFIX }}-proxy:
+    name: {{ HABIDAT_PROXY_NETWORK }}
+    external: true
+  {{ HABIDAT_DOCKER_PREFIX }}-back:
+    name: {{ HABIDAT_DOCKER_PREFIX }}-backend
+    external: true
+
+services:
+  db:
+    image: mariadb:11.8
+    container_name: {{ HABIDAT_DOCKER_PREFIX }}-nextcloud-db
+    restart: unless-stopped
+    # The nextcloud tables are utf8mb4_bin, while server, database and
+    # connection collation are utf8mb4_general_ci - that is the combination this
+    # installation has been running on with 10.6. Since MariaDB 11.4.2 a
+    # "SET NAMES utf8mb4" resolves to utf8mb4_uca1400_ai_ci instead, which no
+    # longer matches the tables ("Illegal mix of collations"), so the old
+    # default collation of utf8mb4 is pinned explicitly.
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_general_ci
+      - --character-set-collations=utf8mb4=utf8mb4_general_ci
+    environment:
+      # runs mariadb-upgrade on start if the data directory was written by an
+      # older major version. Keeps a dump of the system tables as
+      # system_mysql_backup_*.sql.zst in the data directory.
+      - MARIADB_AUTO_UPGRADE=1
+    # give InnoDB enough time for a clean shutdown, a crashed data directory
+    # must not be handed to a new major version
+    stop_grace_period: 300s
+    volumes:
+      - db:/var/lib/mysql
+      # rendered from config/mariadb.cnf.j2, re-created on every update.
+      # create_host_path is off on purpose: if the file is missing, docker would
+      # otherwise silently create a DIRECTORY named mariadb.cnf, the tuning
+      # would be gone and the next render could no longer write the file.
+      - type: bind
+        source: ./mariadb.cnf
+        target: /etc/mysql/conf.d/99-habidat.cnf
+        read_only: true
+        bind:
+          create_host_path: false
+    env_file:
+      - ./db.env
+    networks:
+      - {{ HABIDAT_DOCKER_PREFIX }}-back
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 300s
+    logging:
+      options:
+        max-size: 50m
+
+  antivirus:
+    image: dinkel/clamavd
+    container_name: {{ HABIDAT_DOCKER_PREFIX }}-nextcloud-antivirus
+    restart: unless-stopped
+    ports:
+      - 3310
+    networks:
+      - {{ HABIDAT_DOCKER_PREFIX }}-back
+    logging:
+      options:
+        max-size: 50m
+
+  redis:
+    image: redis
+    container_name: {{ HABIDAT_DOCKER_PREFIX }}-nextcloud-redis
+    restart: unless-stopped
+    networks:
+      - {{ HABIDAT_DOCKER_PREFIX }}-back
+    command: redis-server --requirepass "{{ HABIDAT_NEXTCLOUD_REDIS_PASSWORD }}"
+    logging:
+      options:
+        max-size: 50m
+
+  nextcloud:
+    image: nextcloud:35.0.2
+    restart: unless-stopped
+    container_name: {{ HABIDAT_DOCKER_PREFIX }}-nextcloud
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - data:/var/www/html
+      - ./assets:/habidat:ro
+    env_file:
+      - ./nextcloud.env
+    ports:
+      - 80
+    networks:
+      - {{ HABIDAT_DOCKER_PREFIX }}-proxy
+      - {{ HABIDAT_DOCKER_PREFIX }}-back
+    logging:
+      options:
+        max-size: 50m
+
+  cron:
+    image: nextcloud:35.0.2
+    restart: unless-stopped
+    container_name: {{ HABIDAT_DOCKER_PREFIX }}-nextcloud-cron
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - data:/var/www/html
+      - ./assets:/habidat:ro
+    env_file:
+      - ./nextcloud.env
+    networks:
+      - {{ HABIDAT_DOCKER_PREFIX }}-back
+    entrypoint: /cron.sh
+    logging:
+      options:
+        max-size: 50m

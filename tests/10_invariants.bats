@@ -288,8 +288,7 @@ _strip_comments() {
   #   - nextcloud: versions/32.0.5/config/ snapshots exist but have since
   #     diverged from the root copies (notably default("") there vs
   #     default(none) at the root), and no later version re-snapshotted them.
-  #     34.0.4.1 is config-only (afterupdate, image stays 34.0.4), so compose
-  #     and mariadb.cnf live in versions/34.0.4/ and not in the newest dir.
+  #     35.0.2 snapshots compose and mariadb.cnf, the env files stay root-only.
   #   - auth: 2.1.1 snapshotted compose only (image bump). ldap/user/bootstrap
   #     templates live in versions/2.0.0/. appStore.json.j2 is setup.sh-only
   #     and has never been snapshotted.
@@ -319,9 +318,7 @@ _strip_comments() {
     "mediawiki/config/db.env.j2"
     "mediawiki/config/web.env.j2"
     "nextcloud/config/db.env.j2"
-    "nextcloud/config/mariadb.cnf.j2"
     "nextcloud/config/nextcloud.env.j2"
-    "nextcloud/docker-compose.yml.j2"
   )
 
   local mod newest rel found=()

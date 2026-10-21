@@ -21,6 +21,8 @@ load helpers/load
   assert_version_order "32.0.6" "33.0.0"
   assert_version_order "33.0.0" "34.0.3"
   assert_version_order "32.0.5" "34.0.3"
+  assert_version_order "34.0.4" "34.0.4.1"
+  assert_version_order "34.0.4.1" "35.0.2"
 }
 
 @test "version_cmp: compares numerically, not lexically" {

@@ -83,7 +83,7 @@ services:
         max-size: 50m
 
   nextcloud:
-    image: nextcloud:34.0.4
+    image: nextcloud:35.0.2
     restart: unless-stopped
     container_name: {{ HABIDAT_DOCKER_PREFIX }}-nextcloud
     depends_on:
@@ -104,7 +104,7 @@ services:
         max-size: 50m
 
   cron:
-    image: nextcloud:34.0.4
+    image: nextcloud:35.0.2
     restart: unless-stopped
     container_name: {{ HABIDAT_DOCKER_PREFIX }}-nextcloud-cron
     depends_on:
