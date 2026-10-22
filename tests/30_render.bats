@@ -275,6 +275,16 @@ for name, svc in (doc.get("services") or {}).items():
   refute grep -q "mailhog/mailhog" "$(rendered auth/docker-compose.yml.j2 prod)"
 }
 
+@test "auth: the app images use the floating 2.2 tag, so fixes need no new version" {
+  local file
+  for file in auth/docker-compose.yml.j2 auth/versions/2.2.0/docker-compose.yml.j2; do
+    run cat "$(rendered "$file" dev)"
+    assert_output --partial "image: habidat/auth:2.2"
+    assert_output --partial "image: habidat/auth-worker:2.2"
+    refute_output --regexp "habidat/auth(-worker)?:2\.[0-9]+\.[0-9]+"
+  done
+}
+
 @test "auth: the backend network is declared external only when one is supplied" {
   run cat "$(rendered auth/docker-compose.yml.j2 dev)"
   assert_output --partial "driver: bridge"

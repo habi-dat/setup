@@ -180,6 +180,25 @@ finds no steps to run and only rewrites the version marker.
 `update discourse <version>` is rejected -- it always rebuilds to the version in
 `discourse/version`.
 
+#### Fix
+
+```bash
+./habidat.sh fix <module> [instance-id]   # Pull images and recreate containers, no migration
+./habidat.sh fix all                      # The same for all installed modules
+```
+
+`fix` is for modules whose compose file uses a floating image tag (`habidat/auth:2.2`
+for example): a new build of the same tag is picked up without releasing a new
+module version. It does not render templates, run migrations or change
+`store/<module>/version`.
+
+By default it runs `pull` and then `up`. A module that needs more after the
+containers are recreated ships a `fix.sh` instead: **auth** runs `user-init`
+(Prisma migrate + seed) between pull and start, **nextcloud** reinstalls `jq` and
+reruns the post-update configuration, **mediawiki** walks its instances,
+**direktkredit** pulls its code and updates all projects, and **discourse**
+rebuilds both containers (slow, and the forum is down meanwhile).
+
 #### Start / Stop / Restart
 
 ```bash
@@ -379,7 +398,7 @@ Conventions every script in the repository follows, each enforced by
 - **`#!/usr/bin/env bash`**, not `#!/bin/bash`. The latter fails on hosts without
   bash at that path, including NixOS.
 - **Lifecycle scripts must be executable.** `remove.sh`, `start.sh`, `stop.sh`,
-  `restart.sh`, `up.sh`, `down.sh`, `pull.sh`, `build.sh` and `update.sh` are
+  `restart.sh`, `up.sh`, `down.sh`, `pull.sh`, `build.sh`, `fix.sh` and `update.sh` are
   invoked as `./<action>.sh`, so mode 644 means "Permission denied". Use
   `git update-index --chmod=+x <file>` if the mode did not make it into the
   index. Migration, export and import scripts are `source`d instead and do not

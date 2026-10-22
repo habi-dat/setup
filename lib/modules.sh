@@ -400,6 +400,29 @@ down_module()    { _run_lifecycle down "$@"; }
 pull_module()    { _run_lifecycle pull "$@"; }
 build_module()   { _run_lifecycle build "$@"; }
 
+# ---------------------------------------------------------------------------
+# fix_module <module> [args...]
+#   Pulls images and recreates containers without rendering templates, running
+#   migrations or touching store/<module>/version. Uses <module>/fix.sh when the
+#   module needs steps after the pull (e.g. auth's user-init), otherwise pull + up.
+# ---------------------------------------------------------------------------
+fix_module() {
+  local module="$1"
+  shift
+
+  if ! is_installed "$module"; then
+    log_verbose "Module $module not installed, skipping fix."
+    return 0
+  fi
+
+  if [[ -f "$BASE_DIR/$module/fix.sh" ]]; then
+    _run_lifecycle fix "$module" "$@"
+    return
+  fi
+
+  pull_module "$module" "$@" && up_module "$module" "$@"
+}
+
 update_module() {
   local module="$1"
   shift
@@ -666,7 +689,7 @@ dispatch() {
       import_module "$target" "$@"
       ;;
 
-    start|stop|restart|up|down|pull|build)
+    start|stop|restart|up|down|pull|build|fix)
       if [[ "$target" == "all" ]]; then
         # One failing module must not stop the others: without collecting the
         # error here, this script's `set -e` would abort the loop at the first

@@ -47,7 +47,7 @@ EOF
   # Migration, export and import scripts are `source`d and do not need +x.
   local mod action failures=()
   while IFS= read -r mod; do
-    for action in setup remove start stop restart up down pull build update; do
+    for action in setup remove start stop restart up down pull build update fix; do
       [[ -f "$REPO_ROOT/$mod/$action.sh" ]] || continue
       [[ -x "$REPO_ROOT/$mod/$action.sh" ]] || failures+=("$mod/$action.sh")
     done
@@ -62,7 +62,7 @@ EOF
   # broken. Check the mode git actually has.
   local mod action mode failures=()
   while IFS= read -r mod; do
-    for action in setup remove start stop restart up down pull build update; do
+    for action in setup remove start stop restart up down pull build update fix; do
       [[ -f "$REPO_ROOT/$mod/$action.sh" ]] || continue
       mode="$(git -C "$REPO_ROOT" ls-files -s "$mod/$action.sh" | awk '{print $1}')"
       # Untracked files have no recorded mode yet; the test above covers those.

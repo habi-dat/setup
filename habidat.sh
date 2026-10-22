@@ -48,6 +48,7 @@ usage() {
   log_info "  up      <module>|all                           Up module or all modules (create + start)"
   log_info "  down    <module>|all                           Down module or all modules (stop + remove containers)"
   log_info "  update  <module>|all [version] [force]         Update module or all modules"
+  log_info "  fix     <module>|all                           Pull images and recreate containers (no migration)"
   log_info "  pull    <module>|all                           Pull Docker images"
   log_info "  build   <module>|all                           Build Docker images"
   log_info "  export  <module>|all [options]                 Export module data"
@@ -60,7 +61,7 @@ usage() {
 # Command dispatch
 # ---------------------------------------------------------------------------
 case "${1:-}" in
-  install|remove|start|stop|restart|up|down|update|pull|build|export|import)
+  install|remove|start|stop|restart|up|down|update|fix|pull|build|export|import)
     dispatch "$1" "${@:2}"
     ;;
   modules)

@@ -22,7 +22,7 @@ setup() {
 @test "help: lists every documented command" {
   habidat help
   assert_success
-  for cmd in install remove start restart stop up down update pull build export import modules; do
+  for cmd in install remove start restart stop up down update fix pull build export import modules; do
     assert_output --partial "$cmd"
   done
 }
@@ -618,6 +618,89 @@ EOF
     assert_success
     assert_docker_called "-p habidattest-nextcloud $action"
   done
+}
+
+@test "fix: a module without fix.sh runs compose pull, then up -d" {
+  seed_module nginx "$(repo_module_version nginx)"
+  habidat fix nginx
+  assert_success
+  assert_docker_called "-p habidattest-nginx pull"
+  assert_docker_called "-p habidattest-nginx up -d"
+  refute_docker_called "run --rm"
+}
+
+@test "fix: leaves the installed version alone and runs no migration" {
+  seed_module nginx "0.0.0"
+  habidat fix nginx
+  assert_success
+  assert_equal "$(cat "$SANDBOX/store/nginx/version")" "0.0.0"
+  refute_output --partial "migrat"
+}
+
+@test "fix: a module's fix.sh takes precedence over pull and up" {
+  seed_module nginx "$(repo_module_version nginx)"
+  cat > "$SANDBOX/nginx/fix.sh" <<'SCRIPT'
+#!/usr/bin/env bash
+set -euo pipefail
+echo "module fix.sh ran with: $*"
+SCRIPT
+  chmod +x "$SANDBOX/nginx/fix.sh"
+
+  habidat fix nginx extra
+  assert_success
+  assert_output --partial "module fix.sh ran with: extra"
+  refute_docker_called "compose -f"
+}
+
+@test "fix: auth pulls, runs user-init, then starts the app containers" {
+  seed_module auth "$(repo_module_version auth)"
+  habidat fix auth
+  assert_success
+
+  local n=0 i_pull i_init i_app line
+  while IFS= read -r line; do
+    case "$line" in
+      *"-p habidattest-auth pull"*) i_pull=${i_pull-$n} ;;
+      *"run --rm user-init"*) i_init=${i_init-$n} ;;
+      *"up -d --remove-orphans user user-worker user-avatars"*) i_app=${i_app-$n} ;;
+    esac
+    n=$((n + 1))
+  done < "$DOCKER_LOG"
+
+  assert [ "$i_pull" -lt "$i_init" ]
+  assert [ "$i_init" -lt "$i_app" ]
+}
+
+@test "fix: an uninstalled module is skipped silently" {
+  habidat fix nextcloud
+  assert_success
+  refute_docker_called "compose -f"
+}
+
+@test "fix: an unknown module is rejected" {
+  habidat fix nosuchmodule
+  assert_failure
+  assert_output --partial "Unknown module: nosuchmodule"
+}
+
+@test "fix all: skips uninstalled modules and continues after a failure" {
+  seed_module nginx "$(repo_module_version nginx)"
+  seed_module discourse "$(repo_module_version discourse)"
+  seed_module dokuwiki "$(repo_module_version dokuwiki)"
+  cat > "$SANDBOX/discourse/fix.sh" <<'SCRIPT'
+#!/usr/bin/env bash
+exit 5
+SCRIPT
+  chmod +x "$SANDBOX/discourse/fix.sh"
+
+  habidat fix all
+  assert_failure
+
+  assert_docker_called "-p habidattest-nginx up -d"
+  assert_docker_called "-p habidattest-dokuwiki up -d"
+  refute_docker_called "habidattest-nextcloud"
+  assert_output --partial "FIX of discourse failed. Continuing with remaining modules"
+  assert_output --partial "Some modules failed to fix"
 }
 
 @test "lifecycle: the compose project name is <prefix>-<module>" {

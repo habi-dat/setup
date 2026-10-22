@@ -83,7 +83,7 @@ services:
       retries: 5
 
   user-init:
-    image: habidat/auth-worker:2.1.1
+    image: habidat/auth-worker:2.2
     restart: "no"
     env_file:
       - ./auth.env
@@ -102,7 +102,7 @@ services:
     command: sh -c "cd /app/packages/db && npx prisma migrate deploy && npx prisma db seed"
 
   user:
-    image: habidat/auth:2.1.1
+    image: habidat/auth:2.2
     restart: unless-stopped
     container_name: {{ HABIDAT_DOCKER_PREFIX }}-user
     env_file:
@@ -139,7 +139,7 @@ services:
         max-size: 50m
 
   user-worker:
-    image: habidat/auth-worker:2.1.1
+    image: habidat/auth-worker:2.2
     restart: unless-stopped
     container_name: {{ HABIDAT_DOCKER_PREFIX }}-user-worker
     env_file:
