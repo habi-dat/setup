@@ -9,7 +9,7 @@ services:
     build:
       context: {{ HABIDAT_WEBSITE_SRC }}
       dockerfile: Dockerfile
-    image: habidat-website:0.1.0
+    image: habidat-website:latest
 {% else %}
     image: {{ HABIDAT_WEBSITE_IMAGE | default('soudis/draftpunk:latest', true) }}
 {% endif %}
