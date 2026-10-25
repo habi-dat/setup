@@ -104,7 +104,7 @@ Make sure SMTP settings are correct for production, or enable mailhog for develo
 ./habidat.sh install <module> force # Reinstall a module
 ```
 
-Modules are installed in dependency order: **nginx** -> **auth** -> **nextcloud** -> then direktkredit, discourse, dokuwiki, listmonk, mailtrain, mediawiki.
+Modules are installed in dependency order: **nginx** -> **auth** -> **nextcloud** -> then direktkredit, discourse, dokuwiki, listmonk, mailtrain, mediawiki, vaultwarden.
 
 **mediawiki** and **listmonk** are multi-instance modules. Each instance needs a
 project id, a title and an LDAP / habidat-auth group. `install all` skips them;
@@ -223,7 +223,7 @@ Exports are written to `$HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/<module>/`, a
 
 Export/import scripts are versioned -- they use the behavior matching the currently installed module version, not the latest version in the repository.
 
-Modules with export/import support: **auth**, **nextcloud**, **discourse**.
+Modules with export/import support: **auth**, **nextcloud**, **discourse**, **vaultwarden**.
 
 Nextcloud export supports a `nodata` option to exclude user files:
 
@@ -237,6 +237,7 @@ Nextcloud export supports a `nodata` option to exclude user files:
 ./habidat.sh modules                # List all modules and their status
 ./habidat.sh pull <module>|all      # Pull Docker images
 ./habidat.sh build <module>|all     # Build Docker images
+./habidat.sh configure <module>     # Post-install configuration that needs operator input (vaultwarden)
 ./habidat.sh help                   # Show help
 ```
 
@@ -253,7 +254,53 @@ Nextcloud export supports a `nodata` option to exclude user files:
 | **dokuwiki** | Lightweight wiki | nginx, auth, nextcloud |
 | **listmonk** | Newsletter / mailing list manager (multiple instances) | nginx, auth, nextcloud |
 | **mailtrain** | Newsletter / mailing list manager (legacy) | nginx, auth, nextcloud |
+| **vaultwarden** | Password manager, shared with auth groups | nginx, auth |
 | **website** | Website editor with auth login (multiple instances) | nginx, auth |
+
+### Vaultwarden
+
+A password manager at `{HABIDAT_VAULTWARDEN_SUBDOMAIN}.{domain}`. Everyone with an
+auth account logs in through auth (and still sets a Vaultwarden master
+password, which never leaves their device). All shared passwords live in one
+organization:
+
+- Every auth group appears as a Vaultwarden group with the same members,
+  including members of its sub-groups (group owners count only if they are also
+  members).
+- Every group gets a **group collection** named after it, which its members can
+  manage: store passwords in it and share it with any other group. Personal
+  passwords stay in each user's own vault and are never visible to anyone else.
+- A new collection for a subset of people: create an auth sub-group. Ask the
+  super admin for anything else.
+
+A sync container (`<prefix>-vaultwarden-sync`) reads auth's LDAP every five
+minutes and applies groups, memberships, group collections, removals and
+renames. Deleting an auth group keeps its collection, reachable only by the
+super admin.
+
+**Security trade-off.** New members get access without anyone approving them:
+a bot account confirms them automatically, and Vaultwarden runs without SMTP so
+invitations are accepted on the first login. Whoever controls the server (or
+can change group membership in auth) can therefore read every shared password.
+Personal vaults are not affected. See [ADR 0003](docs/adr/0003-automatic-member-confirmation.md).
+Groups that need protection against that can get a separate organization
+without the bot, created and confirmed by hand.
+
+**One-time setup** after `./habidat.sh install vaultwarden` (the organization's
+keys are created in the browser):
+
+1. In auth, create the super admin user (email `HABIDAT_VAULTWARDEN_ADMIN_EMAIL`)
+   and a bot user (e.g. `vaultwarden-bot`). Neither needs to be an auth admin.
+2. As the super admin, log in to Vaultwarden through auth, set a master password
+   and create the organization.
+3. As the bot, log in once, set a master password and copy its personal API key
+   (Account settings > Security > Keys).
+4. As the super admin, invite the bot as **Admin** and confirm it, then create
+   the organization API key (Organization settings).
+5. `./habidat.sh configure vaultwarden` asks for both keys and the bot's master
+   password, shows a dry run of the first sync and starts the sync.
+
+Users whose email is not verified in auth cannot log in to Vaultwarden.
 
 ### Admin account
 
@@ -399,7 +446,7 @@ Conventions every script in the repository follows, each enforced by
 - **`#!/usr/bin/env bash`**, not `#!/bin/bash`. The latter fails on hosts without
   bash at that path, including NixOS.
 - **Lifecycle scripts must be executable.** `remove.sh`, `start.sh`, `stop.sh`,
-  `restart.sh`, `up.sh`, `down.sh`, `pull.sh`, `build.sh`, `fix.sh` and `update.sh` are
+  `restart.sh`, `up.sh`, `down.sh`, `pull.sh`, `build.sh`, `fix.sh`, `update.sh` and `configure.sh` are
   invoked as `./<action>.sh`, so mode 644 means "Permission denied". Use
   `git update-index --chmod=+x <file>` if the mode did not make it into the
   index. Migration, export and import scripts are `source`d instead and do not

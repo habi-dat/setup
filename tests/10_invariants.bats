@@ -27,6 +27,7 @@ mailtrain
 mediawiki
 nextcloud
 nginx
+vaultwarden
 website
 EOF
 }
@@ -42,13 +43,13 @@ EOF
 }
 
 @test "every lifecycle script is executable" {
-  # _run_lifecycle, remove_module and update_module invoke these as ./<action>.sh
+  # _run_lifecycle, remove_module, update_module and configure_module invoke these as ./<action>.sh
   # from the module directory, so mode 644 means "Permission denied".
   #
   # Migration, export and import scripts are `source`d and do not need +x.
   local mod action failures=()
   while IFS= read -r mod; do
-    for action in setup remove start stop restart up down pull build update fix; do
+    for action in setup remove start stop restart up down pull build update fix configure; do
       [[ -f "$REPO_ROOT/$mod/$action.sh" ]] || continue
       [[ -x "$REPO_ROOT/$mod/$action.sh" ]] || failures+=("$mod/$action.sh")
     done
@@ -63,7 +64,7 @@ EOF
   # broken. Check the mode git actually has.
   local mod action mode failures=()
   while IFS= read -r mod; do
-    for action in setup remove start stop restart up down pull build update fix; do
+    for action in setup remove start stop restart up down pull build update fix configure; do
       [[ -f "$REPO_ROOT/$mod/$action.sh" ]] || continue
       mode="$(git -C "$REPO_ROOT" ls-files -s "$mod/$action.sh" | awk '{print $1}')"
       # Untracked files have no recorded mode yet; the test above covers those.

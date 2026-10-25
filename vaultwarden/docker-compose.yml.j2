@@ -1,0 +1,58 @@
+volumes:
+  data:
+  sync-state:
+
+networks:
+  {{ HABIDAT_DOCKER_PREFIX }}-proxy:
+    name: {{ HABIDAT_PROXY_NETWORK }}
+    external: true
+  {{ HABIDAT_DOCKER_PREFIX }}-back:
+    name: {{ HABIDAT_BACKEND_NETWORK }}
+    external: true
+
+services:
+  vaultwarden:
+    image: vaultwarden/server:1.37.4
+    container_name: {{ HABIDAT_DOCKER_PREFIX }}-vaultwarden
+    restart: unless-stopped
+    env_file:
+      - ./vaultwarden.env
+    volumes:
+      - data:/data
+{% if HABIDAT_CREATE_SELFSIGNED | default("false") == "true" %}
+      - ./mkcert-root.crt:/usr/local/share/ca-certificates/habidat-mkcert.crt:ro
+    # Vaultwarden fetches the OIDC discovery document from auth, so it must
+    # trust the mkcert root, and *.localhost would resolve to loopback inside
+    # the container. host-gateway is the published 443 on the Docker host.
+    command:
+      - sh
+      - -c
+      - update-ca-certificates && exec /start.sh
+    extra_hosts:
+      - "{{ HABIDAT_USER_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}:host-gateway"
+{% endif %}
+    networks:
+      - {{ HABIDAT_DOCKER_PREFIX }}-proxy
+      - {{ HABIDAT_DOCKER_PREFIX }}-back
+    logging:
+      options:
+        max-size: 50m
+
+  sync:
+    build:
+      context: ../../vaultwarden/sync
+    image: habidat-vaultwarden-sync:1.37.4
+    container_name: {{ HABIDAT_DOCKER_PREFIX }}-vaultwarden-sync
+    restart: unless-stopped
+    depends_on:
+      - vaultwarden
+    env_file:
+      - ./sync.env
+      - ./credentials.env
+    volumes:
+      - sync-state:/state
+    networks:
+      - {{ HABIDAT_DOCKER_PREFIX }}-back
+    logging:
+      options:
+        max-size: 50m

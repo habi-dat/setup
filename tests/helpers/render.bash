@@ -77,6 +77,10 @@ RUNTIME_VARS=(
   "HABIDAT_WEBSITE_SESSION_SECRET=ws-session-secret"
   "HABIDAT_WEBSITE_OIDC_CLIENT_ID=testsite"
   "HABIDAT_WEBSITE_OIDC_CLIENT_SECRET=ws-oidc-secret"
+
+  # vaultwarden/setup.sh
+  "HABIDAT_VAULTWARDEN_OIDC_CLIENT_SECRET=vw-oidc-secret"
+  "HABIDAT_VAULTWARDEN_ADMIN_TOKEN=vw-admin-token"
 )
 
 # ---------------------------------------------------------------------------

@@ -22,7 +22,7 @@ setup() {
 @test "help: lists every documented command" {
   habidat help
   assert_success
-  for cmd in install remove start restart stop up down update fix pull build export import modules; do
+  for cmd in install remove start restart stop up down update fix pull build export import configure modules; do
     assert_output --partial "$cmd"
   done
 }
@@ -67,7 +67,7 @@ setup() {
   assert_success
   assert_line --partial "nginx [NOT INSTALLED]"
   assert_line --partial "nextcloud [NOT INSTALLED]"
-  assert [ "${#lines[@]}" -eq 10 ]
+  assert [ "${#lines[@]}" -eq 11 ]
 }
 
 @test "modules: lists modules in dependency order" {
@@ -468,7 +468,7 @@ EOF
 
 @test "install all: skips multi-instance modules" {
   local mod
-  for mod in nginx auth nextcloud direktkredit discourse dokuwiki mailtrain; do
+  for mod in nginx auth nextcloud direktkredit discourse dokuwiki mailtrain vaultwarden; do
     seed_module "$mod" "$(repo_module_version "$mod")"
   done
 

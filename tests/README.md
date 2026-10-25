@@ -25,6 +25,7 @@ touches your real `store/` or `setup.env`.
 | `21_template.bats` | `lib/template.sh` — version-aware template resolution and rendering |
 | `22_modules.bats` | `lib/modules.sh` — module discovery and the topological install order |
 | `23_render_py.bats` | `lib/render.py` — StrictUndefined, `{% raw %}` passthrough, no HTML escaping, error reporting |
+| `26_vaultwarden.bats` | Vaultwarden: the rendered SSO and sync configuration, self-signed mode, `configure.sh` input checks, and the sync container's `node --test` suite (skipped without node or `npm ci`) |
 | `30_render.bats` | Every `.j2` rendered under three configuration profiles, each rendered compose file validated by `docker compose config` |
 | `40_cli.bats` | The CLI end to end in a throwaway copy of the repository, with a recording `docker` stub |
 

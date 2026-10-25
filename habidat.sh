@@ -53,6 +53,7 @@ usage() {
   log_info "  build   <module>|all                           Build Docker images"
   log_info "  export  <module>|all [options]                 Export module data"
   log_info "  import  <module> <filename>|list               Import module data"
+  log_info "  configure <module> [args]                      Run a module's post-install configuration"
   log_info "  modules                                        List module status"
   log_info ""
 }
@@ -61,7 +62,7 @@ usage() {
 # Command dispatch
 # ---------------------------------------------------------------------------
 case "${1:-}" in
-  install|remove|start|stop|restart|up|down|update|fix|pull|build|export|import)
+  install|remove|start|stop|restart|up|down|update|fix|pull|build|export|import|configure)
     dispatch "$1" "${@:2}"
     ;;
   modules)

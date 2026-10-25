@@ -568,6 +568,36 @@ import_module() {
 }
 
 # ---------------------------------------------------------------------------
+# configure_module <module> [args...]
+#   Runs <module>/configure.sh for post-install steps that need input from the
+#   operator (e.g. keys created in a web UI after install). Unlike the lifecycle
+#   scripts its output is not piped through log_module, so it can prompt.
+# ---------------------------------------------------------------------------
+configure_module() {
+  local module="$1"
+  shift
+
+  if [[ ! -f "$BASE_DIR/$module/configure.sh" ]]; then
+    log_error "Module $module has nothing to configure."
+    return 1
+  fi
+  if ! is_installed "$module"; then
+    log_error "Module $module not installed, cannot configure."
+    return 1
+  fi
+  if [[ ! -x "$BASE_DIR/$module/configure.sh" ]]; then
+    log_error "$module/configure.sh is not executable. Fix with: chmod +x $module/configure.sh"
+    return 1
+  fi
+
+  log_info "CONFIGURE $module module..."
+  (
+    cd "$BASE_DIR/$module" || exit 1
+    ./configure.sh "$@"
+  )
+}
+
+# ---------------------------------------------------------------------------
 # dispatch <action> <module|all> [args...]
 #
 # Generic dispatcher for module operations.
@@ -681,6 +711,12 @@ dispatch() {
         is_valid_module "$target" || die "Unknown module: $target"
         export_module "$target" "$@"
       fi
+      ;;
+
+    configure)
+      [[ "$target" == "all" ]] && die "Configure can only be done per module."
+      is_valid_module "$target" || die "Unknown module: $target"
+      configure_module "$target" "$@"
       ;;
 
     import)

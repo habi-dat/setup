@@ -1,0 +1,16 @@
+[
+  {
+    "id": "vaultwarden",
+    "label": "Passwörter",
+    "url": "{{ HABIDAT_PROTOCOL | default('https') }}://{{ HABIDAT_VAULTWARDEN_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}",
+    "oidc": {
+      "enabled": true,
+      "clientId": "vaultwarden",
+      "clientSecret": "{{ HABIDAT_VAULTWARDEN_OIDC_CLIENT_SECRET }}",
+      "redirectUris": [
+        "{{ HABIDAT_PROTOCOL | default('https') }}://{{ HABIDAT_VAULTWARDEN_SUBDOMAIN }}.{{ HABIDAT_DOMAIN }}/identity/connect/oidc-signin"
+      ]
+    },
+    "groups": []
+  }
+]
