@@ -65,13 +65,13 @@ The module's compose file provides these variables through `sync.env` (settings)
 | `STATE_DIR` | `/state` | Persistent state directory |
 | `BW_PROXY_PORT` | `8087` | Loopback port of the TLS proxy for bw |
 
-If any required variable is missing, the container logs which ones, writes that to `last-run.json`, and then idles instead of crash-looping. Restart it after running `configure`.
+If any required variable is missing, the container logs `not configured yet, run ./habidat.sh configure vaultwarden` with the missing names, writes that to `last-run.json`, and then idles instead of crash-looping (`--once` exits 1). Restart it after running `configure`.
 
 ## Command line
 
 ```
 node src/main.ts             # loop forever (container default)
-node src/main.ts --once      # single run; exit 0 ok, 1 errors, 2 not configured, 3 safety stop
+node src/main.ts --once      # single run; exit 0 ok, 1 errors or not configured, 3 safety stop
 node src/main.ts --dry-run   # combine with --once to only print the plan
 node src/main.ts --health    # exit 0 if the last real run succeeded recently (HEALTHCHECK)
 ```

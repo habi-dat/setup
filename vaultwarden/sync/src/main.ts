@@ -267,9 +267,9 @@ async function main(): Promise<number> {
       ...(loaded.missing.length ? [`missing: ${loaded.missing.join(', ')}`] : []),
       ...(loaded.invalid.length ? [`invalid: ${loaded.invalid.join(', ')}`] : []),
     ].join('; ')
-    log('error', `not configured (${problems}). Run "./habidat.sh configure vaultwarden"; idling until then.`)
+    log('error', `not configured yet, run ./habidat.sh configure vaultwarden (${problems})${once ? '' : '; idling until then'}`)
     if (!once) writeJson(lastRunFile, { ok: false, finishedAt: new Date().toISOString(), error: `not configured: ${problems}` })
-    if (once) return 2
+    if (once) return 1
     // Idle instead of crash-looping; `configure` restarts the container. The timer keeps node alive.
     setInterval(() => {}, 1 << 30)
     return new Promise(() => {})
