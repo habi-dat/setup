@@ -22,6 +22,9 @@ sandbox_setup_file() {
   while IFS= read -r mod; do
     cp -a "$REPO_ROOT/$mod" "$SANDBOX_TEMPLATE/$mod"
   done < <(repo_modules)
+  # A module's own npm dependencies (vaultwarden/sync) are irrelevant to the CLI
+  # and would be copied again into every test's sandbox.
+  find "$SANDBOX_TEMPLATE" -type d -name node_modules -prune -exec rm -rf {} +
 
   mkdir -p "$SANDBOX_TEMPLATE/store"
   export SANDBOX_TEMPLATE
