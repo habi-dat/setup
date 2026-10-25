@@ -1,0 +1,14 @@
+dn: uid=bob,ou=users,dc=habidat,dc=local
+changetype: add
+objectClass: inetOrgPerson
+uid: bob
+cn: bob
+sn: bob
+mail: bob@example.org
+
+
+# The refint overlay removed the deleted user from all groups; auth would re-add memberships too.
+dn: cn=housing-x,ou=groups,dc=habidat,dc=local
+changetype: modify
+add: member
+member: uid=bob,ou=users,dc=habidat,dc=local

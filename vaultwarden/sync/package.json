@@ -1,0 +1,23 @@
+{
+  "name": "habidat-vaultwarden-sync",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mirrors habidat-auth LDAP users and groups into a Vaultwarden organization",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node src/main.ts",
+    "test": "node --test \"test/*.test.ts\"",
+    "typecheck": "tsc"
+  },
+  "dependencies": {
+    "@bitwarden/cli": "2026.10.0",
+    "ldapts": "9.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "typescript": "5.9.3"
+  }
+}

@@ -1,0 +1,69 @@
+# Local end-to-end smoke test of the sync against real Vaultwarden + OpenLDAP. See ../README.md.
+name: vwsync-smoke
+
+x-sync-image: &sync-image
+  build: ..
+  image: habidat-vaultwarden-sync:smoke
+
+services:
+  ldap:
+    image: osixia/openldap:1.3.0
+    environment:
+      LDAP_ORGANISATION: habidat
+      LDAP_DOMAIN: habidat.local
+      LDAP_ADMIN_PASSWORD: admin
+      LDAP_TLS: "false"
+    healthcheck:
+      test: ["CMD-SHELL", "ldapsearch -x -H ldap://127.0.0.1:389 -D cn=admin,dc=habidat,dc=local -w admin -b dc=habidat,dc=local -s base >/dev/null 2>&1"]
+      interval: 2s
+      retries: 30
+
+  vaultwarden:
+    image: vaultwarden/server:1.37.4
+    environment:
+      DOMAIN: https://vault.smoke.test
+      SIGNUPS_ALLOWED: "true" # only to bootstrap accounts; production uses SSO_ONLY
+      ORG_GROUPS_ENABLED: "true"
+      ADMIN_TOKEN: smoke-admin-token
+      LOGIN_RATELIMIT_MAX_BURST: "100"
+      ADMIN_RATELIMIT_MAX_BURST: "100"
+    volumes:
+      - vw-data:/data
+    healthcheck:
+      test: ["CMD", "/healthcheck.sh"]
+      interval: 2s
+      retries: 30
+
+  tools:
+    <<: *sync-image
+    profiles: [tools]
+    user: "${SMOKE_UID:-0}:${SMOKE_GID:-0}" # files in .out stay removable by the host user
+    entrypoint: ["node"]
+    working_dir: /smoke
+    environment:
+      VW_URL: http://vaultwarden
+      VW_ADMIN_TOKEN: smoke-admin-token
+    volumes:
+      - ./:/smoke
+
+  sync:
+    <<: *sync-image
+    profiles: [tools]
+    environment:
+      LDAP_URL: ldap://ldap:389
+      LDAP_BIND_DN: cn=admin,dc=habidat,dc=local
+      LDAP_BIND_PASSWORD: admin
+      LDAP_USERS_DN: ou=users,dc=habidat,dc=local
+      LDAP_GROUPS_DN: ou=groups,dc=habidat,dc=local
+      VW_URL: http://vaultwarden
+      VW_ADMIN_TOKEN: smoke-admin-token
+      VW_OWNER_EMAIL: vault-admin@example.org
+    env_file:
+      - path: .out/credentials.env
+        required: false
+    volumes:
+      - state:/state
+
+volumes:
+  state:
+  vw-data:

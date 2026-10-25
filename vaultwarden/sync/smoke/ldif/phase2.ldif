@@ -1,0 +1,10 @@
+dn: cn=housing-x,ou=groups,dc=habidat,dc=local
+changetype: modify
+replace: o
+o: Housing Y
+
+dn: cn=flat-1,ou=groups,dc=habidat,dc=local
+changetype: delete
+
+dn: uid=bob,ou=users,dc=habidat,dc=local
+changetype: delete
