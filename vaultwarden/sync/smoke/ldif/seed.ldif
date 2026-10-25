@@ -1,0 +1,71 @@
+dn: ou=users,dc=habidat,dc=local
+objectClass: organizationalUnit
+ou: users
+
+dn: ou=groups,dc=habidat,dc=local
+objectClass: organizationalUnit
+ou: groups
+
+dn: uid=vault-admin,ou=users,dc=habidat,dc=local
+objectClass: inetOrgPerson
+uid: vault-admin
+cn: vault-admin
+sn: vault-admin
+mail: vault-admin@example.org
+
+dn: uid=vault-bot,ou=users,dc=habidat,dc=local
+objectClass: inetOrgPerson
+uid: vault-bot
+cn: vault-bot
+sn: vault-bot
+mail: vault-bot@example.org
+
+dn: uid=alice,ou=users,dc=habidat,dc=local
+objectClass: inetOrgPerson
+uid: alice
+cn: alice
+sn: alice
+mail: Alice@Example.org
+
+dn: uid=bob,ou=users,dc=habidat,dc=local
+objectClass: inetOrgPerson
+uid: bob
+cn: bob
+sn: bob
+mail: bob@example.org
+
+dn: uid=carol,ou=users,dc=habidat,dc=local
+objectClass: inetOrgPerson
+uid: carol
+cn: carol
+sn: carol
+mail: carol@example.org
+
+dn: uid=dave,ou=users,dc=habidat,dc=local
+objectClass: inetOrgPerson
+uid: dave
+cn: dave
+sn: dave
+mail: dave@example.org
+
+dn: cn=umbrella,ou=groups,dc=habidat,dc=local
+objectClass: groupOfNames
+cn: umbrella
+o: Umbrella
+member: uid=alice,ou=users,dc=habidat,dc=local
+member: uid=vault-admin,ou=users,dc=habidat,dc=local
+member: cn=housing-x,ou=groups,dc=habidat,dc=local
+
+dn: cn=housing-x,ou=groups,dc=habidat,dc=local
+objectClass: groupOfNames
+cn: housing-x
+o: Housing X
+member: uid=bob,ou=users,dc=habidat,dc=local
+member: uid=vault-bot,ou=users,dc=habidat,dc=local
+member: cn=flat-1,ou=groups,dc=habidat,dc=local
+
+dn: cn=flat-1,ou=groups,dc=habidat,dc=local
+objectClass: groupOfNames
+cn: flat-1
+member: uid=carol,ou=users,dc=habidat,dc=local
+member: cn=housing-x,ou=groups,dc=habidat,dc=local
