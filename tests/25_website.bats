@@ -54,12 +54,12 @@ source "$REPO_ROOT/website/lib/common.sh"
     "$REPO_ROOT/lib/render.py" "$REPO_ROOT/website/docker-compose.yml.j2"
   assert_success
   assert_output --partial 'image: soudis/draftpunk:latest'
-  refute_output --partial 'habidat-website:0.1.0'
+  refute_output --partial 'habidat-website:'
 
   env[11]=HABIDAT_WEBSITE_SRC=/code/sources/draftpunk
   run env -i PATH="$PATH" HOME="${HOME:-/tmp}" "${env[@]}" \
     "$REPO_ROOT/lib/render.py" "$REPO_ROOT/website/docker-compose.yml.j2"
   assert_success
-  assert_output --partial 'image: habidat-website:0.1.0'
+  assert_output --partial 'image: habidat-website:latest'
   assert_output --partial 'context: /code/sources/draftpunk'
 }

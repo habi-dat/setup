@@ -67,7 +67,7 @@ setup() {
   assert_success
   assert_line --partial "nginx [NOT INSTALLED]"
   assert_line --partial "nextcloud [NOT INSTALLED]"
-  assert [ "${#lines[@]}" -eq 9 ]
+  assert [ "${#lines[@]}" -eq 10 ]
 }
 
 @test "modules: lists modules in dependency order" {

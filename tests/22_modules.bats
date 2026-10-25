@@ -142,7 +142,7 @@ EOF
   assert [ "${lines[0]}" = "nginx" ]
   assert [ "${lines[1]}" = "auth" ]
   assert [ "${lines[2]}" = "nextcloud" ]
-  assert [ "${#lines[@]}" -eq 9 ]
+  assert [ "${#lines[@]}" -eq 10 ]
 }
 
 # ---------------------------------------------------------------------------

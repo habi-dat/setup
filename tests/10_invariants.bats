@@ -27,6 +27,7 @@ mailtrain
 mediawiki
 nextcloud
 nginx
+website
 EOF
 }
 
@@ -359,9 +360,12 @@ _strip_comments() {
   # RATCHET. discourse is legitimate -- it ships a custom update.sh instead.
   # dokuwiki is not: versions/0.0.1/ holds templates but no migration, so
   # `update dokuwiki` silently does nothing but move the marker.
+  # website is legitimate -- it tracks a floating image tag and has no
+  # versions/ directory, so there is nothing to migrate.
   local known=(
     discourse
     dokuwiki
+    website
   )
 
   local mod newest found=()
@@ -378,7 +382,8 @@ _strip_comments() {
 @test "modules whose version has no matching snapshot directory are exactly the known ones" {
   # RATCHET. discourse/version is 3.3.3 but versions/ only holds 3.3.2, so
   # resolve_template silently serves 3.3.2 templates for 3.3.3.
-  local known=(discourse)
+  # website has no versions/ directory at all (floating image tag).
+  local known=(discourse website)
 
   local mod newest found=()
   while IFS= read -r mod; do

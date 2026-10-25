@@ -253,6 +253,7 @@ Nextcloud export supports a `nodata` option to exclude user files:
 | **dokuwiki** | Lightweight wiki | nginx, auth, nextcloud |
 | **listmonk** | Newsletter / mailing list manager (multiple instances) | nginx, auth, nextcloud |
 | **mailtrain** | Newsletter / mailing list manager (legacy) | nginx, auth, nextcloud |
+| **website** | Website editor with auth login (multiple instances) | nginx, auth |
 
 ### Admin account
 

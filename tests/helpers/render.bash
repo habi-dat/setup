@@ -66,6 +66,17 @@ RUNTIME_VARS=(
   "HABIDAT_LISTMONK_ADMIN_PASSWORD=lm-admin-pw"
   "HABIDAT_LISTMONK_OIDC_CLIENT_ID=testlists.lists"
   "HABIDAT_LISTMONK_OIDC_CLIENT_SECRET=lm-oidc-secret"
+
+  # website/setup.sh -- positional install arguments plus generated secrets
+  "HABIDAT_WEBSITE_PROJECTID=testsite"
+  "HABIDAT_WEBSITE_TITLE=Test Site"
+  "HABIDAT_WEBSITE_LDAP_GROUP=testgroup"
+  "HABIDAT_WEBSITE_HOST=testsite.example.org"
+  "HABIDAT_WEBSITE_SRC="
+  "HABIDAT_WEBSITE_IMAGE="
+  "HABIDAT_WEBSITE_SESSION_SECRET=ws-session-secret"
+  "HABIDAT_WEBSITE_OIDC_CLIENT_ID=testsite"
+  "HABIDAT_WEBSITE_OIDC_CLIENT_SECRET=ws-oidc-secret"
 )
 
 # ---------------------------------------------------------------------------
