@@ -457,8 +457,14 @@ export_cmd() {
   [[ "$had_error" == false ]] || { log_error "Some exports failed. Check the output above."; return 1; }
 }
 
-# import_cmd <module> <filename>|list
-#   Kept one release as an alias for `restore <module> --file`.
+# import_cmd <module> <filename>|list [--yes]
+#   Kept one release, then removed together with <module>/legacy-import/:
+#   - a file in the snapshot layout (it has a manifest.json) is restored like
+#     `restore <module> --file`;
+#   - a file written before snapshots goes to <module>/legacy-import/<v>.sh, the
+#     unchanged import scripts of the previous release, picked by the installed
+#     version as before. Those are what reads the exports the UPDATE notes ask
+#     for before an update, and auth 1.x data on its way into auth 2.
 import_cmd() {
   local module="${1:-}" filename="${2:-}"
   [[ -n "$module" ]] || die "Usage: habidat.sh import <module> <filename>|list"
@@ -479,8 +485,42 @@ import_cmd() {
     ls -ltr "$dir" 2>/dev/null || echo "  (none)"
     return 1
   fi
-  log_warn "'import' is deprecated and will be removed; use: ./habidat.sh restore $module --file $dir/$filename"
-  restore_cmd "$module" --file "$dir/$filename" "${@:3}"
+
+  if tar -tzf "$dir/$filename" manifest.json >/dev/null 2>&1; then
+    log_warn "'import' is deprecated and will be removed; use: ./habidat.sh restore $module --file $dir/$filename"
+    restore_cmd "$module" --file "$dir/$filename" "${@:3}"
+  else
+    legacy_import "$module" "$filename"
+  fi
+}
+
+# legacy_import <module> <filename>
+#   Runs the previous release's import script for a file in the old format.
+legacy_import() {
+  local module="$1" filename="$2" script rc=0
+
+  if ! is_installed "$module"; then
+    log_error "Module $module not installed, cannot import."
+    return 1
+  fi
+  script="$(resolve_versioned_script "$module" legacy-import)" || script=""
+  if [[ -z "$script" ]]; then
+    log_error "$filename is in the export format before snapshots, and $module has no import script for it at the installed version."
+    return 1
+  fi
+
+  log_warn "$filename is in the export format before snapshots. Importing it the old way; this goes away in the next release."
+  log_info "Importing $module from $filename (using $module/legacy-import/$(basename "$script"))..."
+  (
+    # The old scripts read the file from here, as the old import did.
+    export HABIDAT_BACKUP_DIR="${HABIDAT_BACKUP_DIR:-$BASE_DIR/exports}"
+    run_logged "$module" run_module_script "$module" "$script" "$filename"
+  ) || rc=$?
+  if [[ $rc -ne 0 ]]; then
+    log_error "Import of $module failed (exit code $rc)."
+    return "$rc"
+  fi
+  log_info "Import of $module complete."
 }
 
 # ---------------------------------------------------------------------------
@@ -550,7 +590,7 @@ restore_cmd() {
     [[ -f "$file" ]] || die "Export file $file not found."
     file="$(cd "$(dirname "$file")" && pwd)/$(basename "$file")"
     if ! tar -tzf "$file" manifest.json >/dev/null 2>&1; then
-      die "$file was written by the export format before snapshots (no manifest.json). Restore it with the habidat-setup release that wrote it."
+      die "$file was written by the export format before snapshots (no manifest.json). Until the next release, put it into $(export_dir_for "$target")/ and run: ./habidat.sh import $target $(basename "$file")"
     fi
     export HABIDAT_RESTORE_SOURCE="file:$file"
     restore_extract "$work" manifest.json || die "Could not read $file."

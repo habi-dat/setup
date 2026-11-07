@@ -1,5 +1,7 @@
 auth/setup.sh: warning: Declare and assign separately to avoid masking return values. [SC2155]
 auth/versions/2.0.0/migrate.sh: warning: ShellCheck can't follow non-constant source. Use a directive to specify location. [SC1090]
+discourse/legacy-import/3.3.2.sh: warning: Declare and assign separately to avoid masking return values. [SC2155]
+discourse/legacy-import/3.3.2.sh: warning: Quote this to prevent word splitting. [SC2046]
 discourse/setup.sh: warning: Declare and assign separately to avoid masking return values. [SC2155]
 discourse/setup.sh: warning: Quote this to prevent word splitting. [SC2046]
 mailtrain/setup.sh: warning: Declare and assign separately to avoid masking return values. [SC2155]

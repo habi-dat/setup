@@ -246,6 +246,34 @@ setup() {
   habidat restore dokuwiki --file "$BATS_TEST_TMPDIR/old.tar.gz" --yes
   assert_failure
   assert_output --partial "export format before snapshots"
+  assert_output --partial "./habidat.sh import dokuwiki old.tar.gz"
+}
+
+@test "import: a file in the old format goes through the previous release's import script" {
+  seed_module vaultwarden "$(repo_module_version vaultwarden)"
+  local dir=/tmp/habidat-test-backup/habidattest/vaultwarden
+  mkdir -p "$dir"
+  make_export_file "$dir/bats-old-$$.tar.gz" habidattest no
+
+  habidat import vaultwarden "bats-old-$$.tar.gz"
+  rm -f "$dir/bats-old-$$.tar.gz"
+  assert_success
+  assert_output --partial "vaultwarden/legacy-import/1.37.4.sh"
+  assert_output --partial "Import of vaultwarden complete."
+  assert_docker_called "-p habidattest-vaultwarden stop sync vaultwarden"
+  assert_docker_called "tar xzf '/backup/bats-old-$$.tar.gz' -C /data"
+}
+
+@test "import: an old-format file for a module without a legacy importer is refused" {
+  seed_module dokuwiki "$(repo_module_version dokuwiki)"
+  local dir=/tmp/habidat-test-backup/habidattest/dokuwiki
+  mkdir -p "$dir"
+  make_export_file "$dir/bats-old-$$.tar.gz" habidattest no
+
+  habidat import dokuwiki "bats-old-$$.tar.gz"
+  rm -f "$dir/bats-old-$$.tar.gz"
+  assert_failure
+  assert_output --partial "no import script for it"
 }
 
 @test "restore --file: refuses a file taken with another Docker prefix" {

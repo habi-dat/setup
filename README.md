@@ -278,8 +278,11 @@ warns when the newest snapshot is less than 24 hours old.
 An export file is one module or instance in the same layout as a snapshot, packed
 as `.tar.gz` into `$HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/<module>/`
 (`exports/` in the repository when `HABIDAT_BACKUP_DIR` is unset). `import
-<module> <file>` still works for one release as an alias for `restore --file`;
-files written by the export format before snapshots cannot be restored with it.
+<module> <file>` still works for one release: for a file in the new layout it
+is an alias for `restore --file`, and a file written before snapshots (e.g. the
+exports the `UPDATE` notes ask for, or auth 1.x data for auth 2) is imported
+with the previous release's import script from `<module>/legacy-import/`. Both
+go away in the next release.
 The `nodata` option of the nextcloud export is gone: an export always holds the
 whole module.
 

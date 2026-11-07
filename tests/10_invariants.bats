@@ -403,7 +403,7 @@ _strip_comments() {
 @test "every export/restore script is named after a valid version" {
   local mod kind f ver failures=()
   while IFS= read -r mod; do
-    for kind in export restore; do
+    for kind in export restore legacy-import; do
       [[ -d "$REPO_ROOT/$mod/$kind" ]] || continue
       for f in "$REPO_ROOT/$mod/$kind"/*.sh; do
         [[ -f "$f" ]] || continue
@@ -422,7 +422,7 @@ _strip_comments() {
   local mod kind f ver target failures=()
   while IFS= read -r mod; do
     target="$(repo_module_version "$mod")"
-    for kind in export restore; do
+    for kind in export restore legacy-import; do
       [[ -d "$REPO_ROOT/$mod/$kind" ]] || continue
       for f in "$REPO_ROOT/$mod/$kind"/*.sh; do
         [[ -f "$f" ]] || continue
@@ -466,6 +466,34 @@ _strip_comments() {
   done < <(repo_modules)
 
   [[ ${#found[@]} -eq 0 ]] || fail_with_list "leftover import directories:" "${found[@]}"
+}
+
+@test "the previous release's import scripts are kept for exactly one release" {
+  # `import` still reads export files written before snapshots, with the import
+  # scripts of the release before them, unchanged. Remove legacy-import/ together
+  # with the `import` command; until then nothing may be added or changed.
+  local known=(
+    "auth/legacy-import/0.0.1.sh"
+    "auth/legacy-import/2.0.0.sh"
+    "discourse/legacy-import/3.3.2.sh"
+    "nextcloud/legacy-import/32.0.5.sh"
+    "nextcloud/legacy-import/33.0.0.sh"
+    "nextcloud/legacy-import/34.0.3.sh"
+    "nextcloud/legacy-import/34.0.4.sh"
+    "vaultwarden/legacy-import/1.37.4.sh"
+  )
+  local found
+  found="$(cd "$REPO_ROOT" && find . -path '*/legacy-import/*' -type f -not -path './node_modules/*' | sed 's|^\./||' | sort)"
+  assert_equal "$found" "$(printf '%s\n' "${known[@]}" | sort)"
+
+  # Byte-identical to what the previous release shipped as <module>/import/.
+  local f failures=()
+  for f in "${known[@]}"; do
+    git -C "$REPO_ROOT" cat-file -e "138eb5b:${f/legacy-import/import}" 2>/dev/null || continue
+    diff -q <(git -C "$REPO_ROOT" show "138eb5b:${f/legacy-import/import}") "$REPO_ROOT/$f" >/dev/null \
+      || failures+=("$f")
+  done
+  [[ ${#failures[@]} -eq 0 ]] || fail_with_list "legacy import scripts changed:" "${failures[@]}"
 }
 
 @test "every module except the known ones can be exported" {
