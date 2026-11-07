@@ -243,7 +243,8 @@ update_installed_modules_env() {
 
   local modules_csv="nginx,auth"
   for mod in $(get_installed_modules); do
-    [[ "$mod" == "nginx" || "$mod" == "auth" ]] && continue
+    # backup has nothing to show in the auth app.
+    [[ "$mod" == "nginx" || "$mod" == "auth" || "$mod" == "backup" ]] && continue
     modules_csv="$modules_csv,$mod"
   done
 

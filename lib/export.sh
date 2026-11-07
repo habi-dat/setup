@@ -197,7 +197,11 @@ export_unit() {
   : > "$volumes_file"
 
   script="$(resolve_versioned_script "$module" export)" || script=""
-  if [[ -z "$script" ]]; then
+  if [[ -z "$script" ]] && has_backup_support "$module"; then
+    # A module that can be exported but not at this version: update it.
+    status=failed
+    log_error "Module $module has no export script for installed version ${version:-unknown}."
+  elif [[ -z "$script" ]]; then
     status=none
   else
     log_info "Exporting $unit (using $module/export/$(basename "$script"))..."
