@@ -1,6 +1,9 @@
 volumes:
   db:
   data:
+  # ClamAV's signature database (~250 MB). Kept so a recreated container does
+  # not download it again; ClamAV rate-limits clients that do that too often.
+  clamav:
 
 networks:
   {{ HABIDAT_DOCKER_PREFIX }}-proxy:
@@ -59,12 +62,17 @@ services:
       options:
         max-size: 50m
 
+  # Nextcloud's files_antivirus app sends every upload to clamd on port 3310
+  # over the backend network. The official image runs freshclam and clamd and
+  # has a health check. It needs ~1 GB of RAM, briefly ~2 GB while it loads
+  # new signatures next to the old ones. The minor version tag gets patch
+  # releases with ./habidat.sh fix nextcloud.
   antivirus:
-    image: dinkel/clamavd
+    image: clamav/clamav:1.5
     container_name: {{ HABIDAT_DOCKER_PREFIX }}-nextcloud-antivirus
     restart: unless-stopped
-    ports:
-      - 3310
+    volumes:
+      - clamav:/var/lib/clamav
     networks:
       - {{ HABIDAT_DOCKER_PREFIX }}-back
     logging:
@@ -82,8 +90,10 @@ services:
       options:
         max-size: 50m
 
+  # Major version only: ./habidat.sh fix nextcloud pulls the newest 35.x.
+  # Moving to the next major is a module update (versions/<ver>/migrate.sh).
   nextcloud:
-    image: nextcloud:35.0.2
+    image: nextcloud:35
     restart: unless-stopped
     container_name: {{ HABIDAT_DOCKER_PREFIX }}-nextcloud
     depends_on:
@@ -94,8 +104,6 @@ services:
       - ./assets:/habidat:ro
     env_file:
       - ./nextcloud.env
-    ports:
-      - 80
     networks:
       - {{ HABIDAT_DOCKER_PREFIX }}-proxy
       - {{ HABIDAT_DOCKER_PREFIX }}-back
@@ -104,7 +112,7 @@ services:
         max-size: 50m
 
   cron:
-    image: nextcloud:35.0.2
+    image: nextcloud:35
     restart: unless-stopped
     container_name: {{ HABIDAT_DOCKER_PREFIX }}-nextcloud-cron
     depends_on:
