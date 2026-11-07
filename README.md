@@ -251,7 +251,8 @@ sudo ./habidat.sh security-check                # same, including the host check
 ./habidat.sh security-check --all-images        # also images no running container uses
 ./habidat.sh security-check --host-audit        # also a Lynis hardening audit (needs `apt install lynis`)
 ./habidat.sh security-check --tls-full          # testssl.sh against every module host name, not only auth's
-./habidat.sh security-check --severity MEDIUM   # lower the bar for the exit code and the summary
+./habidat.sh security-check --severity MEDIUM   # lower the bar for findings other than vulnerabilities
+./habidat.sh security-check --verbose           # list every finding, vulnerabilities grouped by package
 ./habidat.sh --dry-run security-check           # list what would be scanned, scan nothing
 ```
 
@@ -277,10 +278,25 @@ finding comes with a suggested fix, usually `./habidat.sh fix <module>`
 All other running containers on the server are scanned too and reported as
 *foreign containers*.
 
-**Exit code**: `0` nothing at or above the severity (default `HIGH`), `1`
-findings, `2` a check could not run (no network for the vulnerability database
-or endoflife.date, a scanner failed, ...). Vulnerabilities without a released
-fix are counted but never make the check fail.
+**Urgent vulnerabilities**: an image like Discourse's carries hundreds of known
+vulnerabilities, almost all in packages that its makers pin and that nobody is
+attacking. The check therefore lists a vulnerability only when it is *urgent*:
+on CISA's [list of exploited vulnerabilities](https://www.cisa.gov/known-exploited-vulnerabilities-catalog)
+(KEV), or with an [EPSS](https://www.first.org/epss/) score of at least
+`HABIDAT_SECURITY_EPSS_THRESHOLD` (default `0.1`, a 10 % chance of
+exploitation in the next 30 days) and a severity of MEDIUM or more. Every other
+vulnerability at or above `--severity` is counted in one line per module;
+`--verbose` and `report.json` (`vulnerabilities`) list them per package.
+Packages that only build the image (npm/pnpm/yarn internals, the pnpm store,
+executables shipped in `node_modules`; patterns in
+`lib/security/data/tooling-paths`) are never urgent. Why: [ADR 0010](docs/adr/0010-prioritise-by-exploitation-not-severity.md).
+For npm, gem, Go, Python and composer packages the fix comes with a newer
+release of the module, not from rebuilding it.
+
+**Exit code**: `0` nothing to act on, `1` an urgent vulnerability or another
+finding at or above the severity (default `HIGH`), `2` a check could not run
+(no network for the vulnerability database or endoflife.date, a scanner failed,
+an invalid setting, ...).
 
 **Network**: Docker Hub and ghcr.io (scanner images), Grype's database host,
 endoflife.date, hub.docker.com, and updates.nextcloud.com (via `occ`). No

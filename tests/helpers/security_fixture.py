@@ -78,14 +78,16 @@ def hub(last, description="", archived=None):
     return {"last_updated": last + "T00:00:00Z", "description": description, "is_archived": archived}
 
 
-def grype_match(vid, pkg, version, ptype, severity, fixed_in=None):
-    return {
-        "vulnerability": {
-            "id": vid, "severity": severity, "dataSource": f"https://example.invalid/{vid}",
-            "fix": {"state": "fixed", "versions": [fixed_in]} if fixed_in else {"state": "not-fixed", "versions": []},
-        },
-        "artifact": {"name": pkg, "version": version, "type": ptype},
+def grype_match(vid, pkg, version, ptype, severity, fixed_in=None, kev=False, epss=None, path=None):
+    vuln = {
+        "id": vid, "severity": severity, "dataSource": f"https://example.invalid/{vid}",
+        "fix": {"state": "fixed", "versions": [fixed_in]} if fixed_in else {"state": "not-fixed", "versions": []},
+        "knownExploited": [{"cve": vid, "knownRansomwareCampaignUse": "Unknown"}] if kev else None,
+        "epss": [{"cve": vid, "epss": epss, "percentile": 0.9, "date": "2026-11-06"}] if epss is not None else [],
     }
+    artifact = {"name": pkg, "version": version, "type": ptype,
+                "locations": [{"path": path or "/lib/apk/db/installed"}]}
+    return {"vulnerability": vuln, "artifact": artifact}
 
 
 def write(path, data):
@@ -144,7 +146,10 @@ def main(root):
         ]))
     write(os.path.join(raw, "checks.tsv"), "host.needrestart\tok\t\n")
 
-    # Image scans: auth has a fixed HIGH, an unfixed CRITICAL and a fixed MEDIUM.
+    # Image scans. Urgent in auth: CVE-2026-0004 (KEV), CVE-2026-0005 (MEDIUM
+    # with high EPSS) and CVE-2026-0008 (KEV, no fix). Not urgent: the npm HIGH
+    # (low EPSS), the unfixed CRITICAL, the MEDIUM, BEAST (high EPSS but
+    # negligible) and the KEV in npm's own tar (tooling).
     write(os.path.join(report, "sbom", slug("auth") + ".syft.json"), {
         "distro": {"id": "alpine", "versionID": "3.20.3"},
         "artifacts": [
@@ -153,10 +158,19 @@ def main(root):
         ],
     })
     write(os.path.join(report, "grype", slug("auth") + ".json"), {"matches": [
-        grype_match("GHSA-next-0001", "next", "15.0.0", "npm", "High", "15.0.9"),
+        grype_match("GHSA-next-0001", "next", "15.0.0", "npm", "High", "15.0.9", epss=0.004,
+                    path="/app/node_modules/next/package.json"),
         grype_match("CVE-2026-0002", "busybox", "1.36.1-r0", "apk", "Critical"),
         grype_match("CVE-2026-0003", "zlib", "1.3.1-r0", "apk", "Medium", "1.3.2-r0"),
         grype_match("CVE-2026-0003", "zlib-dev", "1.3.1-r0", "apk", "Medium", "1.3.2-r0"),
+        grype_match("CVE-2026-0004", "openssl", "3.3.2-r0", "apk", "High", "3.3.3-r0", kev=True, epss=0.83),
+        grype_match("CVE-2026-0005", "libxml2", "2.12.7-r0", "apk", "Medium", "2.12.9-r0", epss=0.4),
+        grype_match("CVE-2011-3389", "gnutls", "3.8.5-r0", "apk", "Negligible", epss=0.73),
+        grype_match("GHSA-tar-0006", "tar", "6.2.1", "npm", "Critical", "7.5.19", kev=True, epss=0.5,
+                    path="/usr/local/lib/node_modules/npm/node_modules/tar/package.json"),
+        grype_match("GHSA-tar-0007", "tar", "6.2.1", "npm", "High", "7.5.21",
+                    path="/usr/local/lib/node_modules/npm/node_modules/tar/package.json"),
+        grype_match("CVE-2026-0008", "musl", "1.2.5-r0", "apk", "Critical", kev=True),
     ]})
     write(os.path.join(report, "sbom", slug("nextcloud") + ".syft.json"), {
         "distro": {"id": "debian", "versionID": "12"}, "artifacts": []})

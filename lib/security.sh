@@ -18,7 +18,8 @@ _security_usage() {
   log_info "Usage: habidat.sh [--verbose] [--dry-run] security-check [all | <module> [<instance>]]"
   log_info "         [--all-images] [--host-audit] [--tls-full] [--severity LOW|MEDIUM|HIGH|CRITICAL]"
   log_info ""
-  log_info "Read-only. Exit codes: 0 nothing at/above the severity, 1 findings, 2 a check could not run."
+  log_info "Read-only. Exit codes: 0 nothing to act on, 1 an urgent vulnerability or another finding at/above"
+  log_info "the severity, 2 a check could not run. Vulnerabilities are urgent when known or likely to be exploited."
   log_info "Run with sudo for the host checks that need root."
 }
 

@@ -102,16 +102,42 @@ refute_finding() {
 # Vulnerabilities and exit codes
 # ---------------------------------------------------------------------------
 
-@test "vulnerabilities: fixed HIGH listed, unfixed CRITICAL only counted, MEDIUM hidden" {
+@test "vulnerabilities: only urgent ones are listed, the rest is one count line" {
   analyse
   [[ "$status" -eq 1 ]]
-  assert_output --partial "vuln:GHSA-next-0001"
-  assert_output --partial "fix: ./habidat.sh fix auth"
-  assert_output --partial "+ 1 vulnerability at HIGH or above with no fix released yet"
+  assert_output --partial "vuln:CVE-2026-0004"
+  assert_output --partial "known to be exploited (CISA KEV)"
+  assert_output --partial "vuln:CVE-2026-0005"
+  assert_output --partial "exploitation likely (EPSS 40%)"
+  assert_output --partial "vuln:CVE-2026-0008"
+  refute_output --partial "GHSA-next-0001"
   refute_output --partial "CVE-2026-0002"
-  refute_output --partial "CVE-2026-0003"
+  refute_output --partial "CVE-2011-3389"
+  refute_output --partial "GHSA-tar-0006"
+  assert_output --partial "+ 4 further known vulnerabilities at HIGH or above (2 critical, 1 without a fix), none known or likely to be exploited"
   assert_finding "vuln:CVE-2026-0002@auth"
   assert_finding "vuln:CVE-2026-0003@auth"
+}
+
+@test "vulnerabilities: KEV, EPSS and tooling decide urgency, not severity" {
+  analyse
+  [[ "$(finding 'vuln:CVE-2026-0004@auth' urgent)" == "true" ]]
+  [[ "$(finding 'vuln:CVE-2026-0005@auth' urgent)" == "true" ]]
+  [[ "$(finding 'vuln:CVE-2026-0008@auth' urgent)" == "true" ]]
+  [[ "$(finding 'vuln:CVE-2026-0002@auth' urgent)" == "false" ]]
+  [[ "$(finding 'vuln:CVE-2011-3389@auth' urgent)" == "false" ]]
+  [[ "$(finding 'vuln:GHSA-tar-0006@auth' urgent)" == "false" ]]
+  [[ "$(finding 'vuln:GHSA-tar-0006@auth' tooling)" == "true" ]]
+  [[ "$(finding 'vuln:GHSA-tar-0006@auth' kev)" == "true" ]]
+  [[ "$(finding 'vuln:CVE-2026-0004@auth' epss)" == "0.83" ]]
+}
+
+@test "vulnerabilities: OS packages are fixed by pulling, language packages by a newer release" {
+  analyse
+  [[ "$(finding 'vuln:CVE-2026-0004@auth' fix)" == "./habidat.sh fix auth" ]]
+  [[ "$(finding 'vuln:GHSA-next-0001@auth' fix)" == "fixed upstream in 15.0.9; arrives with a newer auth release (./habidat.sh update auth)" ]]
+  [[ -z "$(finding 'vuln:CVE-2026-0008@auth' fix)" ]]
+  assert_output --partial "no fix released"
 }
 
 @test "vulnerabilities: one finding per vulnerability lists every affected package" {
@@ -119,28 +145,72 @@ refute_finding() {
   [[ "$(finding 'vuln:CVE-2026-0003@auth' packages)" == '["zlib 1.3.1-r0", "zlib-dev 1.3.1-r0"]' ]]
 }
 
-@test "vulnerabilities: --verbose lists every finding" {
+@test "vulnerabilities: --verbose lists every other vulnerability grouped by package" {
   analyse --verbose
-  assert_output --partial "CVE-2026-0002"
-  assert_output --partial "CVE-2026-0003"
+  assert_output --partial "vuln:CVE-2026-0004"
+  assert_output --partial "other vulnerabilities by package:"
+  assert_output --partial "CRITICAL tar 6.2.1 (npm): 2 advisories, fixed in 7.5.21 (tooling)"
+  assert_output --partial "CRITICAL busybox 1.36.1-r0 (apk): 1 advisory, 1 without a fix"
+  assert_output --partial "LOW      gnutls 3.8.5-r0 (apk): 1 advisory, 1 without a fix"
+  refute_output --partial "+ 4 further"
   assert_output --partial "floating-tag:habidat/mediawiki"
 }
 
-@test "exit code: unfixed vulnerabilities alone never fail the check" {
-  # Accept everything except the unfixed CRITICAL.
+@test "vulnerabilities: report.json groups advisories per package" {
+  analyse
+  run python3 -c '
+import json, sys
+for g in json.load(open(sys.argv[1]))["vulnerabilities"]:
+    print(g["scope"], g["package"], g["severity"], len(g["advisories"]), ",".join(g["fixed_in"]), g["tooling"], g["urgent"])
+' "$FX/report/report.json"
+  assert_line "auth tar CRITICAL 2 7.5.21 True False"
+  assert_line "auth openssl HIGH 1 3.3.3-r0 False True"
+}
+
+@test "vulnerabilities: the EPSS threshold is configurable" {
+  SEC_ENV=(HABIDAT_SECURITY_EPSS_THRESHOLD=0.5)
+  analyse
+  refute_output --partial "vuln:CVE-2026-0005"
+  [[ "$(finding 'vuln:CVE-2026-0005@auth' urgent)" == "false" ]]
+  [[ "$(finding 'vuln:CVE-2026-0004@auth' urgent)" == "true" ]]
+}
+
+@test "vulnerabilities: an invalid EPSS threshold makes the check fail" {
+  SEC_ENV=(HABIDAT_SECURITY_EPSS_THRESHOLD=high)
+  analyse
+  [[ "$status" -eq 2 ]]
+  assert_output --partial "failed: config.epss (HABIDAT_SECURITY_EPSS_THRESHOLD=high is not a number between 0 and 1)"
+}
+
+@test "exit code: vulnerabilities that are not urgent never fail the check" {
+  # Accept everything except the vulnerabilities that are not urgent.
   analyse
   python3 -c '
 import json, sys
-ids = [f["id"] for f in json.load(open(sys.argv[1]))["findings"] if f["id"] != "vuln:CVE-2026-0002@auth"]
+ids = [f["id"] for f in json.load(open(sys.argv[1]))["findings"] if f["type"] != "vuln" or f.get("urgent")]
 open(sys.argv[2], "w").write("".join(i + " 2027-01-31 test\n" for i in ids))
 ' "$FX/report/report.json" "$FX/accepted"
   analyse
   assert_success
-  assert_output --partial "+ 1 vulnerability at HIGH or above with no fix released yet"
+  assert_output --partial "+ 4 known vulnerabilities at HIGH or above"
   assert_output --partial "-> exit 0"
 }
 
+@test "exit code: an urgent vulnerability fails the check whatever its severity" {
+  # Accept everything except the urgent MEDIUM.
+  analyse
+  python3 -c '
+import json, sys
+ids = [f["id"] for f in json.load(open(sys.argv[1]))["findings"] if f["id"] != "vuln:CVE-2026-0005@auth"]
+open(sys.argv[2], "w").write("".join(i + " 2027-01-31 test\n" for i in ids))
+' "$FX/report/report.json" "$FX/accepted"
+  analyse --severity CRITICAL
+  [[ "$status" -eq 1 ]]
+  assert_output --partial "1 finding(s) to act on"
+}
+
 @test "exit code: --severity CRITICAL ignores HIGH findings" {
+  echo "vuln:*@auth 2027-01-31 test" > "$FX/accepted"
   analyse --severity CRITICAL
   assert_success
 }

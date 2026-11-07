@@ -1,0 +1,18 @@
+# Places in a container image where tooling packages live: software that only
+# builds or installs the image's contents and is never loaded by the running
+# service. Read by lib/security/analyse.py. A vulnerability whose packages were
+# all found in such places is never urgent (docs/adr/0010).
+#
+# One Python regular expression per line, matched against the file path Syft
+# found the package at. No spaces.
+
+# Package managers installed globally (npm ships with Node.js).
+/(usr|usr/local|opt/[^/]+)/lib/node_modules/(npm|pnpm|yarn|corepack)/
+/usr/local/share/\.?(npm|yarn|corepack)/
+# pnpm's content-addressed store and the pnpm versions it downloads itself.
+/\.local/share/pnpm/
+/\.pnpm-store/
+/\.cache/(pnpm|yarn|node/corepack)/
+# Executables that npm packages ship (git hooks, bundlers, linters), e.g. lefthook.
+/node_modules/\.pnpm/[^/]+/node_modules/(@[^/]+/)?[^/]+/bin/
+/node_modules/(@[^/]+/)?[^/]+/bin/[^/]+$

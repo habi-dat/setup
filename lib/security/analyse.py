@@ -374,6 +374,7 @@ class Report:
         self.findings = {}
         self.checks = []
         self.counts = {}
+        self.packages = []
 
     def add(self, ftype, subject, scope, severity, title, fix="", **extra):
         fid = f"{ftype}:{subject}@{scope}" if subject else f"{ftype}@{scope}"
@@ -410,7 +411,51 @@ def fix_for_image(scope, kind, ref, local_build):
     return f"./habidat.sh update {module}"
 
 
-def analyse_vulnerabilities(report, inventory, report_dir, volumes):
+# Package types whose versions an application pins in its own lockfile.
+# Rebuilding the image cannot change them; only a newer release can.
+LANGUAGE_TYPES = {
+    "npm", "gem", "go-module", "python", "php-composer", "php-pecl", "java-archive",
+    "rust-crate", "dotnet", "hex", "erlang-otp", "pub", "swift", "conan", "dart-pub",
+}
+DEFAULT_EPSS_THRESHOLD = 0.1
+
+
+def match_paths(art):
+    paths = []
+    for loc in art.get("locations") or []:
+        path = loc.get("accessPath") or loc.get("path")
+        if path:
+            paths.append(path)
+    return paths
+
+
+def is_tooling(paths, patterns):
+    """A package is tooling only if every place it was found matches a pattern."""
+    return bool(paths) and bool(patterns) and all(any(p.search(path) for p in patterns) for path in paths)
+
+
+def highest_per_major(versions):
+    """'7.5.3, 7.5.21, 1.1.16, 1.1.20' -> '1.1.20, 7.5.21': the versions that fix everything."""
+    best = {}
+    for v in versions:
+        key = v.lstrip("v").split(".", 1)[0]
+        if key not in best or version_tuple(v.lstrip("v")) > version_tuple(best[key].lstrip("v")):
+            best[key] = v
+    return sorted(best.values(), key=lambda v: version_tuple(v.lstrip("v")))
+
+
+def upstream_fix(scope, kind, fixed_in):
+    versions = ", ".join(highest_per_major(fixed_in))
+    if kind == "unused":
+        return f"fixed upstream in {versions}; remove the unused image"
+    if kind == "foreign":
+        return f"fixed upstream in {versions}; arrives with a newer image for container {scope.split('/', 1)[1]}"
+    module = scope.split("/", 1)[0]
+    return f"fixed upstream in {versions}; arrives with a newer {module} release (./habidat.sh update {module})"
+
+
+def analyse_vulnerabilities(report, inventory, report_dir, volumes, tooling_patterns, epss_threshold):
+    """One finding per vulnerability and scope; per-package groups for the detailed view."""
     targets = []
     for image in inventory["images"].values():
         targets.append((image["slug"], image, None))
@@ -430,45 +475,131 @@ def analyse_vulnerabilities(report, inventory, report_dir, volumes):
         # One finding per vulnerability and scope, listing every affected
         # package: a CVE in openssl hits libssl3 and openssl alike.
         grouped = {}
+        packages = {}
         for match in grype.get("matches") or []:
             vuln = match.get("vulnerability") or {}
             art = match.get("artifact") or {}
             vid = vuln.get("id", "?")
             entry = grouped.setdefault(vid, {"severity": "LOW", "packages": [], "fixed": False,
-                                             "fixed_in": [], "url": vuln.get("dataSource")})
+                                             "fixed_in": [], "url": vuln.get("dataSource"),
+                                             "types": set(), "kev": False, "epss": 0.0, "tooling": True})
             severity = GRYPE_SEVERITY.get((vuln.get("severity") or "unknown").lower(), "LOW")
             if SEV_RANK[severity] > SEV_RANK[entry["severity"]]:
                 entry["severity"] = severity
+            if vuln.get("knownExploited"):
+                entry["kev"] = True
+            for e in vuln.get("epss") or []:
+                try:
+                    entry["epss"] = max(entry["epss"], float(e.get("epss") or 0))
+                except (TypeError, ValueError):
+                    pass
+            paths = match_paths(art)
+            tooling = is_tooling(paths, tooling_patterns)
+            if not tooling:
+                entry["tooling"] = False
             fix = vuln.get("fix") or {}
+            fixed_in = [v for v in fix.get("versions") or [] if v] if fix.get("state") == "fixed" else []
             pkg = f"{art.get('name', '?')} {art.get('version', '')}".strip()
             if pkg not in entry["packages"]:
                 entry["packages"].append(pkg)
-                entry.setdefault("types", set()).add(art.get("type", ""))
-            if fix.get("state") == "fixed":
+            entry["types"].add(art.get("type", ""))
+            if fixed_in:
                 entry["fixed"] = True
-                for v in fix.get("versions") or []:
+                for v in fixed_in:
                     if v not in entry["fixed_in"]:
                         entry["fixed_in"].append(v)
+            # Per-package view: all advisories of one package (in any version) together.
+            pkey = (art.get("name", "?"), art.get("type", ""))
+            group = packages.setdefault(pkey, {"name": pkey[0], "type": pkey[1], "versions": [],
+                                               "advisories": {}, "tooling": True})
+            if art.get("version") and art["version"] not in group["versions"]:
+                group["versions"].append(art["version"])
+            if not tooling:
+                group["tooling"] = False
+            adv = group["advisories"].setdefault(vid, {"severity": severity, "fixed_in": []})
+            if SEV_RANK[severity] > SEV_RANK[adv["severity"]]:
+                adv["severity"] = severity
+            adv["fixed_in"] += [v for v in fixed_in if v not in adv["fixed_in"]]
+
         for vid, entry in grouped.items():
+            entry["urgent"] = not entry["tooling"] and (
+                entry["kev"]
+                or (entry["epss"] >= epss_threshold and SEV_RANK[entry["severity"]] >= SEV_RANK["MEDIUM"])
+            )
             pkgs = entry["packages"]
+            types = sorted(t for t in entry["types"] if t)
             shown = ", ".join(pkgs[:4]) + (f" (+{len(pkgs) - 4} more)" if len(pkgs) > 4 else "")
-            title = f"{shown} ({', '.join(sorted(t for t in entry['types'] if t))})"
+            title = f"{shown} ({', '.join(types)})"
             title += f", fixed in {', '.join(entry['fixed_in'])}" if entry["fixed"] else ", no fix released"
+            notes = []
+            if entry["kev"]:
+                notes.append("known to be exploited (CISA KEV)")
+            if entry["epss"] >= epss_threshold:
+                notes.append(f"exploitation likely (EPSS {entry['epss']:.0%})")
+            if entry["tooling"]:
+                notes.append("tooling package, not loaded by the running service")
+            if notes:
+                title += "; " + "; ".join(notes)
+            language_only = bool(types) and all(t in LANGUAGE_TYPES for t in types)
             for scope, kind in scopes:
-                if vol:
+                if not entry["fixed"]:
+                    fix_cmd = ""
+                elif vol:
                     fix_cmd = f"update the code in {vol['path']} ({vol['container']})"
+                elif language_only:
+                    fix_cmd = upstream_fix(scope, kind, entry["fixed_in"])
                 else:
                     fix_cmd = fix_for_image(scope, kind, ref, image["local_build"])
                 report.add(
-                    "vuln", vid, scope, entry["severity"], title,
-                    fix_cmd if entry["fixed"] else "",
+                    "vuln", vid, scope, entry["severity"], title, fix_cmd,
                     fixed=entry["fixed"],
                     fixed_in=", ".join(entry["fixed_in"]),
                     packages=pkgs,
+                    urgent=entry["urgent"],
+                    kev=entry["kev"],
+                    epss=round(entry["epss"], 5),
+                    tooling=entry["tooling"],
                     image=ref or None,
                     path=vol["path"] if vol else None,
                     url=entry["url"],
                 )
+        for scope, _kind in scopes:
+            for group in packages.values():
+                report.packages.append(dict(group, scope=scope))
+
+
+def package_groups(report, findings):
+    """report.json's `vulnerabilities`: advisories per package and scope.
+
+    Accepted vulnerabilities are left out; urgent ones are marked.
+    """
+    by_id = {f["id"]: f for f in findings if f["type"] == "vuln"}
+    out = []
+    for group in report.packages:
+        advisories = []
+        for vid, adv in sorted(group["advisories"].items()):
+            finding = by_id.get(f"vuln:{vid}@{group['scope']}")
+            if finding is None or finding.get("accepted"):
+                continue
+            advisories.append({"id": vid, "severity": adv["severity"], "fixed_in": adv["fixed_in"],
+                               "urgent": bool(finding.get("urgent"))})
+        if not advisories:
+            continue
+        fixed = [v for a in advisories for v in a["fixed_in"]]
+        out.append({
+            "scope": group["scope"],
+            "package": group["name"],
+            "type": group["type"],
+            "versions": group["versions"],
+            "severity": max((a["severity"] for a in advisories), key=lambda s: SEV_RANK[s]),
+            "tooling": group["tooling"],
+            "urgent": any(a["urgent"] for a in advisories),
+            "unfixed": sum(1 for a in advisories if not a["fixed_in"]),
+            "fixed_in": highest_per_major(fixed),
+            "advisories": advisories,
+        })
+    out.sort(key=lambda g: (g["scope"], -SEV_RANK[g["severity"]], g["package"]))
+    return out
 
 
 def eol_candidates(image_env, sbom, rules):
@@ -975,7 +1106,7 @@ def short_id(finding):
     return finding["id"].rsplit("@", 1)[0]
 
 
-def render_summary(findings, checks, inventory, threshold, verbose, color, extra_lines):
+def render_summary(findings, checks, inventory, threshold, verbose, color, extra_lines, packages=()):
     display_bar = SEVERITIES[max(SEV_RANK[threshold] - 1, 0)]
     module_order = [m["module"] for m in inventory["modules"]]
 
@@ -989,42 +1120,83 @@ def render_summary(findings, checks, inventory, threshold, verbose, color, extra
         mod = group.split("/", 1)[0]
         return (1, module_order.index(mod) if mod in module_order else 999, group)
 
+    def label(sev):
+        return f"{COLORS[sev]}{sev:<8}{RESET}" if color else f"{sev:<8}"
+
     groups = {}
-    unfixed = {}
+    others = {}  # group -> non-urgent vulnerabilities at or above the threshold
     for f in findings:
         if f.get("accepted"):
             continue
         group = scope_group(f["scope"])
         groups.setdefault(group, [])
         if f["type"] == "vuln":
-            at_bar = SEV_RANK[f["severity"]] >= SEV_RANK[threshold]
-            if not f.get("fixed") and at_bar:
-                unfixed[group] = unfixed.get(group, 0) + 1
-            if verbose or (f.get("fixed") and at_bar):
+            if f.get("urgent"):
                 groups[group].append(f)
+            elif SEV_RANK[f["severity"]] >= SEV_RANK[threshold]:
+                others.setdefault(group, []).append(f)
         elif verbose or SEV_RANK[f["severity"]] >= SEV_RANK[display_bar]:
             groups[group].append(f)
+
+    # --verbose: every non-urgent vulnerability, one line per package.
+    pkg_lines = {}
+    if verbose:
+        for g in packages:
+            advisories = [a for a in g["advisories"] if not a["urgent"]]
+            if not advisories:
+                continue
+            sev = max((a["severity"] for a in advisories), key=lambda s: SEV_RANK[s])
+            unfixed = sum(1 for a in advisories if not a["fixed_in"])
+            fixed = highest_per_major([v for a in advisories for v in a["fixed_in"]])
+            text = f"{g['package']} {', '.join(g['versions'])} ({g['type']}): {len(advisories)} "
+            text += "advisory" if len(advisories) == 1 else "advisories"
+            if fixed:
+                text += f", fixed in {', '.join(fixed)}"
+            if unfixed:
+                text += f", {unfixed} without a fix"
+            if g["tooling"]:
+                text += " (tooling)"
+            group = scope_group(g["scope"])
+            if group in ("foreign containers", "unused images"):
+                text += f" @{g['scope'].split('/', 1)[1]}"
+            pkg_lines.setdefault(group, []).append((sev, text))
+            groups.setdefault(group, [])
 
     lines = []
     for group in sorted(groups, key=group_key):
         items = sorted(groups[group], key=lambda f: (-SEV_RANK[f["severity"]], f["id"]))
-        if not items and not unfixed.get(group):
+        if not items and not others.get(group) and not pkg_lines.get(group):
             continue
         lines.append(group)
         for f in items:
-            sev = f["severity"]
-            label = f"{COLORS[sev]}{sev:<8}{RESET}" if color else f"{sev:<8}"
             ident = short_id(f)
             if group in ("foreign containers", "unused images"):
                 ident += "@" + f["scope"].split("/", 1)[1]
-            lines.append(f"  {label} {ident}")
+            lines.append(f"  {label(f['severity'])} {ident}")
             lines.append(f"           {f['title']}")
             if f.get("fix"):
                 lines.append(f"           fix: {f['fix']}")
-        if unfixed.get(group):
-            count = unfixed[group]
+        if pkg_lines.get(group):
+            lines.append("  other vulnerabilities by package:")
+            for sev, text in sorted(pkg_lines[group], key=lambda x: (-SEV_RANK[x[0]], x[1])):
+                lines.append(f"  {label(sev)} {text}")
+        elif others.get(group):
+            rest = others[group]
+            count = len(rest)
+            details = []
+            critical = sum(1 for f in rest if f["severity"] == "CRITICAL")
+            if critical and threshold != "CRITICAL":
+                details.append(f"{critical} critical")
+            unfixed = sum(1 for f in rest if not f.get("fixed"))
+            if unfixed:
+                details.append(f"{unfixed} without a fix")
             noun = "vulnerability" if count == 1 else "vulnerabilities"
-            lines.append(f"  + {count} {noun} at {threshold} or above with no fix released yet (see report)")
+            further = "further " if any(f["type"] == "vuln" for f in items) else ""
+            line = f"  + {count} {further}known {noun} at {threshold} or above"
+            if details:
+                line += f" ({', '.join(details)})"
+            line += ", none known or likely to be exploited (see report or --verbose)"
+            lines.append(line)
     for c in checks:
         if c["status"] in ("skipped", "failed"):
             lines.append(f"{c['status']}: {c['name']}" + (f" ({c['note']})" if c["note"] else ""))
@@ -1033,14 +1205,29 @@ def render_summary(findings, checks, inventory, threshold, verbose, color, extra
 
 
 def compute_exit(findings, checks, threshold):
+    """Urgent vulnerabilities always count; other findings from the threshold up."""
     failed = any(c["status"] == "failed" for c in checks)
     hits = [
         f for f in findings
         if not f.get("accepted")
-        and SEV_RANK[f["severity"]] >= SEV_RANK[threshold]
-        and not (f["type"] == "vuln" and not f.get("fixed"))
+        and (f.get("urgent") if f["type"] == "vuln" else SEV_RANK[f["severity"]] >= SEV_RANK[threshold])
     ]
     return (2 if failed else 1 if hits else 0), hits
+
+
+def epss_threshold_from_env(report):
+    raw = os.environ.get("HABIDAT_SECURITY_EPSS_THRESHOLD", "").strip()
+    if not raw:
+        return DEFAULT_EPSS_THRESHOLD
+    try:
+        value = float(raw)
+    except ValueError:
+        value = -1
+    if not 0 <= value <= 1:
+        report.check("config.epss", "failed",
+                     f"HABIDAT_SECURITY_EPSS_THRESHOLD={raw} is not a number between 0 and 1")
+        return DEFAULT_EPSS_THRESHOLD
+    return value
 
 
 def run_analyse(args):
@@ -1062,7 +1249,9 @@ def run_analyse(args):
     volumes = read_volumes(raw)
     data = args.data
     with_host = not args.module_only
-    analyse_vulnerabilities(report, inventory, report_dir, volumes)
+    tooling = [re.compile(r[0]) for r in load_rules(os.path.join(data, "tooling-paths"), 1)]
+    epss_threshold = epss_threshold_from_env(report)
+    analyse_vulnerabilities(report, inventory, report_dir, volumes, tooling, epss_threshold)
     analyse_docker(report, raw, inventory, load_rules(os.path.join(data, "expected-mounts"), 1), with_host)
     analyse_exposure(report, raw, inventory, expected_ports, with_host)
     if with_host:
@@ -1086,19 +1275,21 @@ def run_analyse(args):
     rules, warnings = load_accepted(args.accepted, today)
     expired = apply_accepted(findings, rules, today)
     exit_code, hits = compute_exit(findings, report.checks, threshold)
+    packages = package_groups(report, findings)
 
     accepted_count = sum(1 for f in findings if f.get("accepted"))
     failed = [c for c in report.checks if c["status"] == "failed"]
     extra = [f"warning: {w}" for w in warnings]
     extra += [f"acceptance expired: {fid} (finding is active again)" for fid in expired]
     extra.append(
-        f"{len(hits)} finding(s) at {threshold} or above"
+        f"{len(hits)} finding(s) to act on (urgent vulnerabilities, other findings at {threshold} or above)"
         + (f", {accepted_count} accepted" if accepted_count else "")
         + (f", {len(failed)} check(s) could not run" if failed else "")
         + f" -> exit {exit_code}"
     )
     extra.append(f"report: {os.path.relpath(report_dir, args.base) if args.base else report_dir}/")
-    lines = render_summary(findings, report.checks, inventory, threshold, args.verbose, args.color, extra)
+    lines = render_summary(findings, report.checks, inventory, threshold, args.verbose, args.color, extra,
+                           packages)
 
     scanners = read_json(os.path.join(raw, "scanners.json"), {}) or {}
     write_json(os.path.join(report_dir, "report.json"), {
@@ -1107,10 +1298,12 @@ def run_analyse(args):
         "options": {
             "all_images": args.all_images, "host_audit": args.host_audit,
             "tls_full": args.tls_full, "severity": threshold,
+            "epss_threshold": epss_threshold,
         },
         "scanners": scanners,
         "checks": report.checks,
         "findings": findings,
+        "vulnerabilities": packages,
         "exit_code": exit_code,
     })
     plain = [re.sub(r"\033\[[0-9;]*m", "", line) for line in lines]

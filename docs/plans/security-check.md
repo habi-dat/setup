@@ -1,6 +1,6 @@
 # Plan: `habidat.sh security-check`
 
-Status: **implemented** (2026-11-07). Vocabulary follows the *Security* section of [GLOSSARY.md](../../GLOSSARY.md); the scanner choice is recorded in [ADR 0009](../adr/0009-grype-syft-not-trivy.md). User documentation is in the README ("Security check").
+Status: **implemented** (2026-11-07), including the revision "urgent vulnerabilities". Vocabulary follows the *Security* section of [GLOSSARY.md](../../GLOSSARY.md); the scanner choice is recorded in [ADR 0009](../adr/0009-grype-syft-not-trivy.md). User documentation is in the README ("Security check").
 
 ## Changes made during implementation
 
@@ -16,6 +16,45 @@ The rest of this document is the reviewed plan; where the implementation differs
 - **No mediawiki hook**: extensions ship in the `habidat/mediawiki` image, not in a volume, so the image scan already covers them. Only nextcloud has a hook in v1.
 - **SBOMs are cached** per image ID and Syft version in `cache/sbom/`; only Grype re-runs when an image is unchanged.
 - In a module-targeted run, container-level Docker checks (privileged, `docker.sock`) and that module's published ports are still reported; host, TLS and configuration checks are not.
+
+## Revision: urgent vulnerabilities (implemented, 2026-11-07)
+
+First real runs listed 100+ HIGH/CRITICAL lines for a freshly rebuilt Discourse image. Nearly all of them were npm/gem packages pinned by Discourse's lockfile, or build tooling. A scan of an older Discourse image found 187 fixed HIGH/CRITICAL advisories. The only two that were really being exploited (Ruby and brotli/nodejs, both on KEV with an EPSS of 65 % and 83 %) were buried among them. The decision is recorded in [ADR 0010](../adr/0010-prioritise-by-exploitation-not-severity.md); the terms *Urgent vulnerability* and *Tooling package* are in the glossary. This section overrides "Image vulnerabilities", "Severity and display" and "Exit codes" below wherever they differ.
+
+- **Urgent vulnerability.** A vulnerability is urgent if it is not in a tooling package and either:
+  - Grype reports `knownExploited` for it, or
+  - its highest `epss` value is ≥ `HABIDAT_SECURITY_EPSS_THRESHOLD` (default `0.1`) **and** its severity is at least MEDIUM. The severity floor keeps out ancient "negligible" CVEs with high EPSS, such as BEAST.
+
+  Severity is still shown, but no longer decides on its own whether a finding is listed. KEV and EPSS come with Grype's database, so the check needs no extra network access and offline runs behave the same.
+- **Finding fields.** Vulnerability findings get `urgent`, `kev`, `epss` and `tooling` in `report.json`. IDs stay `vuln:<CVE/GHSA>@<scope>`, so existing accepted findings keep matching.
+- **Tooling packages** are recognised by the path where Syft found them (`artifact.locations[].path`). The patterns come from a new data file, `lib/security/data/tooling-paths`, which uses the same format as the other data files: one regular expression per line, `#` for comments. Initial patterns:
+  - global installs of npm, pnpm, yarn and corepack (`/usr/lib/node_modules/{npm,pnpm,…}/`, `/usr/local/lib/node_modules/…`);
+  - the pnpm store and pnpm's own tool dir (`/.local/share/pnpm/`);
+  - executables shipped inside `node_modules/.pnpm/*/node_modules/*/bin/` (e.g. `lefthook`, a Go binary that brought in every Go stdlib CVE).
+
+  A finding is tooling only if **all** affected locations match. Discourse's application `node_modules` is deliberately not tooling: what the running service loads from there cannot be told reliably.
+- **Terminal summary.**
+  - Only urgent vulnerabilities are listed one by one.
+  - Every other vulnerability goes into one count line per scope, e.g. `+ 112 further known vulnerabilities (6 critical, 3 without a fix), none known or likely to be exploited (see report or --verbose)`. That line counts non-urgent vulnerabilities at or above `--severity`, fixed and unfixed alike.
+  - The separate "unfixed" count line is gone.
+  - `--verbose` lists everything, tagged `(tooling)` where it applies.
+- **Fix hints by package type.**
+  - OS packages (`deb`, `apk`, `rpm`) and runtime binaries keep today's hint (`build`/`fix`/`update`): rebuilding or pulling brings in patched packages.
+  - Language packages (`npm`, `gem`, `go-module`, `python`, `php-composer`, `java-archive`, `rust-crate`) get `fixed upstream in <versions>; arrives with a newer <module> release (./habidat.sh update <module>)`. Rebuilding cannot help, because the application's lockfile pins those versions.
+  - For volumes (the Nextcloud custom_apps scan) the hint stays as it is.
+- **Grouped detailed view.** In `--verbose` and in a new `vulnerabilities` section of `report.json`, advisories are grouped per package and scope. Example: `tar 6.2.1, 7.5.2 (npm): 9 advisories, highest CRITICAL, all fixed in 7.5.21`. The flat findings list stays, so accepted findings keep matching per CVE.
+- **Exit code.** A vulnerability makes the exit code 1 only if it is urgent and not accepted, fixed or not. Other finding types still count when they are at or above `--severity`. Exit code 2 is unchanged.
+- **Configuration.** `HABIDAT_SECURITY_EPSS_THRESHOLD=0.1` is added to `setup.env.example` and the test profiles. Invalid values (not a number between 0 and 1) fail the check: exit 2, with a clear message.
+- **Tests (tier 50).** The fixture gets matches covering:
+  - a KEV match;
+  - a high-EPSS MEDIUM match;
+  - a high-EPSS NEGLIGIBLE match (not urgent);
+  - a low-EPSS CRITICAL match (counted only);
+  - a KEV match whose only location is under the pnpm store (tooling, not urgent);
+  - an npm match (upstream fix hint).
+
+  The tests also assert the exit code and the count line, and that the threshold and `--verbose` work.
+- **Docs.** The README's "Security check" section is updated: what urgent means, the count line, exit codes and the new setting.
 
 ## Goal
 

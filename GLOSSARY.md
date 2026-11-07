@@ -44,6 +44,14 @@ _Avoid_: Audit, scan (a scan is only one part of it)
 One problem a security check found, with a severity and, where known, how to fix it.
 _Avoid_: Issue, alert, vulnerability (that is only one kind of finding)
 
+**Urgent vulnerability**:
+A vulnerability that attackers are known to exploit, or are likely to exploit soon. Only these demand action now; every other vulnerability waits for the next regular update.
+_Avoid_: Critical vulnerability (critical is a severity: how bad an attack would be, not how likely one is)
+
+**Tooling package**:
+Software inside a container image that is there only to build or install the image's contents, and that the running service never loads. It can never make a vulnerability urgent.
+_Avoid_: Dev dependency, build dependency (those are one project's own notion; a tooling package is defined by where it sits in the image)
+
 **End of life**:
 The state of a component (operating system, runtime, database, application major version) that no longer gets security fixes from its makers, whether or not a known vulnerability exists yet.
 _Avoid_: Outdated, unsupported
