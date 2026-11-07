@@ -88,10 +88,10 @@ WAIT_FOR="$BATS_TEST_DIRNAME/../lib/wait-for.sh"
   assert_equal "$found" "$known"
 }
 
-@test "the live nextcloud upgrade and import paths poll instead of sleeping" {
+@test "the live nextcloud upgrade and restore paths poll instead of sleeping" {
   # Current nextcloud/version may keep the image (34.0.4.1 stays on 34.0.4)
   # but still recreate containers to remount /habidat. Any migrate that
-  # pulls/recreates, and the import script resolve_versioned_script would
+  # pulls/recreates, and the restore script resolve_versioned_script would
   # pick, must poll rather than sleep.
   local version migrate import live_migrate f ver
   version="$(repo_module_version nextcloud)"
@@ -102,7 +102,7 @@ WAIT_FOR="$BATS_TEST_DIRNAME/../lib/wait-for.sh"
   assert_failure
 
   import=""
-  for f in "$REPO_ROOT/nextcloud/import/"*.sh; do
+  for f in "$REPO_ROOT/nextcloud/restore/"*.sh; do
     [[ -f "$f" ]] || continue
     ver="$(basename "$f" .sh)"
     [[ "$(printf '%s\n%s' "$ver" "$version" | sort -V | tail -n1)" == "$version" ]] || continue

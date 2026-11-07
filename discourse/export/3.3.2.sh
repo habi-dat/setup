@@ -1,23 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "Creating discourse backup file (this may take a while)..."
+# Dumps the forum database from the data container and names the web
+# container's /shared volume (uploads, logs). The data container's own volume
+# holds the raw PostgreSQL and Redis files and is replaced by the dump. See
+# lib/export.sh for the contract.
 
-mkdir -p "$HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/discourse"
+echo "Dumping the forum database..."
+docker exec -u postgres "$HABIDAT_DOCKER_PREFIX-discourse-data" \
+  pg_dump --clean --if-exists --create discourse > "$HABIDAT_EXPORT_DIR/db.sql"
 
-../store/discourse/launcher run "$HABIDAT_DOCKER_PREFIX-discourse" "discourse backup" > export.log
-
-if grep -q "\[SUCCESS\]" export.log; then
-  rm export.log
-  BACKUP_FILENAME=$(docker exec "$HABIDAT_DOCKER_PREFIX-discourse" ls -Art /shared/backups/default | tail -n 1)
-
-  echo "Creating backup file succeeded, copying $BACKUP_FILENAME to $HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/discourse ..."
-  docker cp "$HABIDAT_DOCKER_PREFIX-discourse:/shared/backups/default/$BACKUP_FILENAME" "$HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/discourse"
-
-  echo "Finished, filename: $BACKUP_FILENAME"
-else
-  cat export.log
-  rm export.log
-  echo "Creating backup file failed, please check above logs"
-  exit 0
-fi
+export_volume "$HABIDAT_DOCKER_PREFIX-discourse"

@@ -1,49 +1,32 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BACKUP_DIR="$HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/nextcloud"
-COMPOSE_FILE="../store/nextcloud/docker-compose.yml"
-COMPOSE_PROJECT="$HABIDAT_DOCKER_PREFIX-nextcloud"
-NC_CONTAINER="$HABIDAT_DOCKER_PREFIX-nextcloud"
-DB_CONTAINER="$HABIDAT_DOCKER_PREFIX-nextcloud-db"
-DATA_ROOT="/var/www/html/data"
+# Dumps the database in maintenance mode and names the data volume, which holds
+# config/config.php, the installed apps and every user's files. See
+# lib/export.sh for the contract. mariadb-dump exists in every MariaDB image
+# nextcloud has used (10.6 and 11.8).
 
-if [[ -z "${1:-}" ]]; then
-  echo "Exporting nextcloud with user data (use option 'nodata' for excluding user data)..."
-elif [[ "$1" == "nodata" ]]; then
-  echo "Exporting nextcloud without user data"
-else
-  echo "Invalid option, available options: nodata"
-  exit 0
-fi
+COMPOSE=(docker compose -f ../store/nextcloud/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-nextcloud")
 
-mkdir -p "$BACKUP_DIR"
-
+# shellcheck disable=SC1091
 source ../store/nextcloud/passwords.env
 
-echo "Exporting database..."
-docker compose -f "$COMPOSE_FILE" -p "$COMPOSE_PROJECT" exec db bash -c \
-  "mysqldump nextcloud -u root --password=$HABIDAT_NEXTCLOUD_DB_ROOT_PASSWORD > /backup.sql"
-DATE=$(date +"%Y%m%d%H%M")
-docker cp "$DB_CONTAINER":/backup.sql "$BACKUP_DIR/db.sql"
+occ() {
+  "${COMPOSE[@]}" exec -T --user www-data nextcloud php occ "$@"
+}
 
-STAGING_DIR=$(mktemp -d)
-trap 'rm -rf "$STAGING_DIR"' EXIT
+echo "Enabling maintenance mode..."
+occ maintenance:mode --on
+maintenance=on
+register_cleanup '[[ "$maintenance" != on ]] || occ maintenance:mode --off'
 
-cp "$BACKUP_DIR/db.sql" "$STAGING_DIR/db.sql"
-rm "$BACKUP_DIR/db.sql"
+echo "Dumping the database..."
+"${COMPOSE[@]}" exec -T -e MYSQL_PWD="$HABIDAT_NEXTCLOUD_DB_ROOT_PASSWORD" db \
+  mariadb-dump --single-transaction --default-character-set=utf8mb4 -u root nextcloud \
+  > "$HABIDAT_EXPORT_DIR/db.sql"
 
-echo "Copying data from container..."
-if [[ -z "${1:-}" ]]; then
-  docker cp "$NC_CONTAINER":"$DATA_ROOT" "$STAGING_DIR/data"
-else
-  appdata_dir=$(docker exec "$NC_CONTAINER" bash -c "basename \$(ls -d $DATA_ROOT/appdata_*)")
-  mkdir -p "$STAGING_DIR/data/$appdata_dir"
-  docker cp "$NC_CONTAINER":"$DATA_ROOT/$appdata_dir/theming" "$STAGING_DIR/data/$appdata_dir/theming"
-  docker cp "$NC_CONTAINER":"$DATA_ROOT/$appdata_dir/external" "$STAGING_DIR/data/$appdata_dir/external"
-fi
+echo "Disabling maintenance mode..."
+occ maintenance:mode --off
+maintenance=off
 
-echo "Compressing data..."
-tar -czf "$BACKUP_DIR/nextcloud-$DATE.tar.gz" -C "$STAGING_DIR" db.sql data
-
-echo "Finished, filename: $BACKUP_DIR/nextcloud-$DATE.tar.gz"
+export_volume "$HABIDAT_DOCKER_PREFIX-nextcloud_data"

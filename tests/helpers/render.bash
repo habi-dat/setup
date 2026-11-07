@@ -81,6 +81,9 @@ RUNTIME_VARS=(
   # vaultwarden/setup.sh
   "HABIDAT_VAULTWARDEN_OIDC_CLIENT_SECRET=vw-oidc-secret"
   "HABIDAT_VAULTWARDEN_ADMIN_TOKEN=vw-admin-token"
+
+  # backup/lib/timers.sh -- the repository checkout the systemd units run
+  "HABIDAT_BACKUP_BASE_DIR=/opt/habidat"
 )
 
 # ---------------------------------------------------------------------------

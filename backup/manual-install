@@ -1,0 +1,4 @@
+The backup module needs the repository URL and protection mode as arguments,
+so `./habidat.sh install all` leaves it out:
+
+  ./habidat.sh install backup <ssh://user@host[:port]/path> <provider-snapshots|append-only> [alert-email]

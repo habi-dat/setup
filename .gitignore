@@ -3,7 +3,8 @@
 # test fixture at tests/fixtures/modules/store/, which then silently never gets
 # committed and fails only in CI.
 /store
-/backup
+# Export files when HABIDAT_BACKUP_DIR is unset (backup/ is the backup module).
+/exports
 
 ./import
 ./export

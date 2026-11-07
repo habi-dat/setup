@@ -22,7 +22,7 @@ setup() {
 @test "help: lists every documented command" {
   habidat help
   assert_success
-  for cmd in install remove start restart stop up down update fix pull build export import configure modules; do
+  for cmd in install remove start restart stop up down update fix pull build export import link configure modules backup snapshots restore; do
     assert_output --partial "$cmd"
   done
 }
@@ -67,7 +67,7 @@ setup() {
   assert_success
   assert_line --partial "nginx [NOT INSTALLED]"
   assert_line --partial "nextcloud [NOT INSTALLED]"
-  assert [ "${#lines[@]}" -eq 11 ]
+  assert [ "${#lines[@]}" -eq 12 ]
 }
 
 @test "modules: lists modules in dependency order" {
@@ -75,7 +75,10 @@ setup() {
   assert_success
   assert_line --index 0 --partial "nginx"
   assert_line --index 1 --partial "auth"
-  assert_line --index 2 --partial "nextcloud"
+  local nc discourse
+  nc="$(printf '%s\n' "${lines[@]}" | grep -n 'nextcloud \[' | cut -d: -f1)"
+  discourse="$(printf '%s\n' "${lines[@]}" | grep -n 'discourse \[' | cut -d: -f1)"
+  assert [ "$nc" -lt "$discourse" ]
 }
 
 @test "modules: shows the installed version when it matches the repo target" {
@@ -847,9 +850,9 @@ EOF
 }
 
 @test "export: a module with no export script for its version is reported" {
-  # dokuwiki has no export/ directory at all.
-  seed_module dokuwiki "$(repo_module_version dokuwiki)"
-  habidat export dokuwiki
+  # mailtrain has no export/ directory at all.
+  seed_module mailtrain "$(repo_module_version mailtrain)"
+  habidat export mailtrain
   assert_output --partial "no export script for installed version"
 }
 

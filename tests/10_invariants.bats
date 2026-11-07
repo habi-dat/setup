@@ -19,6 +19,7 @@ load helpers/load
   assert_success
   assert_output - <<'EOF'
 auth
+backup
 direktkredit
 discourse
 dokuwiki
@@ -46,10 +47,10 @@ EOF
   # _run_lifecycle, remove_module, update_module and configure_module invoke these as ./<action>.sh
   # from the module directory, so mode 644 means "Permission denied".
   #
-  # Migration, export and import scripts are `source`d and do not need +x.
+  # Migration, export and restore scripts are `source`d and do not need +x.
   local mod action failures=()
   while IFS= read -r mod; do
-    for action in setup remove start stop restart up down pull build update fix configure; do
+    for action in setup remove start stop restart up down pull build update fix configure link; do
       [[ -f "$REPO_ROOT/$mod/$action.sh" ]] || continue
       [[ -x "$REPO_ROOT/$mod/$action.sh" ]] || failures+=("$mod/$action.sh")
     done
@@ -64,7 +65,7 @@ EOF
   # broken. Check the mode git actually has.
   local mod action mode failures=()
   while IFS= read -r mod; do
-    for action in setup remove start stop restart up down pull build update fix configure; do
+    for action in setup remove start stop restart up down pull build update fix configure link; do
       [[ -f "$REPO_ROOT/$mod/$action.sh" ]] || continue
       mode="$(git -C "$REPO_ROOT" ls-files -s "$mod/$action.sh" | awk '{print $1}')"
       # Untracked files have no recorded mode yet; the test above covers those.
@@ -396,13 +397,13 @@ _strip_comments() {
 }
 
 # ---------------------------------------------------------------------------
-# Export / import scripts
+# Export / restore scripts (ADR 0005-0007)
 # ---------------------------------------------------------------------------
 
-@test "every export/import script is named after a valid version" {
+@test "every export/restore script is named after a valid version" {
   local mod kind f ver failures=()
   while IFS= read -r mod; do
-    for kind in export import; do
+    for kind in export restore; do
       [[ -d "$REPO_ROOT/$mod/$kind" ]] || continue
       for f in "$REPO_ROOT/$mod/$kind"/*.sh; do
         [[ -f "$f" ]] || continue
@@ -412,16 +413,16 @@ _strip_comments() {
     done
   done < <(repo_modules)
 
-  [[ ${#failures[@]} -eq 0 ]] || fail_with_list "export/import scripts not named after a version:" "${failures[@]}"
+  [[ ${#failures[@]} -eq 0 ]] || fail_with_list "export/restore scripts not named after a version:" "${failures[@]}"
 }
 
-@test "no export/import script is newer than its module's version" {
+@test "no export/restore script is newer than its module's version" {
   # resolve_versioned_script picks the highest script <= the installed version,
   # so a script above <module>/version can never be selected.
   local mod kind f ver target failures=()
   while IFS= read -r mod; do
     target="$(repo_module_version "$mod")"
-    for kind in export import; do
+    for kind in export restore; do
       [[ -d "$REPO_ROOT/$mod/$kind" ]] || continue
       for f in "$REPO_ROOT/$mod/$kind"/*.sh; do
         [[ -f "$f" ]] || continue
@@ -433,32 +434,109 @@ _strip_comments() {
     done
   done < <(repo_modules)
 
-  [[ ${#failures[@]} -eq 0 ]] || fail_with_list "unreachable export/import scripts:" "${failures[@]}"
+  [[ ${#failures[@]} -eq 0 ]] || fail_with_list "unreachable export/restore scripts:" "${failures[@]}"
 }
 
-@test "every module with an export script has a matching import script" {
+@test "export and restore scripts come in pairs" {
+  # A snapshot is restored with the restore script of the version that wrote
+  # it, so every export format needs its reader -- and a reader without a
+  # writer is dead code.
   local mod f ver failures=()
   while IFS= read -r mod; do
-    [[ -d "$REPO_ROOT/$mod/export" ]] || continue
     for f in "$REPO_ROOT/$mod/export"/*.sh; do
       [[ -f "$f" ]] || continue
       ver="$(basename "$f" .sh)"
-      [[ -f "$REPO_ROOT/$mod/import/$ver.sh" ]] \
-        || failures+=("$mod/export/$ver.sh has no import/$ver.sh")
+      [[ -f "$REPO_ROOT/$mod/restore/$ver.sh" ]] || failures+=("$mod/export/$ver.sh has no restore/$ver.sh")
+    done
+    for f in "$REPO_ROOT/$mod/restore"/*.sh; do
+      [[ -f "$f" ]] || continue
+      ver="$(basename "$f" .sh)"
+      [[ -f "$REPO_ROOT/$mod/export/$ver.sh" ]] || failures+=("$mod/restore/$ver.sh has no export/$ver.sh")
     done
   done < <(repo_modules)
 
-  [[ ${#failures[@]} -eq 0 ]] || fail_with_list "export scripts without an import counterpart:" "${failures[@]}"
+  [[ ${#failures[@]} -eq 0 ]] || fail_with_list "unpaired export/restore scripts:" "${failures[@]}"
 }
 
-@test "the README lists exactly the modules that support export and import" {
+@test "the old import/ directories are gone" {
+  # import was renamed restore (ADR 0005); `import` survives only as a CLI alias.
+  local mod found=()
+  while IFS= read -r mod; do
+    [[ -d "$REPO_ROOT/$mod/import" ]] && found+=("$mod/import")
+  done < <(repo_modules)
+
+  [[ ${#found[@]} -eq 0 ]] || fail_with_list "leftover import directories:" "${found[@]}"
+}
+
+@test "every module except the known ones can be exported" {
+  # ADR 0005: mailtrain is being retired and direktkredit keeps its data in an
+  # external platform; backup is never restored (each server has its own key).
+  local mod missing=()
+  while IFS= read -r mod; do
+    case "$mod" in mailtrain | direktkredit | backup) continue ;; esac
+    compgen -G "$REPO_ROOT/$mod/export/*.sh" >/dev/null || missing+=("$mod")
+  done < <(repo_modules)
+
+  [[ ${#missing[@]} -eq 0 ]] || fail_with_list "modules without an export script:" "${missing[@]}"
+}
+
+@test "export scripts write uncompressed data and never pack archives themselves" {
+  # borg cannot deduplicate a freshly compressed file, so a compressed dump is
+  # uploaded in full every night (ADR 0005). Packing is lib/export.sh's job.
+  local f failures=()
+  while IFS= read -r f; do
+    if grep -nE '(^|[[:space:]])(tar|gzip|zstd|xz|bzip2)[[:space:]]|\.tar\.gz|HABIDAT_BACKUP_DIR|docker cp' "$f" >/dev/null; then
+      failures+=("${f#"$REPO_ROOT"/}: $(grep -nE '(^|[[:space:]])(tar|gzip|zstd|xz|bzip2)[[:space:]]|\.tar\.gz|HABIDAT_BACKUP_DIR|docker cp' "$f" | head -1)")
+    fi
+  done < <(find "$REPO_ROOT" -path '*/export/*.sh' -not -path '*/node_modules/*' -not -path '*/tests/*' | sort)
+
+  [[ ${#failures[@]} -eq 0 ]] || fail_with_list "export scripts that compress or copy out:" "${failures[@]}"
+}
+
+@test "no restore script or link step runs auth's user-init" {
+  # user-init's seed re-attaches install-time groups to apps that already
+  # exist, undoing an admin's changes (ADR 0007).
+  local f failures=()
+  while IFS= read -r f; do
+    grep -v '^[[:space:]]*#' "$f" | grep -q 'user-init' && failures+=("${f#"$REPO_ROOT"/}")
+  done < <(find "$REPO_ROOT" \( -path '*/restore/*.sh' -o -name link.sh \) -not -path '*/node_modules/*' | sort)
+  # `up -d` without services would start user-init too.
+  while IFS= read -r f; do
+    grep -qE 'store/auth/docker-compose.yml.* up -d[[:space:]]*$' "$f" && failures+=("${f#"$REPO_ROOT"/}: bare 'up -d' on auth")
+  done < <(find "$REPO_ROOT" \( -path '*/restore/*.sh' -o -name link.sh \) -not -path '*/node_modules/*' | sort)
+
+  [[ ${#failures[@]} -eq 0 ]] || fail_with_list "scripts that would run user-init:" "${failures[@]}"
+}
+
+@test "every module that writes into another module's store has a link step" {
+  # ADR 0007: restoring store/<module>/ whole drops what other modules added to
+  # it after the snapshot, so whoever adds must be able to add it again.
+  #
+  # RATCHET. direktkredit and mailtrain are out of scope for backups (ADR 0005:
+  # direktkredit's data lives in an external platform, mailtrain is being
+  # retired) and still write into nextcloud.env without a link step.
+  local known=(direktkredit mailtrain)
+
+  local mod found=()
+  while IFS= read -r mod; do
+    [[ -f "$REPO_ROOT/$mod/setup.sh" ]] || continue
+    if grep -E '(>>?|render\.py [^ ]+|sed -i[^.]*) *"?\.\./store/[a-z]+' "$REPO_ROOT/$mod/setup.sh" \
+        | grep -vE "store/$mod[/\"]" | grep -q .; then
+      [[ -x "$REPO_ROOT/$mod/link.sh" ]] || found+=("$mod")
+    fi
+  done < <(repo_modules)
+
+  assert_equal "$(printf '%s\n' "${found[@]+"${found[@]}"}")" "$(printf '%s\n' "${known[@]}")"
+}
+
+@test "the README lists exactly the modules that support export and restore" {
   local mod supported=()
   while IFS= read -r mod; do
     [[ -d "$REPO_ROOT/$mod/export" ]] && supported+=("$mod")
   done < <(repo_modules)
 
   local documented
-  documented="$(grep -oE 'Modules with export/import support: .*' "$REPO_ROOT/README.md" \
+  documented="$(grep -oE 'Modules with export/restore support: .*' "$REPO_ROOT/README.md" \
     | sed 's/.*support: //' | tr -d '*.' | tr ',' '\n' | tr -d ' ' | grep -v '^$' | sort)"
 
   assert_equal "$documented" "$(printf '%s\n' "${supported[@]}" | sort)"

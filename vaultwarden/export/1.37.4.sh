@@ -1,21 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Archives the /data volume (SQLite database, RSA keys, attachments, sends,
-# config.json). Vaultwarden is stopped meanwhile so the database is consistent.
+# Takes an online copy of the SQLite database while Vaultwarden keeps running,
+# and names the data volume (RSA keys, attachments, sends, config.json) and the
+# sync state volume. See lib/export.sh for the contract.
 
-BACKUP_DIR="$HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/vaultwarden"
-COMPOSE=(docker compose -f ../store/vaultwarden/docker-compose.yml -p "$HABIDAT_DOCKER_PREFIX-vaultwarden")
-DATE=$(date +"%Y%m%d%H%M")
+PROJECT="$HABIDAT_DOCKER_PREFIX-vaultwarden"
 
-mkdir -p "$BACKUP_DIR"
+echo "Copying the Vaultwarden database..."
+export_sqlite "${PROJECT}_data" db.sqlite3 db.sqlite3
 
-echo "Stopping Vaultwarden..."
-"${COMPOSE[@]}" stop sync vaultwarden
-trap '"${COMPOSE[@]}" start vaultwarden sync' EXIT
-
-echo "Archiving data volume..."
-"${COMPOSE[@]}" run --rm --no-deps -T -v "$BACKUP_DIR:/backup" --entrypoint tar \
-  vaultwarden czf "/backup/vaultwarden-$DATE.tar.gz" -C /data .
-
-echo "Export written to $BACKUP_DIR/vaultwarden-$DATE.tar.gz"
+export_volume "${PROJECT}_data"
+export_volume "${PROJECT}_sync-state"
