@@ -74,6 +74,18 @@ listmonk_load_instance() {
   export HABIDAT_LISTMONK_PROJECTID="$id"
 }
 
+# The acme companion requests a certificate as soon as the container starts.
+# Restarting the container drops its vhost from nginx-proxy for a few seconds,
+# so a validation that lands in that window gets a 503 and the companion only
+# retries on its next hourly run. Ask it to run again now that listmonk is up.
+listmonk_retrigger_letsencrypt() {
+  [[ "${HABIDAT_LETSENCRYPT:-false}" == "true" ]] || return 0
+  local companion="${HABIDAT_DOCKER_PREFIX}-letsencrypt"
+  echo "Asking ${companion} to retry certificate requests..."
+  docker exec "$companion" /app/signal_le_service >/dev/null 2>&1 \
+    || echo "Could not signal ${companion}; it will retry on its next run." >&2
+}
+
 listmonk_sql_escape() {
   python3 -c 'import sys; print(sys.argv[1].replace(chr(39), chr(39) * 2))' "$1"
 }

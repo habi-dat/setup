@@ -180,6 +180,7 @@ done <<< "$promotions"
 echo "Restarting listmonk so OIDC routes are registered..."
 docker compose -f "$(listmonk_compose "$ID")" -p "$(listmonk_project "$ID")" restart listmonk
 listmonk_wait_http "$ID"
+listmonk_retrigger_letsencrypt
 
 # --install seeds a public "Opt-in list", a private "Default list", two sample
 # subscribers and a "Test campaign". Drop them so a fresh instance is empty.
