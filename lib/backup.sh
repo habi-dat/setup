@@ -12,6 +12,14 @@
 #   staging/          dumps of the current run, removed afterwards
 
 BACKUP_STORE="$BASE_DIR/store/backup"
+
+# join_words <word>...
+#   "${arr[*]}" joins with the first character of IFS, which common.sh sets to
+#   a newline.
+join_words() {
+  local IFS=' '
+  printf '%s' "$*"
+}
 # Built by the backup module from backup/borg/Dockerfile.
 HABIDAT_BORG_IMAGE="${HABIDAT_BORG_IMAGE:-habidat-borg:1.4}"
 
@@ -24,6 +32,7 @@ BACKUP_STALE_HOURS=36
 # previous run. A nightly prune removes at most two.
 BACKUP_COUNT_DROP=3
 # Warn on takeover when the newest snapshot is younger than this.
+# shellcheck disable=SC2034  # read by backup/configure.sh
 BACKUP_TAKEOVER_HOURS=24
 
 # ---------------------------------------------------------------------------
@@ -89,6 +98,10 @@ backup_borg() {
   )
   if [[ -f "$BACKUP_STORE/passphrase" ]]; then
     env+=(-e "BORG_PASSCOMMAND=cat /config/passphrase")
+  fi
+  # Snapshot times in the host's time zone, not the container's UTC.
+  if [[ -f /etc/localtime ]]; then
+    env+=(-v /etc/localtime:/etc/localtime:ro)
   fi
   # Extra docker options, e.g. to mount a local test repository.
   IFS=' ' read -r -a extra <<< "${HABIDAT_BORG_DOCKER_ARGS:-}"
@@ -216,10 +229,11 @@ backup_cmd_run() {
 
   local staging="$BACKUP_STORE/staging" archive count
   archive="$(date +%Y-%m-%d-%H%M%S)"
-  rm -rf "$staging"
+  force_remove "$staging"
   mkdir -p "$staging"
+  : > "$staging/units.tsv"
   chmod 700 "$BACKUP_STORE"
-  register_cleanup "rm -rf '$staging'"
+  register_cleanup "force_remove '$staging'"
 
   if count="$(backup_snapshot_count)"; then
     backup_check_count "$count"
@@ -283,8 +297,10 @@ backup_cmd_run() {
   fi
 
   if [[ ${#failed[@]} -gt 0 ]]; then
-    backup_alert "snapshot $archive is missing ${failed[*]}" \
-      "The export of ${failed[*]} failed, so snapshot $archive does not contain it. Every other module was backed up.
+    local missing
+    missing="$(join_words "${failed[@]}")"
+    backup_alert "snapshot $archive is missing $missing" \
+      "The export of $missing failed, so snapshot $archive does not contain it. Every other module was backed up.
 See: journalctl -u habidat-backup"
     return 1
   fi
@@ -338,7 +354,11 @@ backup_cmd_status() {
   last="$(backup_state_get last-success)"
   log_info "Repository:  ${HABIDAT_BACKUP_REPOSITORY}"
   log_info "Protection:  ${HABIDAT_BACKUP_PROTECTION}"
-  log_info "Last success: ${last:+$(date -d "@$last" '+%Y-%m-%d %H:%M') ($(backup_state_get last-snapshot))}${last:-never}"
+  if [[ -n "$last" ]]; then
+    log_info "Last success: $(date -d "@$last" '+%Y-%m-%d %H:%M') ($(backup_state_get last-snapshot))"
+  else
+    log_info "Last success: never"
+  fi
   log_info "Snapshots:   $(backup_state_get count)"
 }
 
@@ -460,7 +480,7 @@ import_cmd() {
     return 1
   fi
   log_warn "'import' is deprecated and will be removed; use: ./habidat.sh restore $module --file $dir/$filename"
-  restore_cmd "$module" --file "$dir/$filename"
+  restore_cmd "$module" --file "$dir/$filename" "${@:3}"
 }
 
 # ---------------------------------------------------------------------------
@@ -521,9 +541,9 @@ restore_cmd() {
 
   local work
   work="$BASE_DIR/store/.restore/source-$$"
-  rm -rf "$work"
+  force_remove "$work"
   mkdir -p "$work"
-  register_cleanup "rm -rf '$work'"
+  register_cleanup "force_remove '$work'"
 
   # --- the source and its manifest ---
   if [[ -n "$file" ]]; then
@@ -564,16 +584,16 @@ restore_cmd() {
 
   # --- units ---
   local -a units=()
-  local line mod inst version status volumes skipped=false
+  local mod inst version status volumes skipped=false
   local order mod_order
   order="$(get_ordered_modules)"
   for mod_order in $order; do
     [[ "$target" == all || "$target" == "$mod_order" ]] || continue
     [[ "$mod_order" == backup ]] && continue
-    while IFS=$'\t' read -r mod inst version status volumes; do
+    while IFS='|' read -r mod inst version status volumes; do
       [[ -n "$mod" ]] || continue
       case "$status" in
-        ok) units+=("$mod"$'\t'"$inst"$'\t'"$version"$'\t'"$volumes") ;;
+        ok) units+=("$mod|$inst|$version|$volumes") ;;
         none) log_warn "$(unit_name "$mod" "$inst") has no export support; not restored." ;;
         *) log_error "$(unit_name "$mod" "$inst") failed to export in this snapshot; not restored."; skipped=true ;;
       esac
@@ -592,17 +612,19 @@ restore_cmd() {
 
   local names=() u
   for u in "${units[@]}"; do
-    IFS=$'\t' read -r mod inst _ _ <<< "$u"
+    IFS='|' read -r mod inst _ _ <<< "$u"
     names+=("$(unit_name "$mod" "$inst")")
   done
-  restore_confirm "Replace ${names[*]} with the state from $source_label? Their current data is lost."
+  local names_list
+  names_list="$(join_words "${names[@]}")"
+  restore_confirm "Replace $names_list with the state from $source_label? Their current data is lost."
 
   # --- restore, link, update ---
   local had_error=false restored=()
   for u in "${units[@]}"; do
-    IFS=$'\t' read -r mod inst version volumes <<< "$u"
+    IFS='|' read -r mod inst version volumes <<< "$u"
     if restore_unit "$mod" "$inst" "$version" "$volumes"; then
-      restored+=("$mod"$'\t'"$inst")
+      restored+=("$mod|$inst")
     else
       had_error=true
       [[ "$target" == all ]] || return 1
@@ -616,7 +638,7 @@ restore_cmd() {
     done
   else
     for u in "${restored[@]}"; do
-      IFS=$'\t' read -r mod inst <<< "$u"
+      IFS='|' read -r mod inst <<< "$u"
       link_module "$mod" "$inst" || had_error=true
     done
     if grep -qxF "$target" < <(modules_others_write_into); then
@@ -628,7 +650,7 @@ restore_cmd() {
   log_info "Updating restored modules to the repository's version..."
   local done_mods=" "
   for u in "${restored[@]}"; do
-    IFS=$'\t' read -r mod inst <<< "$u"
+    IFS='|' read -r mod inst <<< "$u"
     [[ "$done_mods" == *" $mod "* ]] && continue
     done_mods+="$mod "
     update_module "$mod" || had_error=true
@@ -638,5 +660,5 @@ restore_cmd() {
     log_error "The restore finished with errors. Check the output above."
     return 1
   fi
-  log_info "Restore of ${names[*]} from $source_label complete."
+  log_info "Restore of $names_list from $source_label complete."
 }

@@ -27,6 +27,27 @@
 # Python's sqlite3 for online SQLite backups.
 HABIDAT_TOOLS_IMAGE="${HABIDAT_TOOLS_IMAGE:-python:3.13-slim}"
 
+# force_remove <path>
+#   rm -rf that also works for a non-root user on files a container created as
+#   root (dumps, extracted snapshot parts, mount points).
+force_remove() {
+  local path="$1"
+  [[ -e "$path" ]] || return 0
+  rm -rf "$path" 2>/dev/null && return 0
+  docker run --rm -v "$(dirname "$path"):/parent" "$HABIDAT_TOOLS_IMAGE" \
+    rm -rf "/parent/$(basename "$path")"
+}
+
+# force_move <src> <dst>
+#   mv for paths under store/ that a container may have created as root.
+force_move() {
+  mv "$1" "$2" 2>/dev/null && return 0
+  local store="$BASE_DIR/store"
+  [[ "$1" == "$store"/* && "$2" == "$store"/* ]] || { mv "$1" "$2"; return; }
+  docker run --rm -v "$store:/store" "$HABIDAT_TOOLS_IMAGE" \
+    mv "/store/${1#"$store"/}" "/store/${2#"$store"/}"
+}
+
 # ---------------------------------------------------------------------------
 # Units
 # ---------------------------------------------------------------------------
@@ -171,7 +192,7 @@ export_unit() {
   dump_dir="$root/dumps/$unit"
   volumes_file="$root/.volumes-${unit//\//_}"
 
-  rm -rf "$dump_dir"
+  force_remove "$dump_dir"
   mkdir -p "$dump_dir"
   : > "$volumes_file"
 
@@ -242,7 +263,9 @@ manifest_get() {
 }
 
 # manifest_units <manifest.json> [module] [instance]
-#   Units in the manifest as TSV lines: module instance version status volumes
+#   Units in the manifest, one per line: module|instance|version|status|volumes
+#   ("|", not a tab: bash's `read` merges adjacent tabs, which would swallow an
+#   empty instance field).
 manifest_units() {
   python3 - "$@" <<'PY'
 import json, sys
@@ -254,7 +277,7 @@ for u in manifest.get("units", []):
         continue
     if instance and (u.get("instance") or "") != instance:
         continue
-    print("\t".join([u["module"], u.get("instance") or "", u.get("version") or "",
+    print("|".join([u["module"], u.get("instance") or "", u.get("version") or "",
                      u.get("status") or "", ",".join(u.get("volumes") or [])]))
 PY
 }
@@ -276,16 +299,16 @@ export_unit_to_file() {
 
   unit="$(unit_name "$module" "$instance")"
   work="$BASE_DIR/store/.export/${unit//\//_}"
-  rm -rf "$work"
+  force_remove "$work"
   mkdir -p "$work"
 
   if ! export_unit "$module" "$instance" "$work"; then
-    rm -rf "$work"
+    force_remove "$work"
     return 1
   fi
   if grep -q $'\tnone\t' "$work/units.tsv"; then
     log_error "Module $module has no export script for installed version."
-    rm -rf "$work"
+    force_remove "$work"
     return 1
   fi
   write_manifest "$work" export
@@ -298,7 +321,7 @@ export_unit_to_file() {
   local -a mounts=(-v "$work:/x" -v "$out_dir:/out" -v "$BASE_DIR/store/$unit:/x/store/$unit:ro")
   local vol
   local -a vols=()
-  volumes="$(manifest_units "$work/manifest.json" | cut -f5)"
+  volumes="$(manifest_units "$work/manifest.json" | cut -d'|' -f5)"
   IFS=',' read -r -a vols <<< "$volumes"
   for vol in "${vols[@]+"${vols[@]}"}"; do
     [[ -n "$vol" ]] && mounts+=(-v "$vol:/x/volumes/$vol:ro")
@@ -309,10 +332,10 @@ export_unit_to_file() {
       sh -c 'mkdir -p /x/volumes && cd /x && tar --numeric-owner -czf "/out/$1" manifest.json dumps store volumes' \
       sh "$file"; then
     log_error "Could not write $out_dir/$file."
-    rm -rf "$work"
+    force_remove "$work"
     return 1
   fi
-  rm -rf "$work"
+  force_remove "$work"
   log_info "Export of $unit written to $out_dir/$file"
 }
 
@@ -331,8 +354,20 @@ restore_extract() {
       ;;
     snapshot:*)
       local rc=0
-      backup_borg -v "$dest:/restore" -- sh -c 'cd /restore && archive="$1" && shift && borg extract --numeric-ids "::$archive" "$@"' \
-        sh "${HABIDAT_RESTORE_SOURCE#snapshot:}" "$@" || rc=$?
+      # borg creates the parents of a partial extract as root with mode 0700;
+      # open them so a non-root operator can reach what was extracted.
+      backup_borg -v "$dest:/restore" -- sh -c '
+        cd /restore || exit 2
+        archive="$1"; shift
+        borg extract --numeric-ids "::$archive" "$@"; rc=$?
+        for p in "$@"; do
+          d="$(dirname "$p")"
+          while [ "$d" != . ]; do
+            [ -d "$d" ] && chmod a+rx "$d"
+            d="$(dirname "$d")"
+          done
+        done
+        exit "$rc"' sh "${HABIDAT_RESTORE_SOURCE#snapshot:}" "$@" || rc=$?
       # 1 is borg's "warning", e.g. a path that is not in the archive. The
       # caller checks for what it needs.
       [[ $rc -le 1 ]]
@@ -369,11 +404,11 @@ restore_unit() {
   fi
 
   work="$BASE_DIR/store/.restore/$(date +%Y%m%d%H%M%S)-${unit//\//_}"
-  rm -rf "$work"
+  force_remove "$work"
   log_info "Restoring $unit at version $version (using $module/restore/$(basename "$script"))..."
   if ! restore_extract "$work" "dumps/$unit" "store/$unit" || [[ ! -d "$work/store/$unit" ]]; then
     log_error "The source has no store/$unit."
-    rm -rf "$work"
+    force_remove "$work"
     return 1
   fi
   mkdir -p "$work/dumps/$unit"
@@ -381,10 +416,10 @@ restore_unit() {
   target="$BASE_DIR/store/$unit"
   if [[ -e "$target" ]]; then
     mkdir -p "$work/previous"
-    mv "$target" "$work/previous/"
+    force_move "$target" "$work/previous/"
   fi
   mkdir -p "$(dirname "$target")"
-  mv "$work/store/$unit" "$target"
+  force_move "$work/store/$unit" "$target"
 
   if [[ -n "$instance" ]]; then
     echo "$version" > "$BASE_DIR/store/$module/version"
@@ -406,7 +441,7 @@ restore_unit() {
     fi
     return "$rc"
   fi
-  rm -rf "$work"
+  force_remove "$work"
   log_info "Restored $unit."
 }
 

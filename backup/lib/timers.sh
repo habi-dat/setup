@@ -8,7 +8,8 @@ BACKUP_SYSTEMD_DIR="${HABIDAT_SYSTEMD_DIR:-/etc/systemd/system}"
 
 backup_build_image() {
   echo "Building $HABIDAT_BORG_IMAGE..."
-  docker build -t "$HABIDAT_BORG_IMAGE" "$BASE_DIR/backup/borg"
+  docker build -q -t "$HABIDAT_BORG_IMAGE" "$BASE_DIR/backup/borg" >/dev/null
+  docker run --rm "$HABIDAT_BORG_IMAGE" borg --version
 }
 
 backup_can_manage_systemd() {
@@ -35,7 +36,7 @@ backup_install_timers() {
     backup_render_units "$version" "$BACKUP_STORE/systemd"
     echo "Cannot write to $BACKUP_SYSTEMD_DIR. As root, run:"
     echo "  cp $BACKUP_STORE/systemd/habidat-backup* $BACKUP_SYSTEMD_DIR/"
-    echo "  systemctl daemon-reload && systemctl enable --now ${BACKUP_TIMERS[*]}"
+    echo "  systemctl daemon-reload && systemctl enable --now $(join_words "${BACKUP_TIMERS[@]}")"
     return 0
   fi
   for unit in "${BACKUP_UNITS[@]}"; do

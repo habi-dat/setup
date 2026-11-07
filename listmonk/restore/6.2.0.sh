@@ -22,7 +22,7 @@ restore_volume "${PROJECT}_uploads" "$PROJECT" uploads
   "docker compose -f '$COMPOSE_FILE' -p '$PROJECT' exec -T db pg_isready -U listmonk"
 
 echo "Loading the database..."
-"${COMPOSE[@]}" exec -T db psql -U listmonk -d postgres -v ON_ERROR_STOP=1 -q \
+"${COMPOSE[@]}" exec -T db psql -U listmonk -d postgres -v ON_ERROR_STOP=1 -q -o /dev/null \
   < "$HABIDAT_RESTORE_DIR/db.sql"
 
 "${COMPOSE[@]}" up -d

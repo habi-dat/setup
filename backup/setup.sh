@@ -46,6 +46,7 @@ if [[ -n "$ALERT_EMAIL" && "$ALERT_EMAIL" != *@* ]]; then
 fi
 IFS=" " read -r repo_user repo_host repo_port repo_path <<< "$parts"
 
+mkdir -p "$BASE_DIR/store"
 umask 077
 mkdir -p "$BACKUP_STORE/ssh" "$BACKUP_STORE/state" "$BACKUP_STORE/cache"
 chmod 700 "$BACKUP_STORE"

@@ -17,6 +17,7 @@ occ() {
 
 echo "Enabling maintenance mode..."
 occ maintenance:mode --on
+# shellcheck disable=SC2034  # read by the cleanup hook
 maintenance=on
 register_cleanup '[[ "$maintenance" != on ]] || occ maintenance:mode --off'
 

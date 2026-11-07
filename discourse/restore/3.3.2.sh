@@ -32,7 +32,7 @@ fi
   "docker exec -u postgres '$DATA' psql -d postgres -c 'select 1'"
 
 echo "Loading the forum database..."
-docker exec -i -u postgres "$DATA" psql -d postgres -v ON_ERROR_STOP=1 -q \
+docker exec -i -u postgres "$DATA" psql -d postgres -v ON_ERROR_STOP=1 -q -o /dev/null \
   < "$HABIDAT_RESTORE_DIR/db.sql"
 
 if container_exists "$WEB"; then

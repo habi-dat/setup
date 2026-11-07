@@ -36,7 +36,7 @@ restore_volume "${PROJECT}_user-uploads" "$PROJECT" user-uploads
      -w '$HABIDAT_LDAP_ADMIN_PASSWORD' -b '$HABIDAT_LDAP_BASE' -s base dn"
 
 echo "Loading the auth database..."
-"${COMPOSE[@]}" exec -T user-db psql -U postgres -d postgres -v ON_ERROR_STOP=1 -q \
+"${COMPOSE[@]}" exec -T user-db psql -U postgres -d postgres -v ON_ERROR_STOP=1 -q -o /dev/null \
   < "$HABIDAT_RESTORE_DIR/db.sql"
 
 services=(user user-worker user-avatars)
