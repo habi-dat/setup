@@ -665,8 +665,8 @@ def eol_finding(report, fetcher, today, product, version, source, scope, fix):
         )
 
 
-def analyse_eol(report, inventory, report_dir, rules, fetcher, today, raw, with_host):
-    for image in inventory["images"].values():
+def analyse_eol(report, inventory, report_dir, rules, fetcher, today, raw, with_host, with_images=True):
+    for image in inventory["images"].values() if with_images else ():
         sbom = read_json(os.path.join(report_dir, "sbom", f"{image['slug']}.syft.json"))
         ref = image["refs"][0] if image["refs"] else ""
         for product, version, source in eol_candidates(image["env"], sbom, rules):
@@ -1251,7 +1251,9 @@ def run_analyse(args):
     with_host = not args.module_only
     tooling = [re.compile(r[0]) for r in load_rules(os.path.join(data, "tooling-paths"), 1)]
     epss_threshold = epss_threshold_from_env(report)
-    analyse_vulnerabilities(report, inventory, report_dir, volumes, tooling, epss_threshold)
+    with_images = not args.host_only
+    if with_images:
+        analyse_vulnerabilities(report, inventory, report_dir, volumes, tooling, epss_threshold)
     analyse_docker(report, raw, inventory, load_rules(os.path.join(data, "expected-mounts"), 1), with_host)
     analyse_exposure(report, raw, inventory, expected_ports, with_host)
     if with_host:
@@ -1259,10 +1261,11 @@ def run_analyse(args):
         analyse_tls(report, raw, today)
         analyse_config(report, args.base)
     analyse_eol(report, inventory, report_dir, load_rules(os.path.join(data, "eol-products"), 3), fetcher, today,
-                raw, with_host)
-    analyse_hub(report, inventory, load_rules(os.path.join(data, "moved-images"), 2), fetcher, today, months)
-    analyse_outdated(report, inventory, args.target)
-    analyse_hooks(report, raw, args.target)
+                raw, with_host, with_images)
+    if with_images:
+        analyse_hub(report, inventory, load_rules(os.path.join(data, "moved-images"), 2), fetcher, today, months)
+        analyse_outdated(report, inventory, args.target)
+        analyse_hooks(report, raw, args.target)
 
     for group, label, url in (("eol", "end-of-life data", "endoflife.date"), ("hub", "image metadata", "hub.docker.com")):
         if fetcher.failures.get(group):
@@ -1294,7 +1297,7 @@ def run_analyse(args):
     scanners = read_json(os.path.join(raw, "scanners.json"), {}) or {}
     write_json(os.path.join(report_dir, "report.json"), {
         "started": args.started,
-        "target": args.target or "all",
+        "target": "host" if args.host_only else args.target or "all",
         "options": {
             "all_images": args.all_images, "host_audit": args.host_audit,
             "tls_full": args.tls_full, "severity": threshold,
@@ -1333,6 +1336,8 @@ def main(argv=None):
     ana.add_argument("--severity", default="HIGH", choices=SEVERITIES + [s.lower() for s in SEVERITIES])
     ana.add_argument("--target")
     ana.add_argument("--module-only", action="store_true")
+    ana.add_argument("--host-only", action="store_true",
+                     help="the server itself: no image vulnerabilities, image end of life, Docker Hub or module checks")
     ana.add_argument("--all-images", action="store_true")
     ana.add_argument("--host-audit", action="store_true")
     ana.add_argument("--tls-full", action="store_true")

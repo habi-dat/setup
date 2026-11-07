@@ -15,11 +15,12 @@ source "$BASE_DIR/lib/security/scanners.sh"
 SECURITY_DIR_NAME=".security-check"
 
 _security_usage() {
-  log_info "Usage: habidat.sh [--verbose] [--dry-run] security-check [all | <module> [<instance>]]"
+  log_info "Usage: habidat.sh [--verbose] [--dry-run] security-check [all | host | <module> [<instance>]]"
   log_info "         [--all-images] [--host-audit] [--tls-full] [--severity LOW|MEDIUM|HIGH|CRITICAL]"
   log_info ""
   log_info "Read-only. Exit codes: 0 nothing to act on, 1 an urgent vulnerability or another finding at/above"
   log_info "the severity, 2 a check could not run. Vulnerabilities are urgent when known or likely to be exploited."
+  log_info "'host' checks only the server itself (updates, Docker daemon, open ports, TLS, setup.env), no images."
   log_info "Run with sudo for the host checks that need root."
 }
 
@@ -322,7 +323,7 @@ _security_collect_tls() {
 # Entry point
 # ---------------------------------------------------------------------------
 security_check() {
-  SEC_TARGET="" SEC_INSTANCE="" SEC_ALL_IMAGES=false SEC_HOST_AUDIT=false SEC_TLS_FULL=false
+  SEC_TARGET="" SEC_INSTANCE="" SEC_ALL_IMAGES=false SEC_HOST_AUDIT=false SEC_TLS_FULL=false SEC_HOST_ONLY=false
   local severity="HIGH" sec_verbose="$VERBOSE"
   local -a positional=()
   while [[ $# -gt 0 ]]; do
@@ -347,7 +348,11 @@ security_check() {
     shift
   done
 
-  if [[ ${#positional[@]} -gt 0 && "${positional[0]}" != "all" ]]; then
+  if [[ ${#positional[@]} -gt 0 && "${positional[0]}" == "host" ]]; then
+    [[ ${#positional[@]} -gt 1 ]] && die "security-check host takes no further arguments"
+    [[ "$SEC_ALL_IMAGES" == "true" ]] && die "--all-images does not apply to security-check host (it scans no images)"
+    SEC_HOST_ONLY=true
+  elif [[ ${#positional[@]} -gt 0 && "${positional[0]}" != "all" ]]; then
     SEC_TARGET="${positional[0]}"
     is_valid_module "$SEC_TARGET" || die "Unknown module: $SEC_TARGET"
     is_installed "$SEC_TARGET" || die "Module $SEC_TARGET is not installed"
@@ -373,23 +378,28 @@ security_check() {
   local started
   started="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-  log_info "Security check of ${SEC_TARGET:-the whole server}${SEC_INSTANCE:+ (instance $SEC_INSTANCE)} -- read-only."
+  local what="${SEC_TARGET:-the whole server}"
+  [[ "$SEC_HOST_ONLY" == "true" ]] && what="the host only (no images)"
+  log_info "Security check of $what${SEC_INSTANCE:+ (instance $SEC_INSTANCE)} -- read-only."
   [[ $EUID -ne 0 && -z "$SEC_TARGET" ]] && log_info "Not running as root: some host checks will be skipped (re-run with sudo for all)."
 
   _security_collect_inventory
 
   if [[ "$DRY_RUN" == "true" ]]; then
     local entry
-    log_info "[dry-run] images to scan with $SECURITY_SYFT_IMAGE and $SECURITY_GRYPE_IMAGE:"
-    for entry in "${SEC_IMAGES[@]+"${SEC_IMAGES[@]}"}"; do
-      log_info "[dry-run]   $(cut -f3 <<< "$entry")"
-    done
+    if [[ "$SEC_HOST_ONLY" != "true" ]]; then
+      log_info "[dry-run] images to scan with $SECURITY_SYFT_IMAGE and $SECURITY_GRYPE_IMAGE:"
+      for entry in "${SEC_IMAGES[@]+"${SEC_IMAGES[@]}"}"; do
+        log_info "[dry-run]   $(cut -f3 <<< "$entry")"
+      done
+    fi
     log_info "[dry-run] containers:"
     for entry in "${SEC_CONTAINERS[@]+"${SEC_CONTAINERS[@]}"}"; do
       log_info "[dry-run]   $(cut -f1 <<< "$entry") ($(cut -f2 <<< "$entry"))"
     done
     local mod
     while IFS=$'\t' read -r mod _; do
+      [[ "$SEC_HOST_ONLY" == "true" ]] && break
       [[ -n "$SEC_TARGET" && "$mod" != "$SEC_TARGET" ]] && continue
       if [[ -x "$BASE_DIR/$mod/security-check.sh" ]]; then
         log_info "[dry-run] module checks: $mod/security-check.sh"
@@ -408,8 +418,10 @@ security_check() {
   printf '{"syft": "%s", "grype": "%s", "testssl": "%s"}\n' \
     "$SECURITY_SYFT_IMAGE" "$SECURITY_GRYPE_IMAGE" "$SECURITY_TESTSSL_IMAGE" > "$SEC_RAW/scanners.json"
 
-  _security_scan_images
-  _security_run_hooks
+  if [[ "$SEC_HOST_ONLY" != "true" ]]; then
+    _security_scan_images
+    _security_run_hooks
+  fi
   if [[ -z "$SEC_TARGET" ]]; then
     _security_collect_host
     _security_collect_docker
@@ -420,6 +432,7 @@ security_check() {
     --accepted "$state/accepted" --data "$BASE_DIR/lib/security/data" --base "$BASE_DIR"
     --severity "$severity" --started "$started")
   [[ -n "$SEC_TARGET" ]] && ana_args+=(--target "$SEC_TARGET${SEC_INSTANCE:+/$SEC_INSTANCE}" --module-only)
+  [[ "$SEC_HOST_ONLY" == "true" ]] && ana_args+=(--host-only)
   [[ "$SEC_ALL_IMAGES" == "true" ]] && ana_args+=(--all-images)
   [[ "$SEC_HOST_AUDIT" == "true" ]] && ana_args+=(--host-audit)
   [[ "$SEC_TLS_FULL" == "true" ]] && ana_args+=(--tls-full)

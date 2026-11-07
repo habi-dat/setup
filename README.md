@@ -307,6 +307,7 @@ Modules with export/restore support: **auth**, **nextcloud**, **discourse**, **v
 ```bash
 ./habidat.sh security-check                     # the whole server: host, all modules, foreign containers, TLS
 sudo ./habidat.sh security-check                # same, including the host checks that need root
+sudo ./habidat.sh security-check host           # the server only: updates, Docker daemon, open ports, TLS, setup.env; no images
 ./habidat.sh security-check nextcloud           # one module only (its containers, code and app checks)
 ./habidat.sh security-check mediawiki <id>      # one module instance
 ./habidat.sh security-check --all-images        # also images no running container uses

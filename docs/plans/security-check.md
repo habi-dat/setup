@@ -16,6 +16,7 @@ The rest of this document is the reviewed plan; where the implementation differs
 - **No mediawiki hook**: extensions ship in the `habidat/mediawiki` image, not in a volume, so the image scan already covers them. Only nextcloud has a hook in v1.
 - **SBOMs are cached** per image ID and Syft version in `cache/sbom/`; only Grype re-runs when an image is unchanged.
 - In a module-targeted run, container-level Docker checks (privileged, `docker.sock`) and that module's published ports are still reported; host, TLS and configuration checks are not.
+- **`security-check host`** checks only the server: host, Docker daemon (incl. privileged containers and `docker.sock` mounts), exposure, TLS and `setup.env`, plus end of life of the host OS and Docker Engine. No image scans, no image end of life, no Docker Hub lookups, no module checks; `--all-images` and an instance argument are rejected.
 
 ## Revision: urgent vulnerabilities (implemented, 2026-11-07)
 

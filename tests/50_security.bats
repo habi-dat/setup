@@ -345,6 +345,23 @@ open(sys.argv[2], "w").write("".join(i + " 2027-01-31 test\n" for i in ids))
   [[ "$(finding 'outdated-app:calendar@nextcloud' severity)" == "MEDIUM" ]]
 }
 
+@test "host target: host, Docker, exposure, TLS and config findings, nothing from images or modules" {
+  analyse --host-only
+  run finding_ids
+  assert_line "host-updates@host"
+  assert_line "eol:debian-12@host"
+  assert_line "ufw-bypass:tcp/389@auth"
+  assert_line "tls:TLS1@host"
+  refute_output --partial "vuln:"
+  refute_output --partial "eol:php"
+  refute_output --partial "eol:node"
+  refute_output --partial "abandoned:"
+  refute_output --partial "floating-tag:"
+  refute_output --partial "outdated-module:"
+  refute_output --partial "outdated-app:"
+  [[ "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["target"])' "$FX/report/report.json")" == "host" ]]
+}
+
 @test "module target: no host, TLS or configuration findings" {
   INV_ARGS="--target auth"
   analyse --target auth --module-only
@@ -413,6 +430,28 @@ EOF
   run grep -E '^docker run' "$DOCKER_LOG"
   assert_failure
   [[ ! -e "$SANDBOX/store/.security-check" ]]
+}
+
+@test "cli: --dry-run host lists only the host checks" {
+  new_sandbox dev
+  seed_module nginx "$(cat "$REPO_ROOT/nginx/version")"
+  habidat --dry-run security-check host
+  assert_success
+  assert_output --partial "Security check of the host only (no images)"
+  assert_output --partial "[dry-run] host checks"
+  refute_output --partial "images to scan"
+  run grep -E '^docker run' "$DOCKER_LOG"
+  assert_failure
+}
+
+@test "cli: host takes no instance and no --all-images" {
+  new_sandbox dev
+  habidat security-check host x
+  assert_failure
+  assert_output --partial "security-check host takes no further arguments"
+  habidat security-check host --all-images
+  assert_failure
+  assert_output --partial "--all-images does not apply to security-check host"
 }
 
 @test "cli: unknown and uninstalled modules are rejected" {
