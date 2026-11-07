@@ -379,7 +379,12 @@ class Report:
     def add(self, ftype, subject, scope, severity, title, fix="", **extra):
         fid = f"{ftype}:{subject}@{scope}" if subject else f"{ftype}@{scope}"
         if fid in self.findings:
-            return self.findings[fid]
+            existing = self.findings[fid]
+            for label in extra.get("images") or []:
+                existing.setdefault("images", [])
+                if label not in existing["images"]:
+                    existing["images"].append(label)
+            return existing
         finding = {
             "id": fid,
             "type": ftype,
@@ -395,6 +400,16 @@ class Report:
 
     def check(self, name, status, note=""):
         self.checks.append({"name": name, "status": status, "note": note})
+
+
+def image_label(inventory, image, scope):
+    """'osixia/openldap:1.3.0 (container hab-ldap)': where a finding comes from."""
+    ref = image["refs"][0] if image["refs"] else image["slug"]
+    names = sorted(c["name"] for c in inventory.get("containers", [])
+                   if c.get("image_id") == image["id"] and c.get("scope") == scope)
+    if not names:
+        return ref
+    return f"{ref} (container{'s' if len(names) > 1 else ''} {', '.join(names)})"
 
 
 def fix_for_image(scope, kind, ref, local_build):
@@ -462,6 +477,10 @@ def analyse_vulnerabilities(report, inventory, report_dir, volumes, tooling_patt
     for vol in volumes:
         targets.append((vol["slug"], None, vol))
 
+    # One finding per vulnerability and scope. Two images of one module can
+    # share a vulnerability (both on the same Alpine release, say), so entries
+    # are merged per scope before they become findings.
+    pending = {}
     for slug, image, vol in targets:
         grype = read_json(os.path.join(report_dir, "grype", f"{slug}.json"))
         if grype is None:
@@ -528,18 +547,6 @@ def analyse_vulnerabilities(report, inventory, report_dir, volumes, tooling_patt
             )
             pkgs = entry["packages"]
             types = sorted(t for t in entry["types"] if t)
-            shown = ", ".join(pkgs[:4]) + (f" (+{len(pkgs) - 4} more)" if len(pkgs) > 4 else "")
-            title = f"{shown} ({', '.join(types)})"
-            title += f", fixed in {', '.join(entry['fixed_in'])}" if entry["fixed"] else ", no fix released"
-            notes = []
-            if entry["kev"]:
-                notes.append("known to be exploited (CISA KEV)")
-            if entry["epss"] >= epss_threshold:
-                notes.append(f"exploitation likely (EPSS {entry['epss']:.0%})")
-            if entry["tooling"]:
-                notes.append("tooling package, not loaded by the running service")
-            if notes:
-                title += "; " + "; ".join(notes)
             language_only = bool(types) and all(t in LANGUAGE_TYPES for t in types)
             for scope, kind in scopes:
                 if not entry["fixed"]:
@@ -550,22 +557,60 @@ def analyse_vulnerabilities(report, inventory, report_dir, volumes, tooling_patt
                     fix_cmd = upstream_fix(scope, kind, entry["fixed_in"])
                 else:
                     fix_cmd = fix_for_image(scope, kind, ref, image["local_build"])
-                report.add(
-                    "vuln", vid, scope, entry["severity"], title, fix_cmd,
-                    fixed=entry["fixed"],
-                    fixed_in=", ".join(entry["fixed_in"]),
-                    packages=pkgs,
-                    urgent=entry["urgent"],
-                    kev=entry["kev"],
-                    epss=round(entry["epss"], 5),
-                    tooling=entry["tooling"],
-                    image=ref or None,
-                    path=vol["path"] if vol else None,
-                    url=entry["url"],
-                )
+                label = f"{vol['path']} in container {vol['container']}" if vol else image_label(inventory, image, scope)
+                merged = pending.get((scope, vid))
+                if merged is None:
+                    pending[(scope, vid)] = dict(entry, packages=list(pkgs), types=set(types), fix=fix_cmd,
+                                                 fixed_in=list(entry["fixed_in"]), images=[label],
+                                                 image=ref or None, path=vol["path"] if vol else None)
+                    continue
+                if SEV_RANK[entry["severity"]] > SEV_RANK[merged["severity"]]:
+                    merged["severity"] = entry["severity"]
+                merged["packages"] += [p for p in pkgs if p not in merged["packages"]]
+                merged["types"] |= set(types)
+                merged["fixed_in"] += [v for v in entry["fixed_in"] if v not in merged["fixed_in"]]
+                merged["fixed"] = merged["fixed"] or entry["fixed"]
+                merged["fix"] = merged["fix"] or fix_cmd
+                merged["kev"] = merged["kev"] or entry["kev"]
+                merged["epss"] = max(merged["epss"], entry["epss"])
+                merged["tooling"] = merged["tooling"] and entry["tooling"]
+                merged["urgent"] = merged["urgent"] or entry["urgent"]
+                if label not in merged["images"]:
+                    merged["images"].append(label)
         for scope, _kind in scopes:
+            label = f"{vol['path']} in container {vol['container']}" if vol else image_label(inventory, image, scope)
             for group in packages.values():
-                report.packages.append(dict(group, scope=scope))
+                report.packages.append(dict(group, scope=scope, image=label))
+
+    for (scope, vid), entry in sorted(pending.items()):
+        pkgs = entry["packages"]
+        types = sorted(t for t in entry["types"] if t)
+        shown = ", ".join(pkgs[:4]) + (f" (+{len(pkgs) - 4} more)" if len(pkgs) > 4 else "")
+        title = f"{shown} ({', '.join(types)})"
+        title += f", fixed in {', '.join(entry['fixed_in'])}" if entry["fixed"] else ", no fix released"
+        notes = []
+        if entry["kev"]:
+            notes.append("known to be exploited (CISA KEV)")
+        if entry["epss"] >= epss_threshold:
+            notes.append(f"exploitation likely (EPSS {entry['epss']:.0%})")
+        if entry["tooling"]:
+            notes.append("tooling package, not loaded by the running service")
+        if notes:
+            title += "; " + "; ".join(notes)
+        report.add(
+            "vuln", vid, scope, entry["severity"], title, entry["fix"] if entry["fixed"] else "",
+            fixed=entry["fixed"],
+            fixed_in=", ".join(entry["fixed_in"]),
+            packages=pkgs,
+            urgent=entry["urgent"],
+            kev=entry["kev"],
+            epss=round(entry["epss"], 5),
+            tooling=entry["tooling"],
+            images=entry["images"],
+            image=entry["image"],
+            path=entry["path"],
+            url=entry["url"],
+        )
 
 
 def package_groups(report, findings):
@@ -588,6 +633,7 @@ def package_groups(report, findings):
         fixed = [v for a in advisories for v in a["fixed_in"]]
         out.append({
             "scope": group["scope"],
+            "image": group.get("image"),
             "package": group["name"],
             "type": group["type"],
             "versions": group["versions"],
@@ -641,7 +687,7 @@ def match_release(releases, version):
     return best
 
 
-def eol_finding(report, fetcher, today, product, version, source, scope, fix):
+def eol_finding(report, fetcher, today, product, version, source, scope, fix, image=None):
     data = fetcher.get("eol", product, f"https://endoflife.date/api/v1/products/{product}/")
     if not data or data.get("_notfound"):
         return
@@ -657,11 +703,13 @@ def eol_finding(report, fetcher, today, product, version, source, scope, fix):
     subject = f"{product}-{rel.get('name')}"
     if rel.get("isEol") or (eol_date and eol_date <= today):
         when = f" on {eol_date.isoformat()}" if eol_date else ""
-        report.add("eol", subject, scope, "HIGH", f"{label} {version} reached end of life{when}{hint}", fix, source=source)
+        report.add("eol", subject, scope, "HIGH", f"{label} {version} reached end of life{when}{hint}", fix,
+                   source=source, images=[image] if image else None)
     elif eol_date and (eol_date - today).days <= EOL_WARN_DAYS:
         report.add(
             "eol", subject, scope, "MEDIUM",
             f"{label} {version} reaches end of life on {eol_date.isoformat()}{hint}", fix, source=source,
+            images=[image] if image else None,
         )
 
 
@@ -674,7 +722,8 @@ def analyse_eol(report, inventory, report_dir, rules, fetcher, today, raw, with_
                 fix = fix_for_image(scope, kind, ref, image["local_build"])
                 if kind == "installation":
                     fix = f"./habidat.sh update {scope.split('/', 1)[0]} (or a newer habidat release)"
-                eol_finding(report, fetcher, today, product, version, source, scope, fix)
+                eol_finding(report, fetcher, today, product, version, source, scope, fix,
+                            image_label(inventory, image, scope))
 
     if not with_host:
         return
@@ -1156,6 +1205,8 @@ def render_summary(findings, checks, inventory, threshold, verbose, color, extra
                 text += f", {unfixed} without a fix"
             if g["tooling"]:
                 text += " (tooling)"
+            if g.get("image"):
+                text += f" in {g['image']}"
             group = scope_group(g["scope"])
             if group in ("foreign containers", "unused images"):
                 text += f" @{g['scope'].split('/', 1)[1]}"
@@ -1174,6 +1225,8 @@ def render_summary(findings, checks, inventory, threshold, verbose, color, extra
                 ident += "@" + f["scope"].split("/", 1)[1]
             lines.append(f"  {label(f['severity'])} {ident}")
             lines.append(f"           {f['title']}")
+            if f.get("images"):
+                lines.append(f"           in: {'; '.join(f['images'])}")
             if f.get("fix"):
                 lines.append(f"           fix: {f['fix']}")
         if pkg_lines.get(group):

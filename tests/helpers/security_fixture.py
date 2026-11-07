@@ -172,6 +172,16 @@ def main(root):
                     path="/usr/local/lib/node_modules/npm/node_modules/tar/package.json"),
         grype_match("CVE-2026-0008", "musl", "1.2.5-r0", "apk", "Critical", kev=True),
     ]})
+    # The LDAP container belongs to auth too and shares CVE-2026-0004 with the
+    # app image: one finding that names both images.
+    write(os.path.join(report, "sbom", slug("ldap") + ".syft.json"), {
+        "distro": {"id": "debian", "versionID": "10"}, "artifacts": []})
+    write(os.path.join(report, "grype", slug("ldap") + ".json"), {"matches": [
+        grype_match("CVE-2026-0004", "libssl1.1", "1.1.1d-0+deb10u2", "deb", "Critical", "1.1.1n-0+deb10u4",
+                    kev=True, epss=0.88, path="/var/lib/dpkg/status"),
+        grype_match("CVE-2026-0009", "libldap-common", "2.4.47", "deb", "High", "2.4.47+deb10u7",
+                    epss=0.64, path="/var/lib/dpkg/status"),
+    ]})
     write(os.path.join(report, "sbom", slug("nextcloud") + ".syft.json"), {
         "distro": {"id": "debian", "versionID": "12"}, "artifacts": []})
     write(os.path.join(report, "grype", slug("nextcloud") + ".json"), {"matches": []})

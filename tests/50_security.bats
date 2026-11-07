@@ -129,7 +129,7 @@ refute_finding() {
   [[ "$(finding 'vuln:GHSA-tar-0006@auth' urgent)" == "false" ]]
   [[ "$(finding 'vuln:GHSA-tar-0006@auth' tooling)" == "true" ]]
   [[ "$(finding 'vuln:GHSA-tar-0006@auth' kev)" == "true" ]]
-  [[ "$(finding 'vuln:CVE-2026-0004@auth' epss)" == "0.83" ]]
+  [[ "$(finding 'vuln:CVE-2026-0004@auth' epss)" == "0.88" ]]  # highest of both images
 }
 
 @test "vulnerabilities: OS packages are fixed by pulling, language packages by a newer release" {
@@ -138,6 +138,21 @@ refute_finding() {
   [[ "$(finding 'vuln:GHSA-next-0001@auth' fix)" == "fixed upstream in 15.0.9; arrives with a newer auth release (./habidat.sh update auth)" ]]
   [[ -z "$(finding 'vuln:CVE-2026-0008@auth' fix)" ]]
   assert_output --partial "no fix released"
+}
+
+@test "vulnerabilities: each finding names the image and container it comes from" {
+  analyse
+  [[ "$(finding 'vuln:CVE-2026-0005@auth' images)" == '["habidat/auth:2.2 (container hab-user)"]' ]]
+  [[ "$(finding 'vuln:CVE-2026-0009@auth' images)" == '["osixia/openldap:1.3.0 (container hab-ldap)"]' ]]
+  assert_output --partial "           in: osixia/openldap:1.3.0 (container hab-ldap)"
+}
+
+@test "vulnerabilities: two images of one module sharing a vulnerability give one finding naming both" {
+  analyse
+  [[ "$(finding 'vuln:CVE-2026-0004@auth' images)" == '["habidat/auth:2.2 (container hab-user)", "osixia/openldap:1.3.0 (container hab-ldap)"]' ]]
+  [[ "$(finding 'vuln:CVE-2026-0004@auth' packages)" == '["openssl 3.3.2-r0", "libssl1.1 1.1.1d-0+deb10u2"]' ]]
+  [[ "$(finding 'vuln:CVE-2026-0004@auth' severity)" == "CRITICAL" ]]
+  assert_output --partial "in: habidat/auth:2.2 (container hab-user); osixia/openldap:1.3.0 (container hab-ldap)"
 }
 
 @test "vulnerabilities: one finding per vulnerability lists every affected package" {
@@ -149,7 +164,7 @@ refute_finding() {
   analyse --verbose
   assert_output --partial "vuln:CVE-2026-0004"
   assert_output --partial "other vulnerabilities by package:"
-  assert_output --partial "CRITICAL tar 6.2.1 (npm): 2 advisories, fixed in 7.5.21 (tooling)"
+  assert_output --partial "CRITICAL tar 6.2.1 (npm): 2 advisories, fixed in 7.5.21 (tooling) in habidat/auth:2.2 (container hab-user)"
   assert_output --partial "CRITICAL busybox 1.36.1-r0 (apk): 1 advisory, 1 without a fix"
   assert_output --partial "LOW      gnutls 3.8.5-r0 (apk): 1 advisory, 1 without a fix"
   refute_output --partial "+ 4 further"
@@ -242,6 +257,7 @@ open(sys.argv[2], "w").write("".join(i + " 2027-01-31 test\n" for i in ids))
   [[ "$(finding 'eol:nextcloud-32@nextcloud' severity)" == "HIGH" ]]
   [[ "$(finding 'eol:docker-engine-26.1@host' severity)" == "HIGH" ]]
   refute_finding "eol:nodejs-24@auth"
+  [[ "$(finding 'eol:php-8.2@nextcloud' images)" == '["habidat/nextcloud:32.0.5 (container hab-nextcloud)"]' ]]
 }
 
 @test "images: moved, abandoned, stale tag and floating tag" {

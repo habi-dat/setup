@@ -17,6 +17,7 @@ The rest of this document is the reviewed plan; where the implementation differs
 - **SBOMs are cached** per image ID and Syft version in `cache/sbom/`; only Grype re-runs when an image is unchanged.
 - In a module-targeted run, container-level Docker checks (privileged, `docker.sock`) and that module's published ports are still reported; host, TLS and configuration checks are not.
 - **`security-check host`** checks only the server: host, Docker daemon (incl. privileged containers and `docker.sock` mounts), exposure, TLS and `setup.env`, plus end of life of the host OS and Docker Engine. No image scans, no image end of life, no Docker Hub lookups, no module checks; `--all-images` and an instance argument are rejected.
+- **Findings name their image and container.** Vulnerability and end-of-life findings carry `images` (e.g. `osixia/openldap:1.3.0 (container hab-ldap)`), printed as an `in:` line, because one module often runs several images. Two images of one module with the same vulnerability give one finding (merged packages, highest severity and EPSS) naming both; `--verbose` package lines and `report.json` groups name the image too.
 
 ## Revision: urgent vulnerabilities (implemented, 2026-11-07)
 
