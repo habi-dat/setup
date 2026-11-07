@@ -6,7 +6,7 @@
 
 habi\*DAT is a modular collaboration platform for small collective projects. It integrates an LDAP user backend, Nextcloud, Discourse, Mediawiki, Dokuwiki, Direktkredit, and Mailtrain behind a shared nginx reverse proxy with optional Let's Encrypt.
 
-This repository provides a CLI tool (`habidat.sh`) for installing, updating, exporting, and importing all modules. It features a **versioned migration system** that allows reliable step-by-step updates from any installed version to the current one, and uses **Jinja2 templates** for configuration files.
+This repository provides a CLI tool (`habidat.sh`) for installing, updating, backing up and restoring all modules. It features a **versioned migration system** that allows reliable step-by-step updates from any installed version to the current one, and uses **Jinja2 templates** for configuration files.
 
 ## Prerequisites
 
@@ -17,7 +17,8 @@ This repository provides a CLI tool (`habidat.sh`) for installing, updating, exp
 - **git** (discourse and direktkredit clone their upstream repositories)
 - **openssl** (password and SSO certificate generation)
 - **curl** and **netcat** (`nc`) -- discourse installation only
-- **tar** and **gzip** (export and import)
+- **tar** and **gzip** (reading export files on restore)
+- **flock** (util-linux) and **systemd**, for the backup module's nightly timer
 - **mkcert** + **libnss3-tools** (only for local development with self-signed certs)
 
 `habidat.sh` only verifies Docker, the Compose plugin and the renderer on startup; the
@@ -72,7 +73,7 @@ Copy `setup.env.example` to `setup.env` and adjust the values. Key parameters:
 | `HABIDAT_DOCKER_PREFIX` | Prefix for all Docker resources. Must be unique on the host. |
 | `HABIDAT_ADMIN_EMAIL` | Admin email address |
 | `HABIDAT_ADMIN_PASSWORD` | Admin password, or `generate` to auto-generate one |
-| `HABIDAT_BACKUP_DIR` | Absolute path for export/import data |
+| `HABIDAT_BACKUP_DIR` | Absolute path for export files (`export`, `restore --file`) |
 | `HABIDAT_LDAP_DOMAIN` | Usually same as `HABIDAT_DOMAIN`. Use production value when importing production LDAP data. |
 | `HABIDAT_LDAP_BASE` | Derived from domain, e.g. `example.com` becomes `dc=example,dc=com` |
 | `HABIDAT_LETSENCRYPT` | `true` for production, `false` for development |
@@ -209,27 +210,86 @@ rebuilds both containers (slow, and the forum is down meanwhile).
 ./habidat.sh down    <module>|all   # Stop and remove containers
 ```
 
-#### Export / Import
+#### Backup, snapshots and restore
+
+The `backup` module pushes a nightly **snapshot** of the whole installation (every
+module's dumps, store folder and Docker volumes, plus `setup.env`) over SSH to a
+**backup repository** on another server, with borg 1.4. One repository holds the
+snapshots of exactly one installation. The design and its trade-offs are in
+[`docs/adr/0005`](docs/adr/0005-module-exports-name-data-borg-reads-in-place.md) to
+[`0008`](docs/adr/0008-backup-tamper-protection-modes.md).
 
 ```bash
-./habidat.sh export <module>        # Export module data
-./habidat.sh export all             # Export all modules that support it
-./habidat.sh import <module> list   # List the available backup files for a module
-./habidat.sh import <module> <file> # Import module data from file
+./habidat.sh install backup <ssh://user@host[:port]/path> <protection> [alert-email]
+./habidat.sh configure backup       # connect, create or take over the repository, install timers
+./habidat.sh backup                 # take a snapshot now (the timer runs at 03:00)
+./habidat.sh backup status          # last snapshot, number of snapshots
+./habidat.sh backup check [--full]  # check the repository (--full reads every chunk)
+./habidat.sh snapshots [module [instance]]
+./habidat.sh restore <module>|all [instance] <snapshot>|latest
 ```
 
-Exports are written to `$HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/<module>/`, and
-`import` looks for `<file>` in that same directory.
+`protection` is one of:
 
-Export/import scripts are versioned -- they use the behavior matching the currently installed module version, not the latest version in the repository.
+- `provider-snapshots` -- a Hetzner Storage Box, one **sub-account per
+  installation**. Turn on the box's automatic snapshots in the Hetzner Console:
+  they are read-only for SSH users and are what undoes an attack, for as many days
+  as the box has snapshot slots. To recover one installation, copy its directory
+  out of `.zfs/snapshot/<name>/` instead of rolling back the whole box.
+- `append-only` -- your own SSH server. `install backup` prints the
+  `authorized_keys` line that locks this server's key to
+  `borg serve --append-only`. Pruned snapshots are only marked as deleted; free
+  the space now and then from a trusted machine with `borg compact`, after
+  checking the repository.
 
-Modules with export/import support: **auth**, **nextcloud**, **discourse**, **vaultwarden**.
+`install backup` creates this server's own SSH key; an admin allows it on the
+repository host by hand, so the server never holds an admin login to the backup
+storage. `configure backup` then creates the repository (`repokey-blake2`) and
+shows its **passphrase and key once**: store both offline. Whoever holds them can
+read every snapshot, including every password in `store/`.
 
-Nextcloud export supports a `nodata` option to exclude user files:
+Snapshots are kept 7 daily, 4 weekly and 6 monthly. A failed snapshot, a module
+that failed to export, no successful snapshot for 36 hours and a sharp drop in
+the number of snapshots are mailed to the alert address through the SMTP server
+from `setup.env`.
+
+**Restore** puts a module (or one instance, or `all`) back at the version recorded
+in the snapshot, starts it, runs the **link steps** that rewrite what modules add
+to each other (login apps in auth, lines in `auth.env`, `nextcloud.env`,
+`networks.env`), and then runs the normal `update` to the repository's version.
+It never runs `setup.sh`, whose new secrets would not match the restored data.
+
+On a **new server**, `install backup`, `configure backup` (which takes over the
+existing repository and asks for its passphrase), `snapshots` and `restore` work
+without `setup.env`; `restore all <snapshot>` puts `setup.env` back first, then
+restores every module in dependency order. The Docker prefix comes from the
+snapshot and must match; restoring under another domain is not supported. Take
+the old server's timer down first (`./habidat.sh stop backup` there): configure
+warns when the newest snapshot is less than 24 hours old.
+
+#### Export files
 
 ```bash
-./habidat.sh export nextcloud nodata
+./habidat.sh export <module>|all [instance]       # write module data to a file
+./habidat.sh restore <module> [instance] --file <file>
+./habidat.sh import <module> list                 # list export files of a module
 ```
+
+An export file is one module or instance in the same layout as a snapshot, packed
+as `.tar.gz` into `$HABIDAT_BACKUP_DIR/$HABIDAT_DOCKER_PREFIX/<module>/`
+(`exports/` in the repository when `HABIDAT_BACKUP_DIR` is unset). `import
+<module> <file>` still works for one release: for a file in the new layout it
+is an alias for `restore --file`, and a file written before snapshots (e.g. the
+exports the `UPDATE` notes ask for, or auth 1.x data for auth 2) is imported
+with the previous release's import script from `<module>/legacy-import/`. Both
+go away in the next release.
+The `nodata` option of the nextcloud export is gone: an export always holds the
+whole module.
+
+Export/restore scripts are versioned: an export uses the script for the installed
+module version, a restore the script for the version that wrote the data.
+
+Modules with export/restore support: **auth**, **nextcloud**, **discourse**, **vaultwarden**, **listmonk**, **mediawiki**, **website**, **dokuwiki**, **nginx**.
 
 #### Other
 
@@ -237,7 +297,8 @@ Nextcloud export supports a `nodata` option to exclude user files:
 ./habidat.sh modules                # List all modules and their status
 ./habidat.sh pull <module>|all      # Pull Docker images
 ./habidat.sh build <module>|all     # Build Docker images
-./habidat.sh configure <module>     # Post-install configuration that needs operator input (vaultwarden)
+./habidat.sh configure <module>     # Post-install configuration that needs operator input (vaultwarden, backup)
+./habidat.sh link <module>|all      # Rewrite what a module contributes to other modules (repair)
 ./habidat.sh help                   # Show help
 ```
 
@@ -336,6 +397,7 @@ floating-tag:mongo@*               2027-02-01  pinned in the next module update
 | **mailtrain** | Newsletter / mailing list manager (legacy) | nginx, auth, nextcloud |
 | **vaultwarden** | Password manager, shared with auth groups | nginx, auth |
 | **website** | Website editor with auth login (multiple instances) | nginx, auth |
+| **backup** | Nightly snapshots to a borg repository, restore (not part of `install all`) | none |
 
 ### Vaultwarden
 
@@ -425,10 +487,11 @@ habidat-setup/
         migrate.sh        #   Migration script for this version
         docker-compose.yml.j2  # Compose template as of this version
         config/           #   Config templates as of this version
-    export/               #   Versioned export scripts
+    export/               #   Versioned export scripts (dumps + names of volumes)
       <ver>.sh
-    import/               #   Versioned import scripts
+    restore/              #   Versioned restore scripts, one per export script
       <ver>.sh
+    link.sh               #   Link step: rewrites what the module adds to other modules
 ```
 
 ### Versioned migration system
@@ -520,7 +583,9 @@ cases.
 4. Create `setup.sh` for fresh installation, and **make it executable**
 5. Create `docker-compose.yml.j2` and config templates in `config/`
 6. Create `versions/<ver>/` with `migrate.sh` and versioned templates
-7. Optionally add `export/<ver>.sh` and `import/<ver>.sh`
+7. Add `export/<ver>.sh` and `restore/<ver>.sh` (the contract is described at the
+   top of `lib/export.sh`), and a `link.sh` if `setup.sh` writes into another
+   module's store or into auth's database
 
 The module is automatically discovered by the CLI -- no changes to `habidat.sh` needed.
 
@@ -530,10 +595,10 @@ Conventions every script in the repository follows, each enforced by
 - **`#!/usr/bin/env bash`**, not `#!/bin/bash`. The latter fails on hosts without
   bash at that path, including NixOS.
 - **Lifecycle scripts must be executable.** `remove.sh`, `start.sh`, `stop.sh`,
-  `restart.sh`, `up.sh`, `down.sh`, `pull.sh`, `build.sh`, `fix.sh`, `update.sh` and `configure.sh` are
+  `restart.sh`, `up.sh`, `down.sh`, `pull.sh`, `build.sh`, `fix.sh`, `update.sh`, `configure.sh` and `link.sh` are
   invoked as `./<action>.sh`, so mode 644 means "Permission denied". Use
   `git update-index --chmod=+x <file>` if the mode did not make it into the
-  index. Migration, export and import scripts are `source`d instead and do not
+  index. Migration, export and restore scripts are `source`d instead and do not
   need the bit.
 - **`set -euo pipefail`** at the top. Lifecycle scripts run as child processes and
   migrations run via `run_module_script`, so a failure mid-script aborts it and is
@@ -544,7 +609,9 @@ Conventions every script in the repository follows, each enforced by
 1. Bump the version in `<module>/version`
 2. Create `versions/<new-ver>/migrate.sh` with the migration logic
 3. If templates changed, add them to `versions/<new-ver>/` (unchanged templates are inherited from earlier versions)
-4. If export/import behavior changed, add new scripts to `export/` and `import/`
+4. If what the module stores changed, add new scripts to `export/` and `restore/`.
+   Never delete old ones, or old `versions/<ver>/` directories: a snapshot is
+   restored at the version that wrote it (ADR 0006)
 5. Update the root `docker-compose.yml.j2` and `config/` to match the latest version
 
 Step 5 matters more than it looks: the root templates are what a **fresh install**

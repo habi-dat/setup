@@ -1,0 +1,9 @@
+[Unit]
+Description=habidat: check every six hours that snapshots succeed
+
+[Timer]
+OnCalendar=*-*-* 00/6:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

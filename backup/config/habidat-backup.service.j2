@@ -1,0 +1,11 @@
+[Unit]
+Description=habidat: snapshot of this installation to its backup repository
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart={{ HABIDAT_BACKUP_BASE_DIR }}/habidat.sh backup run
+Nice=10
+IOSchedulingClass=idle

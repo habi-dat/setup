@@ -27,7 +27,7 @@ validate_store() {
     fi
 
     if [[ ! -f "$dir/docker-compose.yml" ]] && ! is_multi_instance "$mod" \
-      && [[ "$mod" != "discourse" ]] && [[ "$mod" != "direktkredit" ]]; then
+      && [[ "$mod" != "discourse" ]] && [[ "$mod" != "direktkredit" ]] && [[ "$mod" != "backup" ]]; then
       log_warn "Store warning: $mod has no docker-compose.yml in store/"
       warnings=$((warnings + 1))
     fi
@@ -50,6 +50,15 @@ validate_store() {
 # ---------------------------------------------------------------------------
 is_multi_instance() {
   [[ -f "$BASE_DIR/$1/multi-instance" ]]
+}
+
+# ---------------------------------------------------------------------------
+# is_manual_install <module>
+#   True when the module ships a `manual-install` marker: it needs arguments of
+#   its own (e.g. the backup repository), so `install all` leaves it out.
+# ---------------------------------------------------------------------------
+is_manual_install() {
+  [[ -f "$BASE_DIR/$1/manual-install" ]]
 }
 
 # ---------------------------------------------------------------------------
@@ -234,7 +243,8 @@ update_installed_modules_env() {
 
   local modules_csv="nginx,auth"
   for mod in $(get_installed_modules); do
-    [[ "$mod" == "nginx" || "$mod" == "auth" ]] && continue
+    # backup has nothing to show in the auth app.
+    [[ "$mod" == "nginx" || "$mod" == "auth" || "$mod" == "backup" ]] && continue
     modules_csv="$modules_csv,$mod"
   done
 
@@ -486,87 +496,6 @@ update_module() {
   return $rc
 }
 
-export_module() {
-  local module="$1"; shift
-
-  if ! is_valid_module "$module"; then
-    log_error "Module $module unknown."
-    return 1
-  fi
-
-  if ! is_installed "$module"; then
-    log_error "Module $module not installed, cannot export."
-    return 0
-  fi
-
-  local script
-  script=$(resolve_versioned_script "$module" "export") || true
-
-  if [[ -z "$script" ]]; then
-    log_error "Module $module has no export script for installed version."
-    return 0
-  fi
-
-  log_info "Exporting $module (using $(basename "$script"))..."
-  (
-    cd "$BASE_DIR/$module" || exit 1
-    # shellcheck disable=SC1090
-    source "$script" "$@" 2>&1
-  ) | log_module "$module"
-
-  log_info "Export of $module complete."
-}
-
-import_module() {
-  local module="$1"
-  local filename="${2:-}"
-
-  if ! is_valid_module "$module"; then
-    log_error "Module $module unknown."
-    return 1
-  fi
-
-  if ! is_installed "$module"; then
-    log_error "Module $module not installed, cannot import."
-    return 0
-  fi
-
-  local script
-  script=$(resolve_versioned_script "$module" "import") || true
-
-  if [[ -z "$script" ]]; then
-    log_error "Module $module has no import script for installed version."
-    return 0
-  fi
-
-  if [[ "$filename" == "list" ]]; then
-    echo "Available import files for $module:"
-    ls -ltr "${HABIDAT_BACKUP_DIR:-./backup}/${HABIDAT_DOCKER_PREFIX:-habidat}/$module" 2>/dev/null || echo "  (none)"
-    return 0
-  fi
-
-  if [[ -z "$filename" ]]; then
-    die "Usage: habidat.sh import <module> <filename>|list"
-  fi
-
-  local backup_dir="${HABIDAT_BACKUP_DIR:-./backup}/${HABIDAT_DOCKER_PREFIX:-habidat}/$module"
-  if [[ ! -f "$backup_dir/$filename" ]]; then
-    log_error "Import file $filename not found."
-    echo "Available files:"
-    ls -ltr "$backup_dir" 2>/dev/null || echo "  (none)"
-    return 1
-  fi
-
-  log_info "Importing $module from $filename (using $(basename "$script"))..."
-  (
-    cd "$BASE_DIR/$module" || exit 1
-    # shellcheck disable=SC1090
-    source "$script" "$filename" 2>&1
-  ) | log_module "$module"
-
-  log_info "Import of $module complete."
-}
-
 # ---------------------------------------------------------------------------
 # configure_module <module> [args...]
 #   Runs <module>/configure.sh for post-install steps that need input from the
@@ -618,6 +547,10 @@ dispatch() {
         for mod in $(get_ordered_modules); do
           if is_multi_instance "$mod"; then
             log_info "Module $mod is multi-instance; skipping (install instances individually)."
+            continue
+          fi
+          if is_manual_install "$mod"; then
+            log_info "Module $mod needs its own arguments; skipping (install it individually)."
             continue
           fi
           if is_installed "$mod" && [[ -f "$BASE_DIR/store/$mod/version" ]] && [[ "${1:-}" != "force" ]]; then
@@ -702,15 +635,7 @@ dispatch() {
       ;;
 
     export)
-      if [[ "$target" == "all" ]]; then
-        local mod
-        for mod in $(get_ordered_modules); do
-          is_installed "$mod" && export_module "$mod" "$@" || true
-        done
-      else
-        is_valid_module "$target" || die "Unknown module: $target"
-        export_module "$target" "$@"
-      fi
+      export_cmd "$target" "$@"
       ;;
 
     configure)
@@ -720,9 +645,23 @@ dispatch() {
       ;;
 
     import)
-      [[ "$target" == "all" ]] && die "Import can only be done per module."
-      is_valid_module "$target" || die "Unknown module: $target"
-      import_module "$target" "$@"
+      import_cmd "$target" "$@"
+      ;;
+
+    link)
+      if [[ "$target" == "all" ]]; then
+        local mod
+        local had_error=false
+        for mod in $(get_ordered_modules); do
+          link_module "$mod" || had_error=true
+        done
+        [[ "$had_error" == "false" ]] || { log_error "Some link steps failed. Check the output above."; return 1; }
+      else
+        is_valid_module "$target" || die "Unknown module: $target"
+        is_installed "$target" || die "Module $target not installed."
+        [[ -x "$BASE_DIR/$target/link.sh" ]] || { log_info "Module $target writes nothing into other modules."; return 0; }
+        link_module "$target" "$@"
+      fi
       ;;
 
     start|stop|restart|up|down|pull|build|fix)

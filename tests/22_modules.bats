@@ -138,11 +138,21 @@ EOF
   lib_eval "get_ordered_modules" "$REPO_ROOT"
   assert_success
 
-  # README: nginx -> auth -> nextcloud -> everything else.
+  # README: nginx -> auth -> nextcloud -> everything that needs nextcloud.
+  # backup depends on nothing, so it may come anywhere after nginx.
   assert [ "${lines[0]}" = "nginx" ]
   assert [ "${lines[1]}" = "auth" ]
-  assert [ "${lines[2]}" = "nextcloud" ]
-  assert [ "${#lines[@]}" -eq 11 ]
+  assert [ "${#lines[@]}" -eq 12 ]
+
+  local i nc_index=""
+  for i in "${!lines[@]}"; do
+    [[ "${lines[$i]}" == nextcloud ]] && nc_index=$i
+  done
+  for i in "${!lines[@]}"; do
+    if grep -qx nextcloud "$REPO_ROOT/${lines[$i]}/dependencies" 2>/dev/null; then
+      assert [ "$i" -gt "$nc_index" ]
+    fi
+  done
 }
 
 # ---------------------------------------------------------------------------

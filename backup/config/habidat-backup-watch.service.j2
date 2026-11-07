@@ -1,0 +1,7 @@
+[Unit]
+Description=habidat: alert when no snapshot succeeded for 36 hours
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart={{ HABIDAT_BACKUP_BASE_DIR }}/habidat.sh backup watch

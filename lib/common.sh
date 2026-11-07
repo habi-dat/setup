@@ -106,6 +106,9 @@ trap _run_cleanup EXIT ERR INT TERM
 # ---------------------------------------------------------------------------
 # Prerequisites
 # ---------------------------------------------------------------------------
+# check_prerequisites [--no-setup-env]
+#   --no-setup-env is for the commands that must work on a fresh server before a
+#   restore has put setup.env back (ADR 0006).
 check_prerequisites() {
   command -v docker >/dev/null 2>&1 || die "docker is not installed or not in PATH"
   docker compose version >/dev/null 2>&1 || die "docker compose plugin is not installed"
@@ -115,7 +118,9 @@ check_prerequisites() {
   local renderer="${BASH_SOURCE[0]%/*}/render.py"
   [[ -x "$renderer" ]] || die "lib/render.py is missing or not executable"
   "$renderer" --help >/dev/null 2>&1 || die "$("$renderer" --help 2>&1 | tail -n3)"
-  [[ -f "$BASE_DIR/setup.env" ]] || die "setup.env not found in $BASE_DIR"
+  if [[ "${1:-}" != "--no-setup-env" ]]; then
+    [[ -f "$BASE_DIR/setup.env" ]] || die "setup.env not found in $BASE_DIR"
+  fi
 }
 
 # ---------------------------------------------------------------------------
@@ -174,6 +179,8 @@ run_module_script() {
       source "$BASE_DIR/lib/template.sh"
       source "$BASE_DIR/lib/version.sh"
       source "$BASE_DIR/lib/modules.sh"
+      source "$BASE_DIR/lib/export.sh"
+      source "$BASE_DIR/lib/backup.sh"
 
       module="$1"
       script="$2"

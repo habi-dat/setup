@@ -12,6 +12,10 @@ source "$SCRIPT_DIR/lib/template.sh"
 source "$SCRIPT_DIR/lib/version.sh"
 # shellcheck source=lib/modules.sh
 source "$SCRIPT_DIR/lib/modules.sh"
+# shellcheck source=lib/export.sh
+source "$SCRIPT_DIR/lib/export.sh"
+# shellcheck source=lib/backup.sh
+source "$SCRIPT_DIR/lib/backup.sh"
 # shellcheck source=lib/security.sh
 source "$SCRIPT_DIR/lib/security.sh"
 
@@ -31,7 +35,16 @@ done
 # Load environment
 # ---------------------------------------------------------------------------
 load_setup_env
-check_prerequisites
+# On a fresh server these run before a restore has put setup.env back (ADR 0006).
+# `restore` checks for setup.env itself once it knows where it comes from.
+case "${1:-} ${2:-}" in
+  "install backup" | "configure backup" | "snapshots "* | "restore "* | "backup check" | "backup status")
+    check_prerequisites --no-setup-env
+    ;;
+  *)
+    check_prerequisites
+    ;;
+esac
 validate_store
 
 # ---------------------------------------------------------------------------
@@ -53,12 +66,21 @@ usage() {
   log_info "  fix     <module>|all                           Pull images and recreate containers (no migration)"
   log_info "  pull    <module>|all                           Pull Docker images"
   log_info "  build   <module>|all                           Build Docker images"
-  log_info "  export  <module>|all [options]                 Export module data"
-  log_info "  import  <module> <filename>|list               Import module data"
+  log_info "  link    <module>|all [instance]                Rewrite what a module contributes to other modules"
   log_info "  configure <module> [args]                      Run a module's post-install configuration"
   log_info "  modules                                        List module status"
   log_info "  security-check [all|<module> [<instance>]] [options]"
   log_info "                                                 Read-only security check (see security-check --help)"
+  log_info ""
+  log_info "Backup and restore:"
+  log_info "  backup [run]                                   Take a snapshot now"
+  log_info "  backup check [--full]                          Check the backup repository (--full reads all data)"
+  log_info "  backup status                                  Show the last snapshot and the repository"
+  log_info "  snapshots [module [instance]]                  List snapshots (with a module: those that contain it)"
+  log_info "  restore <module>|all [instance] <snapshot>     Restore from a snapshot ('latest' for the newest)"
+  log_info "  restore <module> [instance] --file <file>      Restore from an export file"
+  log_info "  export  <module>|all [instance]                Write module data to an export file"
+  log_info "  import  <module> <filename>|list               Deprecated: restore <module> --file <file>"
   log_info ""
 }
 
@@ -66,8 +88,17 @@ usage() {
 # Command dispatch
 # ---------------------------------------------------------------------------
 case "${1:-}" in
-  install|remove|start|stop|restart|up|down|update|fix|pull|build|export|import|configure)
+  install|remove|start|stop|restart|up|down|update|fix|pull|build|export|import|configure|link)
     dispatch "$1" "${@:2}"
+    ;;
+  backup)
+    backup_cmd "${@:2}"
+    ;;
+  snapshots)
+    snapshots_cmd "${@:2}"
+    ;;
+  restore)
+    restore_cmd "${@:2}"
     ;;
   modules)
     list_modules

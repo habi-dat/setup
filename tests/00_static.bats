@@ -147,10 +147,14 @@ load helpers/load
   # Asserted through git itself rather than by grepping the file, so the rules
   # can be rewritten as long as the intent holds.
   local path
-  for path in store backup setup.env; do
+  for path in store exports setup.env; do
     run git -C "$REPO_ROOT" check-ignore -q "$path"
     assert_success
   done
+
+  # backup/ is the backup module, no longer the default export directory.
+  run git -C "$REPO_ROOT" check-ignore -q backup/setup.sh
+  assert_failure
 
   # ...and the example config must stay shippable.
   run git -C "$REPO_ROOT" check-ignore -q setup.env.example
