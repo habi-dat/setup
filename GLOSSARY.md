@@ -2,6 +2,38 @@
 
 A modular collaboration platform for small collective projects (housing projects and their umbrella associations). Users and groups live in the auth module; every other module consumes them.
 
+## Installation
+
+**Installation**:
+Everything one habidat setup runs on one server: its settings, its modules and all their data.
+_Avoid_: Instance, deployment, server
+
+**Module instance**:
+One of several independent copies of the same module in an installation, each with its own name, address and data.
+_Avoid_: Instance (on its own), project
+
+**Link step**:
+The part of a module that writes what other modules need to know about it, such as its login app in auth. Safe to repeat, and never undoes what an admin changed in the other module.
+_Avoid_: Registration, re-install
+
+## Backup
+
+**Snapshot**:
+The state of an installation at one moment, kept in its backup repository. Any single module or module instance can be restored from it.
+_Avoid_: Backup (as a noun), archive
+
+**Backup repository**:
+The encrypted store on another server that holds all snapshots of exactly one installation.
+_Avoid_: Remote, backup server
+
+**Export**:
+One module's or module instance's data written to a local file, outside the backup repository.
+_Avoid_: Dump, backup
+
+**Restore**:
+Bringing a module, a module instance or a whole installation back to the state of a snapshot or an export.
+_Avoid_: Import
+
 ## Identity
 
 **Group**:
