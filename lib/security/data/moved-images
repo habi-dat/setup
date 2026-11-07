@@ -1,0 +1,9 @@
+# Images whose makers publish them under a new name. Read by
+# lib/security/analyse.py; an image listed here gets a "moved" finding instead
+# of an "abandoned" one.
+#
+#   <old repository>                          <new repository>
+
+jwilder/nginx-proxy                           nginxproxy/nginx-proxy
+jwilder/docker-gen                            nginxproxy/docker-gen
+jrcs/letsencrypt-nginx-proxy-companion        nginxproxy/acme-companion

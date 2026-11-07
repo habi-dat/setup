@@ -1,6 +1,21 @@
 # Plan: `habidat.sh security-check`
 
-Status: **draft for review** (2026-11-07). Vocabulary follows the *Security* section of [GLOSSARY.md](../../GLOSSARY.md); the scanner choice is recorded in [ADR 0009](../adr/0009-grype-syft-not-trivy.md).
+Status: **implemented** (2026-11-07). Vocabulary follows the *Security* section of [GLOSSARY.md](../../GLOSSARY.md); the scanner choice is recorded in [ADR 0009](../adr/0009-grype-syft-not-trivy.md). User documentation is in the README ("Security check").
+
+## Changes made during implementation
+
+The rest of this document is the reviewed plan; where the implementation differs, this list wins.
+
+- **Shell collects, Python decides.** `lib/security.sh` only gathers raw data into `reports/<ts>/raw/` (docker inspect, Syft/Grype output, host tool output, TLS probes, hook output). All rules — inventory mapping, severities, end of life, Docker Hub lookups, accepted findings, summary, exit code — live in `lib/security/analyse.py` (standard library only; Python is already a prerequisite for `lib/render.py`). This makes every rule testable on recorded data. There are no `lib/security/{inventory,images,eol,…}.sh` files.
+- **One finding per vulnerability, not per package.** ID `vuln:<CVE/GHSA>@<scope>`; the title and `packages` in report.json list every affected package (a CVE in openssl hits `openssl` and `libssl3` alike; one php CVE hit six `php8.1-*` packages in the smoke run).
+- **Pending security updates come from `apt-get -s dist-upgrade`** (packages from a `*-security` origin), not from `debsecan` / `pro security-status`: no extra tool, identical on Debian, Ubuntu and derivatives. They are reported as **one** `host-updates@host` finding listing the packages (same for `host-restart` and `host-unsupported`). Package lists older than 7 days add `host-apt-stale` (MEDIUM).
+- **Debian/Ubuntu derivatives** (`ID_LIKE`, e.g. Pop!_OS) get the host checks; host-OS end of life is only looked up for `ID=debian|ubuntu`.
+- **New finding type `stale-tag`** (MEDIUM): the repository is maintained but the pinned tag has not been rebuilt for `HABIDAT_SECURITY_ABANDONED_MONTHS`. Without it `osixia/openldap:1.3.0` would not be reported (its repository is active again because of the v2 release candidates).
+- **End-of-life versions also come from image environment variables** (`PHP_VERSION`, `NODE_VERSION`, `NEXTCLOUD_VERSION`, …), which official images set and which are more reliable than package names.
+- **TLS**: an untrusted certificate (self-signed included) is `cert-untrusted`; testssl.sh runs with `-p -s -S -h -U` (protocols, cipher categories, certificate, headers, vulnerabilities) instead of a full run, which took 9½ minutes against a CDN host.
+- **No mediawiki hook**: extensions ship in the `habidat/mediawiki` image, not in a volume, so the image scan already covers them. Only nextcloud has a hook in v1.
+- **SBOMs are cached** per image ID and Syft version in `cache/sbom/`; only Grype re-runs when an image is unchanged.
+- In a module-targeted run, container-level Docker checks (privileged, `docker.sock`) and that module's published ports are still reported; host, TLS and configuration checks are not.
 
 ## Goal
 
@@ -17,7 +32,7 @@ One read-only command that tells an admin what on this server is vulnerable, at 
 | Q5 | Scanners run as containers pinned by version **and digest**; host-side tools only where unavoidable (distro tools, Lynis). |
 | Q6 | v1 categories: host, Docker daemon, exposure, TLS, image vulnerabilities, end of life, abandoned images, outdated modules, habidat config, app-level (via hooks). Lynis behind `--host-audit`. No secret scanning, no backup health. |
 | Q7/Q21 | Terminal summary grouped by host / module / foreign containers / unused images. Full results in `store/.security-check/` (dot-dir so `validate_store` ignores it). No HTML report. |
-| Q9 | Optional `<module>/security-check.sh` hook declares code volumes and runs app-level checks. v1 hooks: nextcloud, mediawiki. Modules without a hook still get every generic check. |
+| Q9 | Optional `<module>/security-check.sh` hook declares code volumes and runs app-level checks. v1 hook: nextcloud (mediawiki dropped, see above). Modules without a hook still get every generic check. |
 | Q10/Q23 | Fixed severity per non-CVE finding type (table below). Unfixed CVEs are only counted. `--severity` moves the bars. |
 | Q11 | Accepted findings live per installation, need a reason and an expiry (≤ 6 months), nothing shipped by default. |
 | Q12 | Exposure is decided by local inspection only; expected public ports configurable, default 22/80/443. |
@@ -74,7 +89,7 @@ lib/security/data/eol-products     Syft package name → endoflife.date product
 lib/security/data/moved-images     old image → new image
 lib/security/data/expected-mounts  image patterns allowed to mount docker.sock (nginx-proxy, acme-companion)
 nextcloud/security-check.sh        hook (v1)
-mediawiki/security-check.sh        hook (v1)
+(mediawiki hook dropped: extensions are in the image)
 docs/adr/0009-grype-syft-not-trivy.md   ✅ written
 GLOSSARY.md                        ✅ Security section written
 README.md                          new "Security check" section
@@ -124,7 +139,7 @@ Every finding has a stable **ID** used in the report and the accepted-findings f
 
 - `syft <image> -o syft-json` → `grype sbom:<file> -o json`, both from pinned images; the Docker socket is mounted read-only into the Syft container to read local images (needed for locally built discourse, direktkredit, website, vaultwarden-sync).
 - Covers distro packages, composer (`installed.json`), npm (incl. pnpm layout), gems, Go and cargo-auditable Rust binaries, and runtime/server binaries (PHP, Node, MariaDB, PostgreSQL, Redis, MongoDB, nginx, OpenLDAP).
-- ID: `vuln:<CVE/GHSA>:<package>@<scope>`. Severity from Grype. Listed when ≥ display bar **and** a fixed version exists; otherwise only counted per scope ("12 unfixed HIGH").
+- ID: `vuln:<CVE/GHSA>@<scope>` (one finding per vulnerability, listing all affected packages). Severity from Grype. Listed when ≥ display bar **and** a fixed version exists; otherwise only counted per scope ("12 unfixed HIGH").
 - Suggested fix: `./habidat.sh fix <module>` if the module's tag is floating or a newer image with the fix exists; otherwise `./habidat.sh update <module>`; foreign: "update the image".
 
 ### End of life (all scopes)
@@ -209,7 +224,7 @@ SECURITY    |   MEDIUM  host-reboot                   reboot (kernel 6.1.0-28 �
 SECURITY    | nextcloud
 SECURITY    |   HIGH    eol:php-8.2                   ./habidat.sh update nextcloud
 SECURITY    |   HIGH    abandoned:dinkel/clamavd      replace image (no upstream updates since 2018-11)
-SECURITY    |   HIGH    vuln:CVE-2026-1234:curl       ./habidat.sh fix nextcloud
+SECURITY    |   HIGH    vuln:CVE-2026-1234            ./habidat.sh fix nextcloud
 SECURITY    |           + 9 unfixed HIGH/CRITICAL vulnerabilities (see report)
 SECURITY    | foreign containers
 SECURITY    |   HIGH    exposed:tcp/8080@foreign/portainer
@@ -227,7 +242,7 @@ SECURITY    | report: store/.security-check/reports/20261107T101500Z/
   "scanners": {"syft": "1.57.0@sha256:…", "grype": "0.121.2@sha256:…", "grype_db": "2026-11-07"},
   "checks": [{"name": "host.needrestart", "status": "ok|skipped|failed", "note": "…"}],
   "findings": [{
-    "id": "vuln:CVE-2026-1234:curl@nextcloud", "type": "vuln", "severity": "HIGH",
+    "id": "vuln:CVE-2026-1234@nextcloud", "type": "vuln", "severity": "HIGH",
     "scope": "nextcloud", "container": "habidat-nextcloud", "image": "habidat/nextcloud:32.0.5",
     "title": "…", "fixed_in": "8.11.1", "fix": "./habidat.sh fix nextcloud",
     "accepted": null
@@ -243,7 +258,7 @@ SECURITY    | report: store/.security-check/reports/20261107T101500Z/
 ```
 # <finding id>                         <expires YYYY-MM-DD>  <reason>
 exposed:tcp/389@auth                   2027-03-01  LDAP exposed for the office NAS sync, IP-restricted at the hoster firewall
-vuln:CVE-2026-9999:libxml2@nextcloud   2027-01-15  not reachable: no XML upload path, recheck after NC 36
+vuln:CVE-2026-9999@nextcloud           2027-01-15  not reachable: no XML upload path, recheck after NC 36
 ```
 
 - ID may use `*` as the scope to accept across scopes (e.g. `floating-tag:mongo@*`).

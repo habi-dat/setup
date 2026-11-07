@@ -12,6 +12,8 @@ source "$SCRIPT_DIR/lib/template.sh"
 source "$SCRIPT_DIR/lib/version.sh"
 # shellcheck source=lib/modules.sh
 source "$SCRIPT_DIR/lib/modules.sh"
+# shellcheck source=lib/security.sh
+source "$SCRIPT_DIR/lib/security.sh"
 
 # ---------------------------------------------------------------------------
 # Parse global flags (before the command)
@@ -55,6 +57,8 @@ usage() {
   log_info "  import  <module> <filename>|list               Import module data"
   log_info "  configure <module> [args]                      Run a module's post-install configuration"
   log_info "  modules                                        List module status"
+  log_info "  security-check [all|<module> [<instance>]] [options]"
+  log_info "                                                 Read-only security check (see security-check --help)"
   log_info ""
 }
 
@@ -67,6 +71,9 @@ case "${1:-}" in
     ;;
   modules)
     list_modules
+    ;;
+  security-check)
+    security_check "${@:2}"
     ;;
   help)
     usage

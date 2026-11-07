@@ -12,7 +12,7 @@ Without Nix: `npm install && npm test`, plus `apt install python3-jinja2` for th
 renderer. The static tier then skips (no shellcheck) and so does compose
 validation if the docker CLI is absent.
 
-Nothing in tiers 0-4 contacts a Docker daemon, writes to the repository, or
+Nothing in tiers 0-5 contacts a Docker daemon, writes to the repository, or
 touches your real `store/` or `setup.env`.
 
 ## Tiers
@@ -28,6 +28,7 @@ touches your real `store/` or `setup.env`.
 | `26_vaultwarden.bats` | Vaultwarden: the rendered SSO and sync configuration, self-signed mode, `configure.sh` input checks, and the sync container's `node --test` suite (skipped without node or `npm ci`) |
 | `30_render.bats` | Every `.j2` rendered under three configuration profiles, each rendered compose file validated by `docker compose config` |
 | `40_cli.bats` | The CLI end to end in a throwaway copy of the repository, with a recording `docker` stub |
+| `50_security.bats` | `security-check`: the analyser (`lib/security/analyse.py`) on a synthetic report tree from `helpers/security_fixture.py` (offline, no real scans), the CLI wiring, and scanner pinning |
 
 Integration testing against real containers lives in the `integration` job of
 `.github/workflows/ci.yml`. It installs nginx, auth and nextcloud for real and
