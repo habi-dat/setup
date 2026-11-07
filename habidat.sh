@@ -16,6 +16,8 @@ source "$SCRIPT_DIR/lib/modules.sh"
 source "$SCRIPT_DIR/lib/export.sh"
 # shellcheck source=lib/backup.sh
 source "$SCRIPT_DIR/lib/backup.sh"
+# shellcheck source=lib/security.sh
+source "$SCRIPT_DIR/lib/security.sh"
 
 # ---------------------------------------------------------------------------
 # Parse global flags (before the command)
@@ -67,6 +69,8 @@ usage() {
   log_info "  link    <module>|all [instance]                Rewrite what a module contributes to other modules"
   log_info "  configure <module> [args]                      Run a module's post-install configuration"
   log_info "  modules                                        List module status"
+  log_info "  security-check [all|<module> [<instance>]] [options]"
+  log_info "                                                 Read-only security check (see security-check --help)"
   log_info ""
   log_info "Backup and restore:"
   log_info "  backup [run]                                   Take a snapshot now"
@@ -98,6 +102,9 @@ case "${1:-}" in
     ;;
   modules)
     list_modules
+    ;;
+  security-check)
+    security_check "${@:2}"
     ;;
   help)
     usage

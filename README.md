@@ -302,6 +302,70 @@ Modules with export/restore support: **auth**, **nextcloud**, **discourse**, **v
 ./habidat.sh help                   # Show help
 ```
 
+#### Security check
+
+```bash
+./habidat.sh security-check                     # the whole server: host, all modules, foreign containers, TLS
+sudo ./habidat.sh security-check                # same, including the host checks that need root
+./habidat.sh security-check nextcloud           # one module only (its containers, code and app checks)
+./habidat.sh security-check mediawiki <id>      # one module instance
+./habidat.sh security-check --all-images        # also images no running container uses
+./habidat.sh security-check --host-audit        # also a Lynis hardening audit (needs `apt install lynis`)
+./habidat.sh security-check --tls-full          # testssl.sh against every module host name, not only auth's
+./habidat.sh security-check --severity MEDIUM   # lower the bar for the exit code and the summary
+./habidat.sh --dry-run security-check           # list what would be scanned, scan nothing
+```
+
+The security check is read-only: it reports, it never changes anything. Each
+finding comes with a suggested fix, usually `./habidat.sh fix <module>`
+(pull newer images) or `./habidat.sh update <module>`. Terms are defined in the
+*Security* section of [GLOSSARY.md](GLOSSARY.md); the design is in
+[docs/plans/security-check.md](docs/plans/security-check.md).
+
+| What | How |
+| ---- | --- |
+| Image vulnerabilities, incl. PHP, Node.js, database binaries, composer/npm/gem/Go packages | [Syft](https://github.com/anchore/syft) + [Grype](https://github.com/anchore/grype) as pinned containers ([ADR 0009](docs/adr/0009-grype-syft-not-trivy.md)) |
+| End of life (OS, PHP, Node.js, Next.js, databases, Nextcloud, Docker Engine, ...) | [endoflife.date](https://endoflife.date) API, map in `lib/security/data/eol-products` |
+| Abandoned, moved and floating-tag images | Docker Hub API, map in `lib/security/data/moved-images` |
+| Outdated modules | installed vs. repository version |
+| Host (Debian, Ubuntu and derivatives) | pending security updates (`apt-get -s`), `needrestart`, `check-support-status`, unattended-upgrades |
+| Docker daemon | user namespaces, live-restore, icc, no-new-privileges, log rotation, privileged containers, `docker.sock` mounts |
+| Exposure | listening sockets and published ports outside `HABIDAT_SECURITY_EXPECTED_PORTS`; ports Docker publishes past ufw |
+| TLS (public domains only) | certificate expiry / name / trust for every module host; [testssl.sh](https://testssl.sh) |
+| `setup.env` | file mode; mailhog, self-signed certificates or no Let's Encrypt on a public domain |
+| Module checks | `<module>/security-check.sh` (Nextcloud: app and server updates, setup warnings, apps in `custom_apps`) |
+
+All other running containers on the server are scanned too and reported as
+*foreign containers*.
+
+**Exit code**: `0` nothing at or above the severity (default `HIGH`), `1`
+findings, `2` a check could not run (no network for the vulnerability database
+or endoflife.date, a scanner failed, ...). Vulnerabilities without a released
+fix are counted but never make the check fail.
+
+**Network**: Docker Hub and ghcr.io (scanner images), Grype's database host,
+endoflife.date, hub.docker.com, and updates.nextcloud.com (via `occ`). No
+accounts. The first run downloads the vulnerability database (~1 minute) into
+the volume `<prefix>-security-check-grype-db`; SBOMs are cached per image, so
+later runs only re-match vulnerabilities.
+
+**Reports** go to `store/.security-check/reports/<timestamp>/` (`latest` points
+to the newest): `summary.txt`, `report.json` with every finding, and the SBOM
+and Grype output per image. They are never pruned automatically; delete old ones
+with `rm -rf`.
+
+**Accepted findings**: to live with a finding for a while, add a line to
+`store/.security-check/accepted` with its id (as printed, `@<scope>` included),
+an expiry date at most 183 days away, and a reason. `*` matches anything, for
+example in the scope. When the date passes, the finding is reported again.
+
+```
+# <finding id>                     <expires>   <reason>
+ufw-bypass:tcp/389@auth            2027-03-01  LDAP is restricted to the office IP at the hoster firewall
+vuln:CVE-2026-9999@nextcloud       2027-01-15  not reachable: no XML upload path
+floating-tag:mongo@*               2027-02-01  pinned in the next module update
+```
+
 ## Modules
 
 | Module | Description | Dependencies |
@@ -384,6 +448,8 @@ habidat-setup/
     render.py             #   Jinja2 renderer (replaces j2cli)
     version.sh            #   Version comparison, migration runner
     modules.sh            #   Module discovery, lifecycle, dependency management
+    security.sh           #   security-check: collects raw data
+    security/             #   security-check: pinned scanners, analyser (analyse.py), data maps
   tests/                  # Test suite (see tests/README.md)
     run.sh                #   Local entry point
     *.bats                #   Test tiers
@@ -391,10 +457,12 @@ habidat-setup/
     fixtures/             #   Synthetic module tree for unit tests
   store/                  # Runtime state (not in git)
     <module>/             #   Per-module: compose files, configs, volumes, version
+    .security-check/      #   security-check reports, caches and accepted findings
   <module>/               # Module definition
     version               #   Target version
     dependencies          #   Module dependencies (one per line)
     setup.sh              #   Fresh install script
+    security-check.sh     #   Optional module part of security-check
     docker-compose.yml.j2 #   Latest compose template
     config/               #   Latest config templates
     assets/               #   Static files (scripts, icons, images) if needed

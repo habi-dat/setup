@@ -1,0 +1,9 @@
+# Images that need the Docker socket to do their job. A container running one
+# of these with /var/run/docker.sock mounted is not a finding. Read by
+# lib/security/analyse.py; each line is a Python regex matched against the
+# image repository (without tag).
+
+(.*/)?nginx-proxy
+(.*/)?docker-gen
+(.*/)?acme-companion
+(.*/)?letsencrypt-nginx-proxy-companion

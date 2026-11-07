@@ -34,6 +34,32 @@ _Avoid_: Dump, backup
 Bringing a module, a module instance or a whole installation back to the state of a snapshot or an export.
 _Avoid_: Import
 
+## Security
+
+**Security check**:
+One read-only examination of the server and the containers on it, ending in a list of findings. Never changes anything.
+_Avoid_: Audit, scan (a scan is only one part of it)
+
+**Finding**:
+One problem a security check found, with a severity and, where known, how to fix it.
+_Avoid_: Issue, alert, vulnerability (that is only one kind of finding)
+
+**End of life**:
+The state of a component (operating system, runtime, database, application major version) that no longer gets security fixes from its makers, whether or not a known vulnerability exists yet.
+_Avoid_: Outdated, unsupported
+
+**Abandoned image**:
+A container image its makers no longer update, so pulling it again will never fix its vulnerabilities.
+_Avoid_: Deprecated, stale
+
+**Accepted finding**:
+A finding an admin has decided to live with for a limited time, with a written reason. It comes back when that time runs out.
+_Avoid_: Ignored, suppressed, whitelisted
+
+**Foreign container**:
+A container on the same server that does not belong to this installation.
+_Avoid_: External, third-party
+
 ## Identity
 
 **Group**:

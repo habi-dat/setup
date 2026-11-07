@@ -1,0 +1,56 @@
+# Maps what the security check finds in an image to an endoflife.date product.
+# Read by lib/security/analyse.py.
+#
+#   <kind>   <pattern>                           <product>
+#
+# kind:     env     an environment variable set in the image (exact name)
+#           distro  the image's or host's os-release ID (exact)
+#           <type>  a Syft package of that type (deb, apk, npm, gem, binary, ...)
+#                   whose name matches <pattern> (Python regex, anchored)
+# Lines are tried in order; per image, the first version found for a product
+# wins. Products endoflife.date does not know (dokuwiki, vaultwarden, listmonk,
+# openldap) are deliberately absent: the abandoned-image check covers them.
+
+env      PHP_VERSION                          php
+env      NODE_VERSION                         nodejs
+env      NEXTCLOUD_VERSION                    nextcloud
+env      MEDIAWIKI_VERSION                    mediawiki
+env      PG_VERSION                           postgresql
+env      MARIADB_VERSION                      mariadb
+env      REDIS_VERSION                        redis
+env      MONGO_VERSION                        mongodb
+env      NGINX_VERSION                        nginx
+env      RUBY_VERSION                         ruby
+env      DISCOURSE_VERSION                    discourse
+
+distro   alpine                               alpine-linux
+distro   debian                               debian
+distro   ubuntu                               ubuntu
+
+binary   node                                 nodejs
+binary   php|php-cli|php-fpm|php-apache|libphp  php
+binary   ruby                                 ruby
+binary   redis|redis-server                   redis
+binary   postgresql|postgres                  postgresql
+binary   mariadb|mariadbd                     mariadb
+binary   mongodb|mongod                       mongodb
+binary   nginx                                nginx
+
+apk      nodejs|nodejs-current                nodejs
+apk      php[0-9]+                            php
+apk      postgresql[0-9]+                     postgresql
+apk      mariadb                              mariadb
+apk      redis                                redis
+apk      nginx                                nginx
+apk      ruby                                 ruby
+
+deb      nodejs                               nodejs
+deb      php[0-9.]+-(cli|fpm|common)          php
+deb      postgresql-[0-9]+                    postgresql
+deb      mariadb-server(-core)?(-[0-9.]+)?    mariadb
+deb      redis-server                         redis
+deb      nginx|nginx-core                     nginx
+deb      ruby[0-9.]+                          ruby
+
+npm      next                                 nextjs
+gem      rails|railties                       rails
