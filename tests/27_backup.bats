@@ -365,6 +365,20 @@ setup() {
   assert_output --partial "listmonk-news-"
 }
 
+@test "export: every instance is exported, although compose exec reads stdin" {
+  seed_module listmonk "$(repo_module_version listmonk)"
+  for id in one two three; do
+    mkdir -p "$SANDBOX/store/listmonk/$id"
+    : > "$SANDBOX/store/listmonk/$id/docker-compose.yml"
+  done
+  export HABIDAT_TEST_DOCKER_EXEC_READS_STDIN=1
+  habidat export listmonk
+  assert_success
+  for id in one two three; do
+    assert_docker_called "-p habidattest-listmonk-$id exec -T db pg_dump"
+  done
+}
+
 @test "export: the old nextcloud 'nodata' option is rejected" {
   seed_module nextcloud "$(repo_module_version nextcloud)"
   habidat export nextcloud nodata

@@ -7,6 +7,12 @@
 
 printf 'docker %s\n' "$*" >> "${HABIDAT_TEST_DOCKER_LOG:-/dev/null}"
 
+# `docker compose exec` forwards stdin even with -T. Tests that set this get a
+# stub that drains stdin there, as the real command does.
+if [[ -n "${HABIDAT_TEST_DOCKER_EXEC_READS_STDIN:-}" && "$1" == compose && " $* " == *" exec "* ]]; then
+  cat > /dev/null
+fi
+
 case "$1${2:+ $2}" in
   "compose version")
     # check_prerequisites() in lib/common.sh requires the compose plugin.

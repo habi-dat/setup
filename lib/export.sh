@@ -205,10 +205,13 @@ export_unit() {
     status=none
   else
     log_info "Exporting $unit (using $module/export/$(basename "$script"))..."
+    # stdin is closed: callers loop over instances on stdin, and `docker
+    # compose exec` reads stdin even with -T, which ended the loop after the
+    # first instance.
     if ! (
       export HABIDAT_EXPORT_DIR="$dump_dir" HABIDAT_EXPORT_VOLUMES="$volumes_file"
       run_logged "$module" run_module_script "$module" "$script" ${instance:+"$instance"}
-    ); then
+    ) < /dev/null; then
       status=failed
       log_error "Export of $unit failed."
     fi
